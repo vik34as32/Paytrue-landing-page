@@ -1,0 +1,171 @@
+"use client";
+
+import {
+  ArrowRight,
+  ShieldCheck,
+  Zap,
+  Lightbulb,
+  Wifi,
+  Smartphone,
+  Droplets,
+  SatelliteDish,
+} from "lucide-react";
+
+export default function BBPSHeroSection() {
+  const billServices = [
+    {
+      icon: Lightbulb,
+      title: "Electricity Bills",
+      desc: "Pay electricity bills instantly across all providers.",
+    },
+    {
+      icon: Wifi,
+      title: "Broadband & Landline",
+      desc: "Recharge broadband and landline services securely.",
+    },
+    {
+      icon: Smartphone,
+      title: "Mobile & DTH",
+      desc: "Pay prepaid, postpaid, and DTH bills easily.",
+    },
+    {
+      icon: Droplets,
+      title: "Water & Gas",
+      desc: "Fast utility payments for water and gas services.",
+    },
+  ];
+
+  const categories = [
+    "Electricity Bill",
+    "Gas Bill",
+    "Landline Bill",
+    "Broadband Bill",
+    "Mobile Bill",
+    "Water Bill",
+    "DTH Bill",
+  ];
+
+  return (
+    <section className="relative w-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50 py-24">
+      {/* Background Glow */}
+      <div className="absolute top-0 left-0 h-[500px] w-[500px] rounded-full bg-blue-100/40 blur-3xl"></div>
+      <div className="absolute bottom-0 right-0 h-[500px] w-[500px] rounded-full bg-cyan-100/40 blur-3xl"></div>
+
+      {/* Pattern */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,87,217,0.04),transparent_65%)]"></div>
+
+      <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-16 px-4 sm:px-8 lg:grid-cols-2 lg:px-16">
+        {/* Left Section */}
+        <div>
+          {/* Badge */}
+          <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-5 py-2 text-sm font-semibold text-[#0057D9] shadow-md">
+            <ShieldCheck size={18} />
+            Bharat Bill Payment System (BBPS)
+          </span>
+
+          {/* Heading */}
+          <h1 className="mb-8 text-4xl font-extrabold leading-tight text-gray-900 md:text-6xl lg:text-7xl">
+            Best{" "}
+            <span className="bg-gradient-to-r from-[#0A84FF] to-[#0057D9] bg-clip-text text-transparent">
+              BBPS
+            </span>{" "}
+            Bill Payment Services
+          </h1>
+
+          {/* Description */}
+          <p className="mb-10 max-w-2xl text-lg leading-relaxed text-gray-600 md:text-xl">
+            PayTrue offers secure Bharat Bill Payment solutions for electricity,
+            gas, broadband, mobile, DTH, landline, and water bills — all in
+            one seamless platform with instant processing and trusted payments.
+          </p>
+
+          {/* Buttons */}
+          <div className="mb-14 flex flex-col gap-4 sm:flex-row">
+            <button className="flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-[#0A84FF] to-[#0057D9] px-8 py-4 font-semibold text-white shadow-2xl transition-all duration-300 hover:scale-105 hover:opacity-90">
+              Pay Bills Now
+              <ArrowRight size={20} />
+            </button>
+
+            <button className="rounded-2xl border border-gray-200 bg-white px-8 py-4 font-semibold text-gray-800 shadow-md transition-all duration-300 hover:scale-105 hover:bg-gray-50">
+              Explore Services
+            </button>
+          </div>
+
+          {/* Features */}
+          <div className="grid gap-5 sm:grid-cols-2">
+            {billServices.map((service, index) => {
+              const Icon = service.icon;
+
+              return (
+                <div
+                  key={index}
+                  className="rounded-3xl border border-gray-100 bg-white p-5 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:shadow-xl"
+                >
+                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100">
+                    <Icon className="text-[#0057D9]" size={28} />
+                  </div>
+
+                  <h3 className="mb-2 text-lg font-bold text-gray-900">
+                    {service.title}
+                  </h3>
+
+                  <p className="text-sm leading-relaxed text-gray-600">
+                    {service.desc}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right Section */}
+        <div className="relative">
+          {/* Main Card */}
+          <div className="overflow-hidden rounded-[36px] border border-white bg-white shadow-2xl">
+            <div className="relative p-10">
+              {/* Central Logo Circle */}
+              <div className="mx-auto flex h-56 w-56 items-center justify-center rounded-full bg-gradient-to-br from-[#0A84FF] to-[#0057D9] text-center text-white shadow-2xl">
+                <div>
+                  <Zap size={48} className="mx-auto mb-4" />
+                  <h3 className="text-3xl font-extrabold">BBPS</h3>
+                  <p className="text-sm text-blue-100">
+                    Bharat Bill Payment
+                  </p>
+                </div>
+              </div>
+
+              {/* Bill Categories */}
+              <div className="mt-12 space-y-4">
+                {categories.map((category, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-blue-50 to-cyan-50 px-5 py-4 shadow-md transition-all duration-300 hover:scale-105"
+                  >
+                    <span className="font-semibold text-gray-800">
+                      {category}
+                    </span>
+
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-r from-[#0A84FF] to-[#0057D9] text-white">
+                      <ArrowRight size={18} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Floating Stats */}
+          <div className="absolute -left-10 top-10 rounded-3xl bg-white p-6 shadow-2xl">
+            <h4 className="text-4xl font-extrabold text-[#0057D9]">7+</h4>
+            <p className="mt-2 text-gray-600">Bill Categories</p>
+          </div>
+
+          <div className="absolute -right-8 bottom-12 rounded-3xl bg-gradient-to-r from-[#0A84FF] to-[#0057D9] p-6 text-white shadow-2xl">
+            <h4 className="text-4xl font-extrabold">Instant</h4>
+            <p className="mt-2 text-blue-100">Bill Processing</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

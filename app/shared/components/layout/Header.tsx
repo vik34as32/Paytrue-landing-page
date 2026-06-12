@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ChevronDown,
   Menu,
@@ -58,17 +59,31 @@ const Header = () => {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white shadow-sm">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-10">
-        {/* Logo */}
-        <div className="flex items-center">
-          <Link href="/">
-            <h1 className="cursor-pointer text-3xl font-extrabold leading-none tracking-wide">
+        
+        {/* Professional Logo */}
+        <Link href="/" className="flex items-center gap-3">
+          <Image
+            src="/images/paytrue-logo.png"
+            alt="PayTrue Logo"
+            width={40}
+            height={40}
+            priority
+            className="object-contain"
+          />
+
+          <div className="flex flex-col leading-none">
+            <span className="text-3xl font-extrabold tracking-wide">
               <span className="text-[#001F5B]">Pay</span>
               <span className="bg-gradient-to-r from-[#0A84FF] to-[#0057D9] bg-clip-text text-transparent">
                 true
               </span>
-            </h1>
-          </Link>
-        </div>
+            </span>
+
+            <span className="mt-1 text-[10px] uppercase tracking-[2px] text-slate-500">
+              Digital Payment Solutions
+            </span>
+          </div>
+        </Link>
 
         {/* Desktop Navigation */}
         <nav className="hidden items-center gap-8 lg:flex">
@@ -86,7 +101,6 @@ const Header = () => {
             About
           </Link>
 
-          {/* Products Dropdown */}
           <div className="group relative">
             <button className="flex items-center gap-1 font-semibold text-slate-800 transition-colors duration-300 hover:text-blue-900">
               Products & Services
@@ -128,9 +142,9 @@ const Header = () => {
             Login
           </button>
 
-          <button className="rounded-xl bg-slate-100 px-6 py-2 font-bold text-slate-900 transition-all duration-300 hover:bg-slate-200">
+          {/* <button className="rounded-xl bg-slate-100 px-6 py-2 font-bold text-slate-900 transition-all duration-300 hover:bg-slate-200">
             Sign Up
-          </button>
+          </button> */}
         </div>
 
         {/* Mobile Menu Button */}
@@ -140,91 +154,6 @@ const Header = () => {
         >
           {mobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
-      </div>
-
-      {/* Mobile Menu */}
-      <div
-        className={`lg:hidden ${
-          mobileMenuOpen ? "max-h-screen opacity-100" : "max-h-0 opacity-0"
-        } overflow-hidden border-t border-slate-200 bg-white transition-all duration-500`}
-      >
-        <div className="space-y-2 px-4 py-5 sm:px-6">
-          <Link
-            href="/"
-            className="block rounded-xl px-4 py-3 font-semibold text-slate-800 hover:bg-slate-50"
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            Home
-          </Link>
-
-          <Link
-            href="/about"
-            className="block rounded-xl px-4 py-3 font-semibold text-slate-800 hover:bg-slate-50"
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            About
-          </Link>
-
-          {/* Mobile Products Dropdown */}
-          <div>
-            <button
-              onClick={() => setMobileServicesOpen(!mobileServicesOpen)}
-              className="flex w-full items-center justify-between rounded-xl px-4 py-3 font-semibold text-slate-800 hover:bg-slate-50"
-            >
-              Products & Services
-              <ChevronDown
-                size={20}
-                className={`transition-transform duration-300 ${
-                  mobileServicesOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {mobileServicesOpen && (
-              <div className="mt-2 space-y-1 rounded-2xl bg-slate-50 p-3">
-                {services.map((service, index) => (
-                  <Link
-                    key={index}
-                    href={service.path}
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      setMobileServicesOpen(false);
-                    }}
-                    className="flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-900"
-                  >
-                    {service.name}
-                    <ChevronRight size={16} />
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <Link
-            href="/contact"
-            className="block rounded-xl px-4 py-3 font-semibold text-slate-800 hover:bg-slate-50"
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            Contact
-          </Link>
-
-          {/* Mobile Buttons */}
-          <div className="flex flex-col gap-3 pt-4">
-            <button
-              className="w-full rounded-xl bg-slate-900 px-6 py-3 font-bold text-white transition-all duration-300 hover:bg-blue-900"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                router.replace("/auth/login");
-              }}
-            >
-              Login
-            </button>
-
-            <button className="w-full rounded-xl bg-slate-100 px-6 py-3 font-bold text-slate-900 transition-all duration-300 hover:bg-slate-200">
-              Sign Up
-            </button>
-          </div>
-        </div>
       </div>
     </header>
   );

@@ -13,38 +13,39 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.paytrue.in"),
+  metadataBase: new URL("https://paytrue.in"),
 
   title: {
-    default: "PayTrue - India's Trusted Digital Payments & Fintech Platform",
+    default:
+      "PayTrue | AEPS, BBPS, Money Transfer & Digital Payment Services",
     template: "%s | PayTrue",
   },
 
   description:
-    "Empowering businesses and customers with secure digital payments, AEPS, BBPS, Domestic Money Transfer, Mobile Recharge, Utility Bill Payments and Financial Services across India.",
+    "PayTrue is India's trusted fintech platform providing AEPS, BBPS, Domestic Money Transfer (DMT), Mobile Recharge, Aadhaar Pay, Utility Bill Payments and secure digital financial services.",
 
   keywords: [
     "PayTrue",
-    "Digital Payments",
-    "Fintech",
     "AEPS",
     "BBPS",
     "Money Transfer",
     "Domestic Money Transfer",
+    "DMT",
     "Mobile Recharge",
-    "Utility Bill Payment",
-    "Financial Services",
-    "Payment Solutions",
-    "Fintech India",
-    "Secure Transactions",
-    "Business Payments",
-    "Digital Banking",
+    "Bill Payment",
+    "Aadhaar Pay",
+    "Fintech",
+    "Digital Payments",
+    "Payment Services",
+    "Online Recharge",
+    "Utility Payments",
+    "India Fintech",
   ],
 
   authors: [
     {
       name: "PayTrue",
-      url: "https://www.paytrue.in",
+      url: "https://paytrue.in",
     },
   ],
 
@@ -57,31 +58,33 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
     },
-  },
-
-  alternates: {
-    canonical: "https://www.paytrue.in",
   },
 
   openGraph: {
     title:
-      "PayTrue - India's Trusted Digital Payments & Fintech Platform",
+      "PayTrue | Trusted Digital Payment & Fintech Platform",
 
     description:
-      "Fast, secure and reliable digital payment solutions including AEPS, BBPS, Money Transfer, Recharge Services and Financial Solutions.",
+      "Fast, secure and reliable AEPS, BBPS, Money Transfer, Recharge and Digital Payment Services across India.",
 
-    url: "https://www.paytrue.in",
+    url: "https://paytrue.in",
+
     siteName: "PayTrue",
+
     locale: "en_IN",
+
     type: "website",
 
     images: [
       {
-        url: "https://www.paytrue.in/paytruelogo.png",
+        url: "https://paytrue.in/paytruelogo.png",
         width: 1200,
         height: 630,
-        alt: "PayTrue - Digital Payments & Fintech Platform",
+        alt: "PayTrue Fintech Services",
       },
     ],
   },
@@ -90,33 +93,28 @@ export const metadata: Metadata = {
     card: "summary_large_image",
 
     title:
-      "PayTrue - India's Trusted Digital Payments & Fintech Platform",
+      "PayTrue | Trusted Digital Payment & Fintech Platform",
 
     description:
-      "Secure money transfer, bill payments, AEPS, BBPS, mobile recharge and digital financial services across India.",
+      "Secure AEPS, BBPS, DMT, Recharge and Digital Financial Services.",
 
     images: [
-      "https://www.paytrue.in/paytruelogo.png",
+      "https://paytrue.in/paytruelogo.png",
     ],
 
     creator: "@PayTrue",
   },
 
+  alternates: {
+    canonical: "https://paytrue.in",
+  },
+
   icons: {
-    icon: [
-      {
-        url: "/favicon.ico",
-      },
-    ],
+    icon: "/favicon.ico",
 
-    apple: [
-      {
-        url: "/paytruelogo.png",
-        sizes: "180x180",
-      },
-    ],
+    shortcut: "/favicon.ico",
 
-    shortcut: ["/favicon.ico"],
+    apple: "/paytruelogo.png",
   },
 
   category: "Finance",

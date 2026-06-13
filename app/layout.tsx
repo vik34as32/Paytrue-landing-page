@@ -16,35 +16,35 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://www.paytrue.in"),
 
   title: {
-    default: "PayTrue | Digital Payments, Money Transfer & Fintech Solutions",
+    default: "PayTrue - India's Trusted Digital Payments & Fintech Platform",
     template: "%s | PayTrue",
   },
 
   description:
-    "PayTrue is a trusted fintech platform offering secure money transfers, mobile recharges, bill payments, AEPS banking services, BBPS solutions, utility payments, and digital financial services across India. Experience fast, reliable, and seamless transactions with enterprise-grade security.",
+    "Empowering businesses and customers with secure digital payments, AEPS, BBPS, Domestic Money Transfer, Mobile Recharge, Utility Bill Payments and Financial Services across India.",
 
   keywords: [
     "PayTrue",
-    "Fintech",
-    "Money Transfer",
-    "Online Payments",
     "Digital Payments",
-    "Mobile Recharge",
-    "BBPS",
+    "Fintech",
     "AEPS",
-    "Utility Bill Payment",
+    "BBPS",
+    "Money Transfer",
     "Domestic Money Transfer",
-    "Fintech Platform India",
-    "Secure Payments",
+    "Mobile Recharge",
+    "Utility Bill Payment",
     "Financial Services",
-    "Payment Gateway",
-    "Recharge Services",
-    "Business Banking Solutions",
+    "Payment Solutions",
+    "Fintech India",
+    "Secure Transactions",
+    "Business Payments",
+    "Digital Banking",
   ],
 
   authors: [
     {
       name: "PayTrue",
+      url: "https://www.paytrue.in",
     },
   ],
 
@@ -54,26 +54,34 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
+
+  alternates: {
+    canonical: "https://www.paytrue.in",
   },
 
   openGraph: {
-    type: "website",
-    locale: "en_IN",
-    url: "https://www.paytrue.in",
-    siteName: "PayTrue",
-
     title:
-      "PayTrue | Trusted Fintech Platform for Digital Payments & Money Transfers",
+      "PayTrue - India's Trusted Digital Payments & Fintech Platform",
 
     description:
-      "Secure and reliable fintech platform for money transfers, mobile recharges, bill payments, AEPS, BBPS, and digital financial services. Trusted by businesses and customers across India.",
+      "Fast, secure and reliable digital payment solutions including AEPS, BBPS, Money Transfer, Recharge Services and Financial Solutions.",
+
+    url: "https://www.paytrue.in",
+    siteName: "PayTrue",
+    locale: "en_IN",
+    type: "website",
 
     images: [
       {
-        url: "/paytruelogo.png",
+        url: "https://www.paytrue.in/paytruelogo.png",
         width: 1200,
         height: 630,
-        alt: "PayTrue Fintech Platform",
+        alt: "PayTrue - Digital Payments & Fintech Platform",
       },
     ],
   },
@@ -82,19 +90,22 @@ export const metadata: Metadata = {
     card: "summary_large_image",
 
     title:
-      "PayTrue | Trusted Fintech Platform for Digital Payments",
+      "PayTrue - India's Trusted Digital Payments & Fintech Platform",
 
     description:
-      "Fast, secure and reliable money transfers, recharges, bill payments and digital financial services.",
+      "Secure money transfer, bill payments, AEPS, BBPS, mobile recharge and digital financial services across India.",
 
-    images: ["/paytruelogo.png"],
+    images: [
+      "https://www.paytrue.in/paytruelogo.png",
+    ],
+
+    creator: "@PayTrue",
   },
 
   icons: {
     icon: [
       {
         url: "/favicon.ico",
-        sizes: "any",
       },
     ],
 
@@ -105,7 +116,7 @@ export const metadata: Metadata = {
       },
     ],
 
-    shortcut: ["/paytruelogo.ico"],
+    shortcut: ["/favicon.ico"],
   },
 
   category: "Finance",
@@ -119,11 +130,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable}`}
     >
-      <body className="min-h-full flex flex-col">
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

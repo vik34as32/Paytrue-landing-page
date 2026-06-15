@@ -1,5 +1,7 @@
 "use client";
-import { Mail, Phone, MapPin, ArrowRight, Send } from 'lucide-react';
+import { Mail, Phone, MapPin, ArrowRight, Send, Link } from 'lucide-react';
+import NextLink from "next/link";
+
 
 
 import { FaFacebookF } from "react-icons/fa6";
@@ -17,13 +19,20 @@ export default function PremiumFintechFooter() {
         'Sign Up',
     ];
 
-    const legalLinks = [
-        'Privacy Policy',
-        'Customer Grievance',
-        'Cancellation / Refund Policy',
-        'Customer Support',
-        'Terms & Conditions',
-    ];
+    // const legalLinks = [
+    //     'Privacy Policy',
+    //     'Customer Grievance',
+    //     'Cancellation / Refund Policy',
+    //     'Customer Support',
+    //     'Terms & Conditions',
+    // ];
+
+   const legalLinks = [
+  {
+    label: "Privacy Policy",
+    href: "/privacy-policy",
+  },
+];
 
     const socialLinks = [
         { icon: FaFacebookF, name: 'Facebook' },
@@ -131,23 +140,33 @@ export default function PremiumFintechFooter() {
                     </div>
 
                     {/* Legal */}
-                    <div>
-                        <h4 className="mb-8 text-2xl font-bold">Guidelines</h4>
-                        <div className="mb-8 h-1 w-20 rounded-full bg-gradient-to-r from-cyan-400 to-blue-600"></div>
-                        <ul className="space-y-4">
-                            {legalLinks.map((link) => (
-                                <li key={link}>
-                                    <a
-                                        href="#"
-                                        className="group flex items-start gap-3 text-slate-300 transition-all duration-300 hover:text-cyan-400"
-                                    >
-                                        <ArrowRight className="mt-1 h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
-                                        {link}
-                                    </a>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
+                    {/* Legal */}
+<div>
+  <h4 className="mb-8 text-2xl font-bold">
+    Guidelines
+  </h4>
+
+  <div className="mb-8 h-1 w-20 rounded-full bg-gradient-to-r from-cyan-400 to-blue-600"></div>
+
+  <ul className="space-y-4">
+
+    {legalLinks.map((item) => (
+      <li key={item.label}>
+
+        <NextLink
+          href={item.href}
+          className="group flex items-start gap-3 text-slate-300 transition-all duration-300 hover:text-cyan-400"
+        >
+          <ArrowRight className="mt-1 h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
+
+          {item.label}
+        </NextLink>
+
+      </li>
+    ))}
+
+  </ul>
+</div>
                 </div>
 
                 {/* Bottom Bar */}

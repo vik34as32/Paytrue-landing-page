@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://paytrue.in/sitemap.xml
+Sitemap: https://paytrue.co.in/sitemap.xml

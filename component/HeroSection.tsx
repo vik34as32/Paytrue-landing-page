@@ -86,7 +86,7 @@ export default function HeroSection() {
 
           {/* RIGHT SIDE */}
 
-          <div className="relative h-[650px]">
+          <div className="relative h-auto lg:h-[650px] mt-12 lg:mt-0">
 
             {/* Balance Card */}
 

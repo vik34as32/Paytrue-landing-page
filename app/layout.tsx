@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://paytrue.in"),
+  metadataBase: new URL("https://paytrue.co.in"),
 
   title: {
     default:
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
   authors: [
     {
       name: "PayTrue",
-      url: "https://paytrue.in",
+      url: "https://paytrue.co.in",
     },
   ],
 
@@ -71,7 +71,7 @@ export const metadata: Metadata = {
     description:
       "Fast, secure and reliable AEPS, BBPS, Money Transfer, Recharge and Digital Payment Services across India.",
 
-    url: "https://paytrue.in",
+    url: "https://paytrue.co.in",
 
     siteName: "PayTrue",
 
@@ -81,7 +81,7 @@ export const metadata: Metadata = {
 
     images: [
       {
-        url: "https://paytrue.in/paytruelogo.png",
+        url: "https://paytrue-in-images.s3.ap-south-1.amazonaws.com/WhatsApp+Image+2026-06-12+at+2.48.31+PM.jpeg",
         width: 1200,
         height: 630,
         alt: "PayTrue Fintech Services",
@@ -99,14 +99,14 @@ export const metadata: Metadata = {
       "Secure AEPS, BBPS, DMT, Recharge and Digital Financial Services.",
 
     images: [
-      "https://paytrue.in/paytruelogo.png",
+      "https://paytrue-in-images.s3.ap-south-1.amazonaws.com/WhatsApp+Image+2026-06-12+at+2.48.31+PM.jpeg",
     ],
 
     creator: "@PayTrue",
   },
 
   alternates: {
-    canonical: "https://paytrue.in",
+    canonical: "https://paytrue.co.in",
   },
 
   icons: {

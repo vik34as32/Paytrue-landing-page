@@ -54,8 +54,7 @@ const services = [
     description:
       "Instant domestic money transfer to any bank account with secure processing, low fees, and fast settlements.",
     icon: Landmark,
-    image:
-      "https://images.unsplash.com/photo-1579621970795-87facc2f976d?q=80&w=1200&auto=format&fit=crop",
+    image:  "/images/money_transfer.png",
     primaryBtn: "Send Money",
     secondaryBtn: "Know More",
   },
@@ -64,8 +63,7 @@ const services = [
     description:
       "Secure Aadhaar enabled banking for withdrawals, mini statements, and balance enquiry services.",
     icon: BadgeCheck,
-    image:
-      "https://images.unsplash.com/photo-1556740749-887f6717d7e4?q=80&w=1200&auto=format&fit=crop",
+    image:"/images/AEPSCashWithdrawal.png",
     primaryBtn: "Withdraw Now",
     secondaryBtn: "Learn More",
   },
@@ -74,8 +72,7 @@ const services = [
     description:
       "Mobile recharge, DTH, electricity, broadband, and utility bill payments in one seamless platform.",
     icon: Smartphone,
-    image:
-      "https://images.unsplash.com/photo-1563013544-824ae1b704d3?q=80&w=1200&auto=format&fit=crop",
+    image:"/images/recharge_bil_payments.png",
     primaryBtn: "Recharge Now",
     secondaryBtn: "View Plans",
   },
@@ -84,8 +81,7 @@ const services = [
     description:
       "Cash withdrawal, account balance check, and mini ATM solutions for retailers and customers.",
     icon: CreditCard,
-    image:
-      "https://images.unsplash.com/photo-1601597111158-2fceff292cdc?q=80&w=1200&auto=format&fit=crop",
+    image:"/images/min_atm.png",
     primaryBtn: "Start Service",
     secondaryBtn: "Explore",
   },

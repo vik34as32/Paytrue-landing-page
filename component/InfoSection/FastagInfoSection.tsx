@@ -108,7 +108,7 @@ export default function FastagInfoSection() {
               <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 to-emerald-50/50"></div>
 
               <img
-                src="/fastag-info.png"
+                src="/images/Fasttag.png"
                 alt="Fastag Toll Services"
                 className="relative z-10 w-full rounded-3xl object-cover transition-transform duration-700 group-hover:scale-105"
               />

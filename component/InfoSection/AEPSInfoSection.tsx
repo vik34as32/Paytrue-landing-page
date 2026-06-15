@@ -71,7 +71,7 @@ export default function AEPSInfoSection() {
             <div className="overflow-hidden rounded-[36px] border border-white bg-white shadow-2xl">
               <div className="relative">
                 <img
-                  src="https://img.freepik.com/free-vector/biometric-authentication-concept-illustration_114360-9624.jpg?w=1800"
+                  src="/images/AEPS2.jpeg"
                   alt="AEPS Aadhaar Banking Illustration"
                   className="h-[700px] w-full object-cover"
                 />

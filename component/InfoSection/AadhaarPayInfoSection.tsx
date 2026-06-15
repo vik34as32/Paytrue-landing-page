@@ -100,7 +100,7 @@ export default function AadhaarPayInfoSection() {
             {/* Main Card */}
             <div className="rounded-[36px] border border-white bg-white p-8 shadow-2xl">
               <img
-                src="https://img.freepik.com/free-vector/biometric-payment-concept-illustration_114360-7487.jpg?w=1800"
+                src="/images/AEPS.jpeg"
                 alt="Aadhaar Pay Illustration"
                 className="w-full rounded-3xl object-cover"
               />

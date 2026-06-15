@@ -11,13 +11,27 @@ import { FaXTwitter } from "react-icons/fa6";
 
 export default function PremiumFintechFooter() {
     const quickLinks = [
-        'Home',
-        'About Us',
-        'Products & Services',
-        'Contact',
-        'Login',
-        'Sign Up',
-    ];
+  {
+    name: "Home",
+    href: "/",
+  },
+  {
+    name: "About Us",
+    href: "/about",
+  },
+  {
+    name: "Products & Services",
+    href: "/services/domestic-money-transfer",
+  },
+  {
+    name: "Contact",
+    href: "/contact",
+  },
+  {
+    name: "Login",
+    href: "/auth/login",
+  },
+];
 
     // const legalLinks = [
     //     'Privacy Policy',
@@ -31,6 +45,10 @@ export default function PremiumFintechFooter() {
   {
     label: "Privacy Policy",
     href: "/privacy-policy",
+  },
+   {
+    label: "Refund Policy",
+    href: "/refund-policy",
   },
 ];
 
@@ -74,19 +92,12 @@ export default function PremiumFintechFooter() {
                         </h3>
 
                         <div className="space-y-3 text-slate-300 leading-relaxed">
-                            {/* <div className="flex items-start gap-3">
-                <MapPin className="mt-1 h-5 w-5 text-cyan-400" />
-                <p>
-                  Registered Office:<br />
-                  94/1 New No 552/425, Chander Nagar, Alambagh,<br />
-                  Lucknow, UP 226005
-                </p>
-              </div> */}
+                        
 
                             <div className="flex items-center gap-3">
                                 <Mail className="h-5 w-5 text-cyan-400" />
                                 <a href="#" className="hover:text-cyan-400 transition">
-                                    support@paytrue.in
+                                    care@paytrue.co.in
                                 </a>
                             </div>
 
@@ -99,21 +110,28 @@ export default function PremiumFintechFooter() {
 
                     {/* Quick Links */}
                     <div>
-                        <h4 className="mb-8 text-2xl font-bold">Our Services</h4>
-                        <div className="mb-8 h-1 w-20 rounded-full bg-gradient-to-r from-cyan-400 to-blue-600"></div>
-                        <ul className="space-y-4">
-                            {quickLinks.map((link) => (
-                                <li key={link}>
-                                    <a
-                                        href="#"
-                                        className="group flex items-center gap-3 text-slate-300 transition-all duration-300 hover:text-cyan-400"
-                                    >
-                                        {link}
-                                    </a>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
+  <h4 className="mb-8 text-2xl font-bold">
+    Quick Links
+  </h4>
+
+  <div className="mb-8 h-1 w-20 rounded-full bg-gradient-to-r from-cyan-400 to-blue-600"></div>
+
+  <div className="space-y-4">
+
+    {quickLinks.map((link) => (
+      <NextLink
+        key={link.name}
+        href={link.href}
+        className="group flex items-center gap-3 text-slate-300 transition-all duration-300 hover:text-cyan-400"
+      >
+        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+
+        {link.name}
+      </NextLink>
+    ))}
+
+  </div>
+</div>
 
                     {/* Social Section */}
                     <div>

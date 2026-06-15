@@ -245,7 +245,7 @@ export default function ContactPage() {
                         Email
                       </h4>
                       <p className="text-white/80">
-                        support@paytrue.com
+                        care@paytrue.co.in
                       </p>
                     </div>
                   </div>
@@ -257,7 +257,7 @@ export default function ContactPage() {
                         Phone
                       </h4>
                       <p className="text-white/80">
-                        +91 9876543210
+                        +91-9811-207-438
                       </p>
                     </div>
                   </div>

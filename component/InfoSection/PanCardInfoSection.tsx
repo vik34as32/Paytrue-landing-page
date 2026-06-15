@@ -70,7 +70,7 @@ export default function PanCardInfoSection() {
               <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50"></div>
 
               <img
-                src="https://moolpay.com/uploads/Pancard1.jpg"
+                src="/images/pancard.png"
                 alt="PAN Card Information"
                 className="relative z-10 w-full rounded-3xl object-cover transition-transform duration-700 group-hover:scale-105"
               />

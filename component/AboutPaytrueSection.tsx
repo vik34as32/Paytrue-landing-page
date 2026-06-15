@@ -74,7 +74,7 @@ export default function AboutPaytrueSection() {
                         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 group hover:shadow-blue-100 transition-all duration-500">
                             <div className="relative h-[420px]">
                                 <img
-                                    src="https://images.unsplash.com/photo-1556740749-887f6717d7e4?q=80&w=1400&auto=format&fit=crop"
+                                    src="/images/why_choose.jpeg"
                                     alt="MoolPay Business Growth"
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                                 />
@@ -82,7 +82,7 @@ export default function AboutPaytrueSection() {
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
 
                                 {/* Play Button */}
-                                <div className="absolute inset-0 flex items-center justify-center">
+                                {/* <div className="absolute inset-0 flex items-center justify-center">
                                     <button className="bg-white/20 backdrop-blur-md hover:bg-white/30 p-6 rounded-full border border-white/30 transition-all duration-300">
                                         <PlayCircle
                                             className="text-white"
@@ -90,7 +90,7 @@ export default function AboutPaytrueSection() {
                                             fill="white"
                                         />
                                     </button>
-                                </div>
+                                </div> */}
 
                                 {/* Overlay Content */}
                                 <div className="absolute bottom-8 left-8 right-8">
@@ -116,7 +116,7 @@ export default function AboutPaytrueSection() {
                     {/* Image */}
                     <div className="relative">
                         <img
-                            src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=1400&auto=format&fit=crop"
+                            src="/images/We_are.jpeg"
                             alt="Team Collaboration"
                             className="rounded-3xl shadow-2xl w-full h-[420px] object-cover"
                         />

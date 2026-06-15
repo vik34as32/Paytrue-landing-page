@@ -105,7 +105,7 @@ export default function DomesticMoneyTransferHero() {
           <div className="overflow-hidden rounded-[36px] border border-white/10 bg-white/10 shadow-2xl backdrop-blur-xl">
             <div className="relative">
               <img
-                src="https://img.freepik.com/free-vector/mobile-banking-transfer-money-online-payment-concept_1150-65886.jpg?w=1800"
+                src="/images/money_transfer.jpeg"
                 alt="User to User Money Transfer Illustration"
                 className="h-[600px] w-full object-cover"
               />

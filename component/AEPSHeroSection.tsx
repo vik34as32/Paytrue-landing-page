@@ -106,7 +106,7 @@ export default function AEPSHeroSection() {
           <div className="overflow-hidden rounded-[36px] border border-white bg-white shadow-2xl">
             <div className="relative">
               <img
-                src="https://img.freepik.com/free-vector/aadhaar-enabled-payment-system-concept-illustration_114360-7345.jpg?w=1800"
+                src="/images/Aeps.jpeg"
                 alt="AEPS Services Illustration"
                 className="h-[650px] w-full object-cover"
               />
@@ -138,10 +138,10 @@ export default function AEPSHeroSection() {
           </div>
 
           {/* Floating Stats */}
-          <div className="absolute -left-10 top-10 rounded-3xl bg-white p-6 shadow-2xl">
-            <h4 className="text-4xl font-extrabold text-[#0057D9]">10K+</h4>
-            <p className="mt-2 text-gray-600">Retailers Connected</p>
-          </div>
+            {/* <div className="absolute -left-10 top-10 rounded-3xl bg-white p-6 shadow-2xl">
+              <h4 className="text-4xl font-extrabold text-[#0057D9]">10K+</h4>
+              <p className="mt-2 text-gray-600">Retailers Connected</p>
+            </div> */}
 
           <div className="absolute -right-8 bottom-12 rounded-3xl bg-gradient-to-r from-[#0A84FF] to-[#0057D9] p-6 text-white shadow-2xl">
             <h4 className="text-4xl font-extrabold">99.9%</h4>

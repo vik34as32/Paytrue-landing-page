@@ -120,7 +120,7 @@ export default function MicroAtmInfoBenefitsSection() {
           <div className="relative">
             <div className="overflow-hidden rounded-[32px] border border-gray-100 bg-white shadow-2xl">
               <img
-                src="https://images.unsplash.com/photo-1580910051074-3eb694886505?q=80&w=1200&auto=format&fit=crop"
+                src="/images/micro_atm_all_bank.png"
                 alt="Micro ATM Device"
                 className="h-[600px] w-full object-cover"
               />

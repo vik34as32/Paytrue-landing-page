@@ -118,7 +118,7 @@ export default function MicroATMHeroSection() {
           <div className="overflow-hidden rounded-[36px] border border-white bg-white shadow-2xl">
             <div className="relative">
               <img
-                src="https://img.freepik.com/free-vector/pos-terminal-concept-illustration_114360-9097.jpg?w=1800"
+                src="/images/micro_atm.png"
                 alt="Micro ATM Service Illustration"
                 className="h-[650px] w-full object-cover"
               />

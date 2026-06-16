@@ -13,15 +13,19 @@ export default function RightsSection() {
         </h2>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <p className="mb-4 text-slate-600">
+        Subject to applicable laws, you may have the right to:
+      </p>
 
+      <div className="grid md:grid-cols-2 gap-4">
         {[
-          "Access Your Data",
-          "Correct Information",
-          "Request Deletion",
+          "Access Personal Data",
+          "Correct Inaccurate Information",
+          "Request Deletion of Data",
           "Restrict Processing",
           "Withdraw Consent",
-          "Data Portability",
+          "Request Data Portability",
+          "Raise Complaints Regarding Data Usage",
         ].map((item) => (
           <div
             key={item}
@@ -30,14 +34,14 @@ export default function RightsSection() {
             {item}
           </div>
         ))}
-
       </div>
 
       <p className="mt-5 text-slate-600">
-        To exercise your rights contact:
-        <span className="font-semibold text-blue-600">
-          {" "}support@paytrue.in
-        </span>
+        To exercise these rights, contact us at:
+      </p>
+
+      <p className="mt-2 font-semibold text-blue-600">
+        Email: care@paytrue.co.in
       </p>
     </div>
   );

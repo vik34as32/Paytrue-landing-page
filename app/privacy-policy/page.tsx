@@ -22,6 +22,7 @@ import DataSecuritySection from "@/component/privacy/DataSecuritySection";
 import RightsSection from "@/component/privacy/RightsSection";
 import CookiesSection from "@/component/privacy/CookiesSection";
 import PolicyUpdatesSection from "@/component/privacy/PolicyUpdatesSection";
+import ContactUsSection from "@/component/privacy/ContactUsSection"
 
 import Header from "../shared/components/layout/Header";
 import PremiumFintechFooter from "../shared/components/layout/Footer";
@@ -30,8 +31,8 @@ export default function PrivacyPolicyPage() {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
       <Header />
-      <PrivacyHero/>
-       <section className="bg-slate-50 py-16">
+      <PrivacyHero />
+      <section className="bg-slate-50 py-16">
         <div className="mx-auto max-w-7xl px-4 lg:px-8">
 
           <div className="grid gap-10 lg:grid-cols-[320px_1fr]">
@@ -63,7 +64,7 @@ export default function PrivacyPolicyPage() {
               <CookiesSection />
 
               <PolicyUpdatesSection />
-
+              <ContactUsSection />
 
             </div>
 

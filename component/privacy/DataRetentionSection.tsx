@@ -14,13 +14,15 @@ export default function DataRetentionSection() {
       </div>
 
       <p className="text-slate-600 mb-4">
-        We retain your information only as long as necessary for:
+        We retain personal information only for as long as necessary to:
       </p>
 
       <ul className="list-disc pl-6 space-y-2 text-slate-600">
-        <li>Providing Services</li>
-        <li>Legal and Regulatory Compliance</li>
-        <li>Dispute Resolution</li>
+        <li>Provide Services</li>
+        <li>Meet Regulatory Requirements</li>
+        <li>Resolve Disputes</li>
+        <li>Enforce Agreements</li>
+        <li>Comply with Applicable Laws</li>
       </ul>
     </div>
   );

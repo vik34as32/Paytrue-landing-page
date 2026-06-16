@@ -13,14 +13,17 @@ export default function DataSecuritySection() {
         </h2>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <p className="mb-4 text-slate-600">
+        We implement industry-standard security measures including:
+      </p>
 
+      <div className="grid md:grid-cols-2 gap-4">
         <div className="rounded-2xl bg-green-50 p-5 text-gray-400">
-          SSL / TLS Encryption
+          SSL/TLS Encryption
         </div>
 
         <div className="rounded-2xl bg-green-50 p-5 text-gray-400">
-          Secure Servers
+          Secure Infrastructure
         </div>
 
         <div className="rounded-2xl bg-green-50 p-5 text-gray-400">
@@ -28,13 +31,20 @@ export default function DataSecuritySection() {
         </div>
 
         <div className="rounded-2xl bg-green-50 p-5 text-gray-400">
-          Security Audits
+          Multi-level Authentication
         </div>
 
+        <div className="rounded-2xl bg-green-50 p-5 text-gray-400">
+          Continuous Monitoring
+        </div>
+
+        <div className="rounded-2xl bg-green-50 p-5 text-gray-400">
+          Security Audits
+        </div>
       </div>
 
       <p className="mt-5 text-slate-600">
-        However, no system can guarantee 100% security.
+        Despite our efforts, no transmission method over the Internet is completely secure.
       </p>
     </div>
   );

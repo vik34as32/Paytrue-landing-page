@@ -28,12 +28,12 @@ export default function PrivacyHero() {
           <div className="mt-8 flex justify-center gap-4 flex-wrap">
             <div className="rounded-xl bg-white/10 px-5 py-3">
               <Calendar size={16} className="inline mr-2" />
-              Effective Date: Jan 01, 2026
+              Effective Date: May 01, 2026
             </div>
 
             <div className="rounded-xl bg-white/10 px-5 py-3">
               <Calendar size={16} className="inline mr-2" />
-              Last Updated: Jan 01, 2026
+              Last Updated: June 16, 2026
             </div>
           </div>
 

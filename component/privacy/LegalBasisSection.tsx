@@ -14,15 +14,16 @@ export default function LegalBasisSection() {
       </div>
 
       <p className="text-slate-600 mb-4">
-        Depending on your location, we rely on:
+        We process personal information based on:
       </p>
 
       <div className="grid md:grid-cols-2 gap-4">
         {[
-          "Your Consent",
+          "User Consent",
           "Contractual Necessity",
-          "Legal Obligations",
+          "Compliance with Legal Obligations",
           "Legitimate Business Interests",
+          "Fraud Prevention and Security Requirements",
         ].map((item) => (
           <div
             key={item}

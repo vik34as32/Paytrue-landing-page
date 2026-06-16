@@ -14,9 +14,14 @@ export default function PolicyUpdatesSection() {
       </div>
 
       <p className="leading-8 text-slate-600">
-        We may update this Privacy Policy periodically.
-        Changes will be posted on this page along with
-        a revised "Last Updated" date.
+        We may update this Privacy Policy from time to time. Any changes will
+        be posted on our website along with the revised{" "}
+        <span className="font-medium">"Last Updated"</span> date.
+      </p>
+
+      <p className="mt-4 leading-8 text-slate-600">
+        Continued use of our Services after such changes constitutes acceptance
+        of the updated Privacy Policy.
       </p>
     </div>
   );

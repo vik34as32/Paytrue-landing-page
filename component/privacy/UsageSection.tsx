@@ -13,15 +13,21 @@ export default function UsageSection() {
         </h2>
       </div>
 
+      <p className="mb-4 text-slate-600">
+        We use your information for:
+      </p>
+
       <ul className="list-disc pl-6 space-y-3 text-slate-600 leading-7">
         <li>Providing and maintaining our Services</li>
-        <li>Identity Verification (KYC / AML Compliance)</li>
-        <li>Processing Transactions</li>
-        <li>Fraud Detection and Prevention</li>
-        <li>Risk Assessment and Credit Scoring</li>
-        <li>Customer Support</li>
-        <li>Improving Our Platform</li>
-        <li>Legal and Regulatory Compliance</li>
+        <li>Identity verification and KYC compliance</li>
+        <li>AML (Anti-Money Laundering) compliance</li>
+        <li>Processing transactions</li>
+        <li>Fraud detection and prevention</li>
+        <li>Risk assessment</li>
+        <li>Customer support</li>
+        <li>Improving platform performance</li>
+        <li>Regulatory and legal compliance</li>
+        <li>Internal reporting and auditing</li>
       </ul>
     </div>
   );

@@ -9,6 +9,7 @@ const sections = [
   "Your Rights",
   "Cookies",
   "Policy Updates",
+  "Contact Us"
 ];
 
 export default function PrivacySidebar() {

@@ -14,9 +14,10 @@ export default function IntroductionSection() {
       </div>
 
       <p className="leading-8 text-slate-600">
-         Paytrue (“we,” “our,” or “us”) is committed to protecting your personal data and maintaining your trust. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our financial products and services (“Services”).
-By accessing or using our Services, you agree to this Privacy Policy.
-
+        Goodlinks Services Private Limited ("we," "our," or "us") is committed to protecting your personal data and maintaining your trust. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our financial products and services (DMT, AePS, mATM, BBPS, CMS).
+      </p>
+      <p className="leading-8 text-slate-600">
+        By accessing or using our Services, you agree to this Privacy Policy.
       </p>
     </div>
   );

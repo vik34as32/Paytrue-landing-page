@@ -132,7 +132,7 @@ export default function CashManagementInfoSection() {
           <div className="relative">
             <div className="overflow-hidden rounded-[32px] border border-gray-100 bg-white shadow-2xl">
               <img
-                src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?q=80&w=1400&auto=format&fit=crop"
+                src="/images/cash-management.jpg"
                 alt="Cash Management Dashboard"
                 className="h-[650px] w-full object-cover"
               />

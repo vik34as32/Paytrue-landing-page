@@ -116,7 +116,7 @@ export default function PanCardHeroSection() {
           <div className="overflow-hidden rounded-[36px] border border-white bg-white shadow-2xl">
             <div className="relative">
               <img
-                src="/images/pancard.png"
+                src="/images/5510PancardCenter.png"
                 alt="PAN Card Registration Illustration"
                 className="h-[650px] w-full object-cover"
               />

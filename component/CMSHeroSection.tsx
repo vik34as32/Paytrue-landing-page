@@ -118,7 +118,7 @@ export default function CMSHeroSection() {
           <div className="overflow-hidden rounded-[36px] border border-white bg-white shadow-2xl">
             <div className="relative">
               <img
-                src="https://img.freepik.com/free-vector/business-profit-growth-concept-illustration_114360-7312.jpg?w=1800"
+                src="/images/Cash-Management-copy.webp"
                 alt="Cash Management Service Illustration"
                 className="h-[650px] w-full object-cover"
               />

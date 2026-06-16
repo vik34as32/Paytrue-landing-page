@@ -106,7 +106,7 @@ export default function AEPSHeroSection() {
           <div className="overflow-hidden rounded-[36px] border border-white bg-white shadow-2xl">
             <div className="relative">
               <img
-                src="/images/Aeps.jpeg"
+                src="/images/what_is_aeps.webp"
                 alt="AEPS Services Illustration"
                 className="h-[650px] w-full object-cover"
               />

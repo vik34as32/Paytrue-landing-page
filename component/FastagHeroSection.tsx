@@ -115,7 +115,7 @@ export default function FastagHeroSection() {
           <div className="overflow-hidden rounded-[36px] border border-white bg-white shadow-2xl">
             <div className="relative">
               <img
-                src="/images/fasttag.png"
+                src="/images/573693-fastag (1).webp"
                 alt="FASTag Toll Payment Illustration"
                 className="h-[650px] w-full object-cover"
               />

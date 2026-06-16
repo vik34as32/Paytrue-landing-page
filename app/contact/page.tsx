@@ -19,12 +19,12 @@ const contactCards = [
   {
     icon: Phone,
     title: "Call Support",
-    value: "+91 9876543210",
+    value: "+91-9811-207-438",
   },
   {
     icon: Mail,
     title: "Email Us",
-    value: "support@paytrue.com",
+    value: "care@paytrue.co.in",
   },
   {
     icon: MapPin,

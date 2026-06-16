@@ -45,6 +45,14 @@ const services = [
     path: "/services/aadhaar-pay",
   },
   {
+  name: "TRAVEL",
+  path: "/services/travel",
+},
+{
+  name: "INSURANCE",
+  path: "/services/insurance",
+},
+  {
     name: "Cash Management Service",
     path: "/services/cash-management-service",
   },

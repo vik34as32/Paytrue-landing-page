@@ -91,7 +91,7 @@ export default function RechargeInfoSection() {
             <div className="overflow-hidden rounded-[36px] border border-white bg-white shadow-2xl">
               <div className="relative">
                 <img
-                  src="/images/recharge.png"
+                  src="/images/prepaid_recharge/recharge.png"
                   alt="Recharge Services Illustration"
                   className="h-[700px] w-full object-cover"
                 />

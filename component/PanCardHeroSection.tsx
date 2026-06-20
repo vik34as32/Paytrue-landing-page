@@ -116,7 +116,7 @@ export default function PanCardHeroSection() {
           <div className="overflow-hidden rounded-[36px] border border-white bg-white shadow-2xl">
             <div className="relative">
               <img
-                src="/images/5510PancardCenter.png"
+                src="/images/pancard/PancardCenter.png"
                 alt="PAN Card Registration Illustration"
                 className="h-[650px] w-full object-cover"
               />
@@ -125,7 +125,7 @@ export default function PanCardHeroSection() {
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent"></div>
 
               {/* Floating PAN Card Info */}
-              <div className="absolute bottom-8 left-8 right-8 rounded-3xl border border-white/20 bg-white/90 p-6 backdrop-blur-xl shadow-xl">
+              {/* <div className="absolute bottom-8 left-8 right-8 rounded-3xl border border-white/20 bg-white/90 p-6 backdrop-blur-xl shadow-xl">
                 <h3 className="mb-4 text-2xl font-bold text-gray-900">
                   Digital PAN Services
                 </h3>
@@ -149,7 +149,7 @@ export default function PanCardHeroSection() {
                   Fast, reliable, and secure PAN registration with Aadhaar
                   integration.
                 </p>
-              </div>
+              </div> */}
             </div>
           </div>
 

@@ -118,27 +118,27 @@ export default function MicroAtmInfoBenefitsSection() {
 
           {/* Right Image */}
           <div className="relative">
-            <div className="overflow-hidden rounded-[32px] border border-gray-100 bg-white shadow-2xl">
-              <img
-                src="/images/micro_atm_all_bank.png"
-                alt="Micro ATM Device"
-                className="h-[600px] w-full object-cover"
-              />
+  <div className="overflow-hidden rounded-[32px] border border-gray-100 bg-white shadow-2xl">
+    <div className="relative h-[600px] flex items-center justify-center">
+      <img
+        src="/images/micro_atm/micro_atm2.png"
+        alt="Micro ATM Device"
+        className="max-h-full max-w-full object-contain"
+      />
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
 
-              {/* Floating Card */}
-              <div className="absolute bottom-8 left-8 right-8 rounded-3xl border border-white/20 bg-white/10 p-6 backdrop-blur-md">
-                <h3 className="text-2xl font-bold text-white">
-                  Banking at Your Fingertips
-                </h3>
-                <p className="mt-2 text-blue-100">
-                  Secure, portable, and scalable digital banking for modern
-                  financial entrepreneurs.
-                </p>
-              </div>
-            </div>
-          </div>
+      <div className="absolute bottom-8 left-8 right-8 rounded-3xl border border-white/20 bg-white/10 p-6 backdrop-blur-md">
+        <h3 className="text-2xl font-bold text-white">
+          Banking at Your Fingertips
+        </h3>
+        <p className="mt-2 text-blue-100">
+          Secure, portable, and scalable digital banking for modern financial entrepreneurs.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
         </div>
 
         {/* ================= Benefits Section ================= */}

@@ -118,49 +118,22 @@ export default function MicroATMHeroSection() {
           <div className="overflow-hidden rounded-[36px] border border-white bg-white shadow-2xl">
             <div className="relative">
               <img
-                src="/images/micro_atm.png"
+                src="/images/micro_atm/micro_atm.png"
                 alt="Micro ATM Service Illustration"
-                className="h-[650px] w-full object-cover"
+                className="w-full h-auto object-contain"
               />
 
-              {/* Overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent"></div>
-
-              {/* Bottom Card */}
-              <div className="absolute bottom-8 left-8 right-8 rounded-3xl border border-white/20 bg-white/90 p-6 backdrop-blur-xl shadow-xl">
-                <h3 className="mb-4 text-2xl font-bold text-gray-900">
-                  Next-Gen Retail Banking Solutions
-                </h3>
-
-                <div className="grid grid-cols-2 gap-3 mb-4 sm:grid-cols-3">
-                  {serviceTags.map((tag, i) => (
-                    <div
-                      key={i}
-                      className="rounded-xl bg-violet-50 px-3 py-2 text-center text-sm font-semibold text-violet-700"
-                    >
-                      {tag}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-4 h-2 rounded-full bg-gray-200">
-                  <div className="h-2 w-full rounded-full bg-gradient-to-r from-violet-500 to-purple-600"></div>
-                </div>
-
-                <p className="mt-4 text-gray-600">
-                  Advanced Micro ATM services for secure financial growth.
-                </p>
-              </div>
             </div>
           </div>
 
           {/* Floating Stats */}
-          <div className="absolute -left-10 top-10 rounded-3xl bg-white p-6 shadow-2xl">
+          {/* <div className="absolute -left-10 top-10 rounded-3xl bg-white p-6 shadow-2xl">
             <h4 className="text-4xl font-extrabold text-violet-600">
               ₹25Cr+
             </h4>
             <p className="mt-2 text-gray-600">Monthly Transactions</p>
-          </div>
+          </div> */}
 
           <div className="absolute -right-8 bottom-12 rounded-3xl bg-gradient-to-r from-violet-500 to-purple-600 p-6 text-white shadow-2xl">
             <h4 className="text-4xl font-extrabold">24/7</h4>

@@ -104,24 +104,24 @@ export default function BBPSInfoSection() {
               <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50"></div>
 
               <img
-                src="/images/postpaid-image.png"
+                src="/images/bill_payment/postpaid-image.png"
                 alt="BBPS Services"
                 className="relative z-10 w-full rounded-3xl object-cover transition-transform duration-700 group-hover:scale-105"
               />
 
               {/* Floating Label */}
-              <div className="absolute top-8 left-8 z-20 rounded-2xl bg-white/90 px-5 py-3 shadow-lg backdrop-blur-md">
+              {/* <div className="absolute top-8 left-8 z-20 rounded-2xl bg-white/90 px-5 py-3 shadow-lg backdrop-blur-md">
                 <p className="text-sm font-semibold text-[#0057D9]">
                   Multi-Bill Payment Ecosystem
                 </p>
-              </div>
+              </div> */}
             </div>
 
             {/* Floating Stats */}
-            <div className="absolute -bottom-8 -left-8 rounded-3xl bg-white p-6 shadow-2xl">
+            {/* <div className="absolute -bottom-8 -left-8 rounded-3xl bg-white p-6 shadow-2xl">
               <h4 className="text-3xl font-extrabold text-[#0057D9]">100+</h4>
               <p className="mt-1 text-gray-600">Bill Categories Supported</p>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>

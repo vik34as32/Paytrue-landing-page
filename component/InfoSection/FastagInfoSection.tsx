@@ -108,7 +108,7 @@ export default function FastagInfoSection() {
               <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 to-emerald-50/50"></div>
 
               <img
-                src="/images/fastag-toll.webp"
+                src="/images/fasttag/fasttag2.png"
                 alt="Fastag Toll Services"
                 className="relative z-10 w-full rounded-3xl object-cover transition-transform duration-700 group-hover:scale-105"
               />
@@ -122,14 +122,7 @@ export default function FastagInfoSection() {
             </div>
 
             {/* Floating Stats */}
-            <div className="absolute -bottom-8 -left-8 rounded-3xl bg-white p-6 shadow-2xl">
-              <h4 className="text-3xl font-extrabold text-green-600">
-                500+
-              </h4>
-              <p className="mt-1 text-gray-600">
-                Supported Toll Plazas Nationwide
-              </p>
-            </div>
+            
           </div>
         </div>
       </div>

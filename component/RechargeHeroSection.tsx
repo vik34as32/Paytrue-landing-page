@@ -107,7 +107,7 @@ export default function RechargeHeroSection() {
           <div className="overflow-hidden rounded-[36px] border border-white bg-white shadow-2xl">
             <div className="relative">
               <img
-                src="/images/recharge_bil_payments.png"
+                src="/images/prepaid_recharge/recharge_bil_payments.png"
                 alt="All SIM Recharge Illustration"
                 className="h-[650px] w-full object-cover"
               />

@@ -50,6 +50,10 @@ export default function PremiumFintechFooter() {
     label: "Refund Policy",
     href: "/refund-policy",
   },
+   {
+    label: "Terms & Conditions",
+    href: "/terms-and-conditions",
+  },
 ];
 
     const socialLinks = [

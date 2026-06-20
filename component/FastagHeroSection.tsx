@@ -115,7 +115,7 @@ export default function FastagHeroSection() {
           <div className="overflow-hidden rounded-[36px] border border-white bg-white shadow-2xl">
             <div className="relative">
               <img
-                src="/images/573693-fastag (1).webp"
+                src="/images/fasttag/fasttag.png"
                 alt="FASTag Toll Payment Illustration"
                 className="h-[650px] w-full object-cover"
               />
@@ -124,31 +124,7 @@ export default function FastagHeroSection() {
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent"></div>
 
               {/* Floating Service Card */}
-              <div className="absolute bottom-8 left-8 right-8 rounded-3xl border border-white/20 bg-white/90 p-6 backdrop-blur-xl shadow-xl">
-                <h3 className="mb-4 text-2xl font-bold text-gray-900">
-                  FASTag Digital Toll Management
-                </h3>
-
-                <div className="grid grid-cols-2 gap-3 mb-4 sm:grid-cols-3">
-                  {supportedServices.map((service, i) => (
-                    <div
-                      key={i}
-                      className="rounded-xl bg-green-50 px-3 py-2 text-center text-sm font-semibold text-green-700"
-                    >
-                      {service}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-4 h-2 rounded-full bg-gray-200">
-                  <div className="h-2 w-full rounded-full bg-gradient-to-r from-green-500 to-emerald-600"></div>
-                </div>
-
-                <p className="mt-4 text-gray-600">
-                  One-stop solution for FASTag recharge, toll management, and
-                  secure travel payments.
-                </p>
-              </div>
+              
             </div>
           </div>
 

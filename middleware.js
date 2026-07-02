@@ -61,6 +61,7 @@ export const config = {
     "/dd/:path*",
     "/dashboard/:path*",
     "/rt/retailer/:path*",
+    "/rt/balance-transfer",
     "/auth/login",
     "/unauthorized",
   ],

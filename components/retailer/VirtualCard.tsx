@@ -2,11 +2,11 @@
 
 import { Wifi } from "lucide-react";
 import { RETAILER_USER } from "@/features/retailer/constants";
-import { useWalletStore } from "@/features/retailer/store/walletStore";
+import { useWalletStore, selectRetailerDisplayBalance } from "@/features/retailer/store/walletStore";
 import { formatCurrency } from "@/lib/utils";
 
 export default function VirtualCard() {
-  const balance = useWalletStore((s) => s.retailerWallet);
+  const balance = useWalletStore(selectRetailerDisplayBalance);
 
   const cardNumber = `4532 •••• •••• ${RETAILER_USER.retailerId.slice(-4)}`;
   const validThru = "12/28";

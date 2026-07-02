@@ -7,6 +7,7 @@ import KycBanner from "@/components/retailer/KycBanner";
 import DashboardStats from "@/components/retailer/DashboardStats";
 import QuickActions from "@/components/retailer/QuickActions";
 import ServiceGrid from "@/components/retailer/ServiceGrid";
+import RetailerWalletSection from "@/components/retailer/RetailerWalletSection";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -73,6 +74,8 @@ export default function RetailerDashboardPage() {
       </div>
 
       <ServiceGrid />
+
+      {/* <RetailerWalletSection /> */}
     </div>
   );
 }

@@ -45,7 +45,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
       <aside
   className={cn(
-    "rt-sidebar flex flex-col bg-[#F8FAFC] text-slate-600 border-r border-slate-200 shadow-[4px_0_32px_rgba(11,31,58,0.08)]",
+    "rt-sidebar print:hidden flex flex-col bg-[#F8FAFC] text-slate-600 border-r border-slate-200 shadow-[4px_0_32px_rgba(11,31,58,0.08)]",
     "max-md:transition-transform max-md:duration-300 max-md:ease-out",
     open ? "max-md:translate-x-0" : "max-md:-translate-x-full",
     "md:translate-x-0"

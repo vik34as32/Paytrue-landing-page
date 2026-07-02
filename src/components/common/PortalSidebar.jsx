@@ -16,8 +16,10 @@ import {
   ArrowLeftRight,
   BarChart3,
   CreditCard,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 
 const iconMap = {
   LayoutDashboard,
@@ -32,7 +34,84 @@ const iconMap = {
   CreditCard,
 };
 
-export default function PortalSidebar({ open, onClose, links, portalLabel, dashboardPath }) {
+function SidebarProfile({
+  user,
+  balance,
+  walletLoading,
+  walletLoaded,
+  profileLoading,
+}) {
+  if (profileLoading && !user?.name) {
+    return (
+      <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 animate-pulse rounded-xl bg-slate-200" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3.5 w-28 animate-pulse rounded bg-slate-200" />
+            <div className="h-2.5 w-20 animate-pulse rounded bg-slate-100" />
+          </div>
+        </div>
+        <div className="mt-3 h-10 animate-pulse rounded-xl bg-slate-100" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-3">
+        {user?.profileImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={user.profileImage}
+            alt={user.name || "Profile"}
+            className="h-12 w-12 rounded-xl object-cover ring-2 ring-[#1565d8]/20"
+          />
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#0A84FF] to-[#0057D9] text-lg font-bold text-white">
+            {user?.name?.charAt(0) || "U"}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold text-[#001F5B]">
+            {user?.name || "User"}
+          </p>
+          <p className="truncate text-[11px] font-medium text-slate-400">
+            {user?.userId || "—"}
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 rounded-xl bg-gradient-to-r from-[#001F5B]/5 to-[#1565d8]/10 px-3 py-2.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          Wallet Balance
+        </p>
+        {walletLoading ? (
+          <div className="mt-1 flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-[#1565d8]" />
+            <span className="text-xs text-slate-400">Loading...</span>
+          </div>
+        ) : (
+          <p className="mt-0.5 text-base font-bold text-[#1565d8]">
+            {walletLoaded ? formatCurrency(balance) : "—"}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function PortalSidebar({
+  open,
+  onClose,
+  links,
+  portalLabel,
+  dashboardPath,
+  user,
+  balance = 0,
+  walletLoading = false,
+  walletLoaded = false,
+  profileLoading = false,
+  onLogout,
+}) {
   const pathname = usePathname();
 
   return (
@@ -89,7 +168,17 @@ export default function PortalSidebar({ open, onClose, links, portalLabel, dashb
           </div>
         </div>
 
-        <nav className="rt-sidebar-nav flex-1 space-y-0.5 px-3 py-4">
+        <div className="px-3 pt-4">
+          <SidebarProfile
+            user={user}
+            balance={balance}
+            walletLoading={walletLoading}
+            walletLoaded={walletLoaded}
+            profileLoading={profileLoading}
+          />
+        </div>
+
+        <nav className="rt-sidebar-nav flex-1 space-y-0.5 px-3 py-2">
           {links.map((link) => {
             const Icon = iconMap[link.icon] || LayoutDashboard;
             const isActive =
@@ -126,14 +215,15 @@ export default function PortalSidebar({ open, onClose, links, portalLabel, dashb
           })}
         </nav>
 
-        <div className="shrink-0 border-t border-white/[0.08] p-4">
-          <Link
-            href="/auth/login"
-            className="flex items-center gap-3 rounded-lg px-4 py-3 text-[13px] font-semibold text-red-400/90 transition hover:bg-red-500/10 hover:text-red-300"
+        <div className="shrink-0 border-t border-slate-200 p-4">
+          <button
+            type="button"
+            onClick={onLogout}
+            className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-[13px] font-semibold text-red-500 transition hover:bg-red-50"
           >
             <LogOut className="h-[18px] w-[18px]" />
             Logout
-          </Link>
+          </button>
         </div>
       </aside>
     </>

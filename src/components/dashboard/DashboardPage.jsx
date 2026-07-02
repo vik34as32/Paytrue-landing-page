@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { motion } from "framer-motion";
+import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import { ArrowLeftRight, Users, Store, Wallet, FileText } from "lucide-react";
 import StatsCards from "@/src/components/dashboard/StatsCards";
@@ -19,6 +20,8 @@ import { fetchMdDashboard, fetchDdDashboard } from "@/src/redux/thunks/dashboard
 import { selectMdDashboard, selectDdDashboard } from "@/src/redux/slices/dashboardSlice";
 import { selectUser } from "@/src/redux/slices/authSlice";
 import { selectMdTransactions, selectDdTransactions } from "@/src/redux/slices/transactionSlice";
+import { selectDdWallet } from "@/src/redux/slices/walletSlice";
+import { selectProfileLoading } from "@/src/redux/slices/profileSlice";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -32,12 +35,23 @@ export default function DashboardPage({ role }) {
   const mdDashboard = useSelector(selectMdDashboard);
   const ddDashboard = useSelector(selectDdDashboard);
   const user = useSelector(selectUser);
+  const profileLoading = useSelector(selectProfileLoading);
+  const ddWallet = useSelector(selectDdWallet);
   const mdTransactions = useSelector(selectMdTransactions);
   const ddTransactions = useSelector(selectDdTransactions);
 
   const isMd = role === "md";
   const dashboard = isMd ? mdDashboard : ddDashboard;
   const statsConfig = isMd ? mdDashboardStats : ddDashboardStats;
+  const dashboardStats = isMd
+    ? dashboard.stats
+    : {
+        ...dashboard.stats,
+        walletBalance:
+          ddWallet.lastUpdated != null
+            ? ddWallet.balance
+            : dashboard.stats?.walletBalance,
+      };
   const recentTransactions = (isMd ? mdTransactions : ddTransactions).slice(0, 5);
   const recentDistributors = dashboard.stats?.recentDistributors || [];
   const recentLogins = dashboard.stats?.recentLogins || [];
@@ -78,7 +92,11 @@ export default function DashboardPage({ role }) {
             {getGreeting()}
           </p>
           <h1 className="text-xl font-bold tracking-tight text-[#0b1f3a] sm:text-2xl">
-            {user?.name}
+            {profileLoading && !user?.name ? (
+              <span className="inline-block h-7 w-48 animate-pulse rounded bg-slate-200" />
+            ) : (
+              user?.name
+            )}
             <span className="ml-2 text-base font-medium text-slate-400 sm:text-lg">
               · {user?.roleLabel}
             </span>
@@ -112,9 +130,54 @@ export default function DashboardPage({ role }) {
         </Card>
       )}
 
+      {!isMd && (
+        <Card className="overflow-hidden border-0 bg-gradient-to-r from-[#001F5B] via-[#0057D9] to-[#1565d8] text-white shadow-lg">
+          <CardContent className="flex flex-col gap-4 p-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4">
+              {user?.profileImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.profileImage}
+                  alt={user.name}
+                  className="h-16 w-16 rounded-2xl border-2 border-white/20 object-cover"
+                />
+              ) : (
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-white/20 bg-white/10 text-2xl font-bold">
+                  {user?.name?.charAt(0) || "D"}
+                </div>
+              )}
+              <div>
+                <p className="text-sm text-blue-100">Welcome back</p>
+                <h2 className="text-2xl font-bold">{user?.name || "Distributor"}</h2>
+                <p className="mt-1 text-sm text-blue-100/90">
+                  {user?.outlet?.outletName || user?.outletName || "Manage retailers and grow your business"}
+                </p>
+                <p className="mt-2 text-xs text-blue-100/80">
+                  ID: {user?.userId || "—"}
+                  {user?.outlet?.city ? ` · ${user.outlet.city}` : ""}
+                  {user?.outlet?.state ? `, ${user.outlet.state}` : ""}
+                </p>
+              </div>
+            </div>
+            <div className="rounded-2xl bg-white/10 px-5 py-4 backdrop-blur-sm">
+              <p className="text-xs uppercase tracking-wide text-blue-100/80">
+                Current Wallet Balance
+              </p>
+              <p className="mt-1 text-2xl font-bold">
+                {ddWallet.lastUpdated != null
+                  ? formatCurrency(ddWallet.balance)
+                  : ddWallet.loading
+                    ? "Loading..."
+                    : formatCurrency(dashboardStats.walletBalance ?? 0)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <StatsCards
         stats={statsConfig}
-        values={dashboard.stats}
+        values={dashboardStats}
         loading={dashboard.loading}
       />
 

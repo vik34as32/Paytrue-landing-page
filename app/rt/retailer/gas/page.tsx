@@ -11,6 +11,7 @@ export default function GasPage() {
       description="LPG & Piped gas bill payments"
       icon={Flame}
       providers={GAS_PROVIDERS}
+      serviceType="gas"
       consumerLabel="LPG ID / Consumer Number"
     />
   );

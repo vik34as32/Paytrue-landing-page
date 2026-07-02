@@ -59,7 +59,7 @@ export interface NewsItem {
 export interface RechargeOperator {
   id: string;
   name: string;
-  type: "mobile" | "dth" | "fastag";
+  type: "mobile" | "postpaid" | "dth" | "fastag";
 }
 
 export interface RechargePlan {

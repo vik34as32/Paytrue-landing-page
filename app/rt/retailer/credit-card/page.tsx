@@ -19,6 +19,7 @@ export default function CreditCardPage() {
       description="Pay credit card bills instantly"
       icon={CreditCard}
       providers={CARD_ISSUERS}
+      serviceType="credit-card"
       consumerLabel="Card Number (last 4 digits)"
     />
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -22,34 +22,58 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import OperatorSelect from "@/components/retailer/OperatorSelect";
+import { useWalletStore, selectRetailerDisplayBalance } from "@/features/retailer/store/walletStore";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useWalletStore } from "@/features/retailer/store/walletStore";
+  validateRetailerWalletBalance,
+  refreshRetailerWalletData,
+} from "@/features/retailer/utils/walletValidation";
 import {
   MOBILE_OPERATORS,
+  POSTPAID_OPERATORS,
   DTH_OPERATORS,
+  FASTAG_OPERATORS,
 } from "@/features/retailer/services/recharge";
+import type { OperatorServiceType } from "@/src/lib/operatorLogos";
 import { formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 const rechargeSchema = z.object({
-  type: z.enum(["mobile", "dth", "fastag"]),
+  type: z.enum(["mobile", "postpaid", "dth", "fastag"]),
   operator: z.string().min(1, "Select operator"),
   number: z.string().min(5, "Enter valid number"),
   amount: z.number({ error: "Enter valid amount" }).min(1, "Minimum amount is ₹1"),
 });
 
 type RechargeForm = z.infer<typeof rechargeSchema>;
+type RechargeType = RechargeForm["type"];
+
+const RECHARGE_TABS: { id: RechargeType; label: string }[] = [
+  { id: "mobile", label: "Mobile" },
+  { id: "postpaid", label: "Postpaid" },
+  { id: "dth", label: "DTH" },
+  { id: "fastag", label: "FASTag" },
+];
+
+const SERVICE_TYPE_MAP: Record<RechargeType, OperatorServiceType> = {
+  mobile: "mobile",
+  postpaid: "postpaid",
+  dth: "dth",
+  fastag: "fasttag",
+};
+
+const TITLE_MAP: Record<RechargeType, string> = {
+  mobile: "Mobile Recharge",
+  postpaid: "Mobile Postpaid",
+  dth: "DTH Recharge",
+  fastag: "FASTag Recharge",
+};
 
 export default function RechargePage() {
   const [successOpen, setSuccessOpen] = useState(false);
   const [txnId, setTxnId] = useState("");
 
-  const balance = useWalletStore((s) => s.retailerWallet);
+  const balance = useWalletStore(selectRetailerDisplayBalance);
   const debit = useWalletStore((s) => s.debit);
 
   const form = useForm<RechargeForm>({
@@ -58,25 +82,34 @@ export default function RechargePage() {
   });
 
   const rechargeType = form.watch("type");
+  const operatorValue = form.watch("operator");
 
-  const operators =
-    rechargeType === "dth"
-      ? DTH_OPERATORS
-      : rechargeType === "fastag"
-        ? [{ id: "fastag", name: "FASTag", type: "fastag" as const }]
-        : MOBILE_OPERATORS;
+  const operators = useMemo(() => {
+    switch (rechargeType) {
+      case "postpaid":
+        return POSTPAID_OPERATORS;
+      case "dth":
+        return DTH_OPERATORS;
+      case "fastag":
+        return FASTAG_OPERATORS;
+      default:
+        return MOBILE_OPERATORS;
+    }
+  }, [rechargeType]);
+
+  const serviceType = SERVICE_TYPE_MAP[rechargeType];
 
   const onSubmit = (data: RechargeForm) => {
+    if (!validateRetailerWalletBalance(data.amount)) return;
+
     const success = debit(
       data.amount,
       `${data.type.toUpperCase()} Recharge - ${data.number}`
     );
 
-    if (!success) {
-      form.setError("amount", { message: "Insufficient wallet balance" });
-      return;
-    }
+    if (!success) return;
 
+    refreshRetailerWalletData();
     setTxnId(`rch_${Date.now()}`);
     setSuccessOpen(true);
     form.reset({ type: data.type });
@@ -97,40 +130,36 @@ export default function RechargePage() {
           <div>
             <h1 className="text-xl font-bold text-[#001F5B]">Recharge</h1>
             <p className="text-sm text-slate-500">
-              Mobile, DTH & Fastag Recharge
+              Mobile, Postpaid, DTH & FASTag Recharge
             </p>
           </div>
         </div>
       </div>
 
-      <div className="flex gap-2">
-        {(["mobile", "dth", "fastag"] as const).map((t) => (
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {RECHARGE_TABS.map((tab) => (
           <button
-            key={t}
+            key={tab.id}
+            type="button"
             onClick={() => {
-              form.setValue("type", t);
+              form.setValue("type", tab.id);
               form.setValue("operator", "");
             }}
-            className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold capitalize transition ${
-              rechargeType === t
+            className={cn(
+              "rounded-xl px-4 py-2.5 text-sm font-semibold transition",
+              rechargeType === tab.id
                 ? "bg-gradient-to-r from-[#0A84FF] to-[#0057D9] text-white shadow-lg"
                 : "bg-white text-slate-600 shadow-sm hover:bg-slate-50"
-            }`}
+            )}
           >
-            {t === "fastag" ? "FASTag" : t}
+            {tab.label}
           </button>
         ))}
       </div>
 
-      <Card className="w-full">
+      <Card className="w-full rounded-2xl shadow-sm">
         <CardHeader>
-          <CardTitle>
-            {rechargeType === "mobile"
-              ? "Mobile Recharge"
-              : rechargeType === "dth"
-                ? "DTH Recharge"
-                : "FASTag Recharge"}
-          </CardTitle>
+          <CardTitle>{TITLE_MAP[rechargeType]}</CardTitle>
           <CardDescription>
             Balance:{" "}
             <span className="font-bold text-emerald-600">
@@ -143,26 +172,16 @@ export default function RechargePage() {
             onSubmit={form.handleSubmit(onSubmit)}
             className="grid w-full gap-4 lg:grid-cols-3"
           >
-            <div className="space-y-2">
-              <Label>Operator</Label>
-              <Select onValueChange={(v) => form.setValue("operator", v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select operator" />
-                </SelectTrigger>
-                <SelectContent>
-                  {operators.map((op) => (
-                    <SelectItem key={op.id} value={op.id}>
-                      {op.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {form.formState.errors.operator && (
-                <p className="text-xs text-red-500">
-                  {form.formState.errors.operator.message}
-                </p>
-              )}
-            </div>
+            <OperatorSelect
+              operators={operators}
+              value={operatorValue}
+              onChange={(value) =>
+                form.setValue("operator", value, { shouldValidate: true })
+              }
+              serviceType={serviceType}
+              placeholder="Select operator"
+              error={form.formState.errors.operator?.message}
+            />
 
             <div className="space-y-2">
               <Label>
@@ -170,7 +189,7 @@ export default function RechargePage() {
               </Label>
               <Input
                 placeholder={
-                  rechargeType === "mobile"
+                  rechargeType === "mobile" || rechargeType === "postpaid"
                     ? "10-digit mobile number"
                     : rechargeType === "dth"
                       ? "DTH customer ID"
@@ -200,9 +219,9 @@ export default function RechargePage() {
             </div>
 
             <div className="lg:col-span-3">
-            <Button type="submit" className="w-full sm:w-auto sm:min-w-[200px]">
-              Recharge Now
-            </Button>
+              <Button type="submit" className="w-full sm:w-auto sm:min-w-[200px]">
+                Recharge Now
+              </Button>
             </div>
           </form>
         </CardContent>

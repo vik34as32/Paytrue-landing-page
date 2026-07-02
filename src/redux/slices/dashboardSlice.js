@@ -4,6 +4,7 @@ import {
   ddDashboardValues,
 } from "@/src/mock/dashboardData";
 import { fetchMdDashboard, fetchDdDashboard } from "@/src/redux/thunks/dashboardThunk";
+import { fetchWalletBalance } from "@/src/redux/thunks/walletThunk";
 
 const initialState = {
   md: {
@@ -60,6 +61,15 @@ const dashboardSlice = createSlice({
       .addCase(fetchDdDashboard.rejected, (state, action) => {
         state.dd.loading = false;
         state.dd.error = action.payload;
+      })
+      .addCase(fetchWalletBalance.fulfilled, (state, action) => {
+        const balance = action.payload?.wallet?.balance ?? 0;
+        if (action.payload.role === "dd") {
+          state.dd.stats.walletBalance = balance;
+        }
+        if (action.payload.role === "md") {
+          state.md.stats.walletBalance = balance;
+        }
       });
   },
 });

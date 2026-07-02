@@ -22,14 +22,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import OperatorSelect from "@/components/retailer/OperatorSelect";
+import type { OperatorServiceType } from "@/src/lib/operatorLogos";
+import { useWalletStore, selectRetailerDisplayBalance } from "@/features/retailer/store/walletStore";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useWalletStore } from "@/features/retailer/store/walletStore";
+  validateRetailerWalletBalance,
+  refreshRetailerWalletData,
+} from "@/features/retailer/utils/walletValidation";
 import { formatCurrency } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 
@@ -46,8 +45,10 @@ interface UtilityBillPageProps {
   description: string;
   icon: LucideIcon;
   providers: string[];
+  serviceType?: OperatorServiceType;
   consumerLabel?: string;
   backHref?: string;
+  providerLabel?: string;
 }
 
 export default function UtilityBillPage({
@@ -55,13 +56,15 @@ export default function UtilityBillPage({
   description,
   icon: Icon,
   providers,
+  serviceType = "mobile",
   consumerLabel = "Consumer ID",
   backHref = "/rt/retailer",
+  providerLabel = "Provider",
 }: UtilityBillPageProps) {
   const [successOpen, setSuccessOpen] = useState(false);
   const [txnId, setTxnId] = useState("");
 
-  const balance = useWalletStore((s) => s.retailerWallet);
+  const balance = useWalletStore(selectRetailerDisplayBalance);
   const debit = useWalletStore((s) => s.debit);
 
   const form = useForm<BillForm>({
@@ -69,17 +72,19 @@ export default function UtilityBillPage({
     defaultValues: { provider: "", consumerId: "", amount: undefined },
   });
 
+  const providerValue = form.watch("provider");
+
   const onSubmit = (data: BillForm) => {
+    if (!validateRetailerWalletBalance(data.amount)) return;
+
     const success = debit(
       data.amount,
       `${title} - ${data.provider} (${data.consumerId})`
     );
 
-    if (!success) {
-      form.setError("amount", { message: "Insufficient wallet balance" });
-      return;
-    }
+    if (!success) return;
 
+    refreshRetailerWalletData();
     setTxnId(`bill_${Date.now()}`);
     setSuccessOpen(true);
     form.reset();
@@ -120,26 +125,18 @@ export default function UtilityBillPage({
             className="w-full space-y-4"
           >
             <div className="grid w-full gap-4 lg:grid-cols-3">
-            <div className="space-y-2">
-              <Label>Provider</Label>
-              <Select onValueChange={(v) => form.setValue("provider", v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select provider" />
-                </SelectTrigger>
-                <SelectContent>
-                  {providers.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {p}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {form.formState.errors.provider && (
-                <p className="text-xs text-red-500">
-                  {form.formState.errors.provider.message}
-                </p>
-              )}
-            </div>
+            <OperatorSelect
+              operators={providers}
+              value={providerValue}
+              onChange={(value) =>
+                form.setValue("provider", value, { shouldValidate: true })
+              }
+              serviceType={serviceType}
+              label={providerLabel}
+              placeholder="Select provider"
+              id="provider-select"
+              error={form.formState.errors.provider?.message}
+            />
 
             <div className="space-y-2">
               <Label>{consumerLabel}</Label>

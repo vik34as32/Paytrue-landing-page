@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Cropper from "react-easy-crop";
 import { Upload, X, Loader2, ImageIcon } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -112,6 +113,7 @@ export default function ImageUpload({
   const processFile = (selectedFile) => {
     const validationError = validateImageFile(selectedFile, maxSizeMB);
     if (validationError) {
+      toast.error(validationError);
       setError(validationError);
       return;
     }
@@ -216,7 +218,7 @@ export default function ImageUpload({
                 Drag & drop or click to upload
               </p>
               <p className="mt-1 text-xs text-slate-400">
-                JPG, JPEG, PNG, WEBP up to {maxSizeMB}MB
+                JPG, JPEG, PNG up to {maxSizeMB} MB
               </p>
             </>
           )}

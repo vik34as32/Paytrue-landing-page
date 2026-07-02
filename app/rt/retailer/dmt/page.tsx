@@ -31,6 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import BankSelect from "@/components/retailer/BankSelect";
 import {
   Select,
   SelectContent,
@@ -38,9 +39,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useWalletStore } from "@/features/retailer/store/walletStore";
+import { useWalletStore, selectRetailerDisplayBalance } from "@/features/retailer/store/walletStore";
+import {
+  validateRetailerWalletBalance,
+  refreshRetailerWalletData,
+} from "@/features/retailer/utils/walletValidation";
 import { useRetailerStore } from "@/features/retailer/store/retailerStore";
-import { BANK_LIST } from "@/features/retailer/services/dmt";
+import { INDIAN_BANKS } from "@/features/retailer/services/dmt";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 
@@ -99,7 +104,7 @@ export default function DMTPage() {
   const removeBeneficiary = useRetailerStore((s) => s.removeBeneficiary);
   const addDMTTransfer = useRetailerStore((s) => s.addDMTTransfer);
 
-  const balance = useWalletStore((s) => s.retailerWallet);
+  const balance = useWalletStore(selectRetailerDisplayBalance);
   const debit = useWalletStore((s) => s.debit);
 
   const beneficiaryForm = useForm<BeneficiaryForm>({
@@ -141,17 +146,14 @@ export default function DMTPage() {
     );
     if (!beneficiary) return;
 
+    if (!validateRetailerWalletBalance(data.amount)) return;
+
     const success = debit(
       data.amount,
       `DMT to ${beneficiary.name} - ${data.remark || "Money Transfer"}`
     );
 
-    if (!success) {
-      transferForm.setError("amount", {
-        message: "Insufficient wallet balance",
-      });
-      return;
-    }
+    if (!success) return;
 
     const transfer = addDMTTransfer({
       beneficiaryId: beneficiary.id,
@@ -159,6 +161,8 @@ export default function DMTPage() {
       amount: data.amount,
       remark: data.remark || "Money Transfer",
     });
+
+    refreshRetailerWalletData();
 
     setLastTransfer({
       amount: data.amount,
@@ -317,30 +321,17 @@ export default function DMTPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Bank Name</Label>
-                <Select
-                  onValueChange={(v) =>
-                    beneficiaryForm.setValue("bankName", v)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select bank" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BANK_LIST.map((bank) => (
-                      <SelectItem key={bank} value={bank}>
-                        {bank}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {beneficiaryForm.formState.errors.bankName && (
-                  <p className="text-xs text-red-500">
-                    {beneficiaryForm.formState.errors.bankName.message}
-                  </p>
-                )}
-              </div>
+              <BankSelect
+                banks={INDIAN_BANKS}
+                value={beneficiaryForm.watch("bankName")}
+                onChange={(value) =>
+                  beneficiaryForm.setValue("bankName", value, {
+                    shouldValidate: true,
+                  })
+                }
+                placeholder="Select bank"
+                error={beneficiaryForm.formState.errors.bankName?.message}
+              />
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">

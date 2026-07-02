@@ -183,3 +183,86 @@ body {
 .rt-service-grid {
   scrollbar-width: thin;
 }
+
+.bank-select-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.bank-select-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.bank-select-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.bank-select-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .rt-sidebar,
+  .rt-main-shell > header,
+  .receipt-no-print {
+    display: none !important;
+  }
+
+  .rt-main-shell {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .rt-main-shell main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  .receipt-page-view {
+    min-height: auto !important;
+    margin: 0 !important;
+    background: #fff !important;
+  }
+
+  .receipt-page-view > div {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .receipt-page-card {
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  .receipt-print-area {
+    box-shadow: none !important;
+    border: none !important;
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    overflow: visible !important;
+  }
+
+  .receipt-print-area * {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

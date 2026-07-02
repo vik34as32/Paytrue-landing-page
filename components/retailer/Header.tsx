@@ -11,7 +11,7 @@ interface HeaderProps {
 
 export default function Header({ onMenuClick }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-50 shrink-0 border-b border-slate-200/70 bg-white/95 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 shrink-0 border-b border-slate-200/70 bg-white/95 backdrop-blur-xl print:hidden">
       <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5 lg:px-6">
         <div className="flex items-center gap-2.5 sm:gap-3">
           <button

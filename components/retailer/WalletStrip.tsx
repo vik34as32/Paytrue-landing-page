@@ -7,9 +7,9 @@ import { SUPPORT_MOBILE } from "@/features/retailer/constants";
 
 export default function WalletStrip() {
   return (
-    <div className="w-full max-w-none border-b border-slate-200/60 bg-white/80 px-4 py-4 backdrop-blur-md sm:px-5 lg:px-6">
+    <div className="w-full max-w-none border-b border-slate-200/60 bg-white/80 px-4 py-4 backdrop-blur-md sm:px-5 lg:px-6 print:hidden">
       <div className="grid w-full max-w-none">
-        <WalletCard type="main" />
+        <WalletCard />
       </div>
       <div className="mt-3 flex gap-2 sm:hidden">
         <Link

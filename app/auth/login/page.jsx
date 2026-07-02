@@ -170,9 +170,9 @@ function LoginForm() {
                   {errors.password && (
                     <p className="mt-2 text-sm text-red-500">{errors.password.message}</p>
                   )}
-                  <div className="mt-3">
+                  {/* <div className="mt-3">
                     <PasswordStrengthMeter password={password} />
-                  </div>
+                  </div> */}
                 </div>
 
                 <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-slate-400">

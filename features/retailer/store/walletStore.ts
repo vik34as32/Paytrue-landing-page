@@ -4,12 +4,15 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { WalletTransaction, WalletType } from "@/types/retailer";
 
-const INITIAL_BALANCE = 100000;
+const INITIAL_BALANCE = 0;
 
 interface WalletState {
   mainWallet: number;
   retailerWallet: number;
+  apiRetailerBalance: number | null;
   transactions: WalletTransaction[];
+  setApiRetailerBalance: (balance: number) => void;
+  syncRetailerBalanceFromApi: (balance: number) => void;
   debit: (
     amount: number,
     description: string,
@@ -47,19 +50,21 @@ export const useWalletStore = create<WalletState>()(
     (set, get) => ({
       mainWallet: INITIAL_BALANCE,
       retailerWallet: INITIAL_BALANCE,
+      apiRetailerBalance: null,
       transactions: [],
 
+      setApiRetailerBalance: (balance) => set({ apiRetailerBalance: balance }),
+
+      syncRetailerBalanceFromApi: (balance) =>
+        set({ apiRetailerBalance: balance, retailerWallet: balance }),
+
       getBalance: (walletType = "retailer") => {
-        return walletType === "main"
-          ? get().mainWallet
-          : get().retailerWallet;
+        if (walletType === "main") return get().apiRetailerBalance ?? 0;
+        return get().apiRetailerBalance ?? 0;
       },
 
       debit: (amount, description, walletType = "retailer") => {
-        const balance =
-          walletType === "main"
-            ? get().mainWallet
-            : get().retailerWallet;
+        const balance = get().apiRetailerBalance ?? 0;
 
         if (amount <= 0 || balance < amount) return false;
 
@@ -75,7 +80,12 @@ export const useWalletStore = create<WalletState>()(
         set((state) => ({
           ...(walletType === "main"
             ? { mainWallet: newBalance }
-            : { retailerWallet: newBalance }),
+            : {
+                retailerWallet: newBalance,
+                ...(state.apiRetailerBalance !== null
+                  ? { apiRetailerBalance: newBalance }
+                  : {}),
+              }),
           transactions: [transaction, ...state.transactions],
         }));
 
@@ -109,11 +119,25 @@ export const useWalletStore = create<WalletState>()(
         set({
           mainWallet: INITIAL_BALANCE,
           retailerWallet: INITIAL_BALANCE,
+          apiRetailerBalance: null,
           transactions: [],
         }),
     }),
     {
       name: "retailer-wallet-storage",
+      partialize: (state) => ({
+        transactions: state.transactions,
+      }),
+      merge: (persisted, current) => ({
+        ...current,
+        ...(persisted && typeof persisted === "object" ? persisted : {}),
+        mainWallet: INITIAL_BALANCE,
+        retailerWallet: INITIAL_BALANCE,
+        apiRetailerBalance: null,
+      }),
     }
   )
 );
+
+export const selectRetailerDisplayBalance = (state: WalletState) =>
+  state.apiRetailerBalance !== null ? state.apiRetailerBalance : 0;

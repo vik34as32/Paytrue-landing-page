@@ -19,6 +19,7 @@ export default function InsurancePage() {
       description="Pay insurance premiums"
       icon={Shield}
       providers={INSURANCE_PROVIDERS}
+      serviceType="insurance"
       consumerLabel="Policy Number"
     />
   );

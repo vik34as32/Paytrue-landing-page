@@ -18,6 +18,7 @@ export default function AEPSPage() {
       description="Aadhaar Enabled Payment System"
       icon={Fingerprint}
       providers={AEPS_SERVICES}
+      serviceType="credit-card"
       consumerLabel="Aadhaar Number"
     />
   );

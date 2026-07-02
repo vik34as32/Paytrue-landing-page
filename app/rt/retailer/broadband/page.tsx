@@ -11,6 +11,7 @@ export default function BroadbandPage() {
       description="Pay broadband & cable TV bills"
       icon={Wifi}
       providers={BROADBAND_PROVIDERS}
+      serviceType="broadband"
       consumerLabel="Account Number"
     />
   );

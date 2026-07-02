@@ -1,11 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { Phone, Wallet } from "lucide-react";
+import { Phone, Wallet, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { SUPPORT_MOBILE } from "@/src/constants/portalConfig";
 
-export default function PortalWalletStrip({ balance, fundRequestPath, userName, userId, roleLabel }) {
+export default function PortalWalletStrip({
+  balance,
+  fundRequestPath,
+  userName,
+  userId,
+  roleLabel,
+  loading = false,
+  loaded = false,
+  error = null,
+}) {
   return (
     <div className="w-full max-w-none border-b border-slate-200/60 bg-white/80 px-4 py-4 backdrop-blur-md sm:px-5 lg:px-6">
       <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-r from-[#18335D] via-[#204E9D] to-[#1F6BFF] p-5 text-white shadow-xl">
@@ -15,21 +24,30 @@ export default function PortalWalletStrip({ balance, fundRequestPath, userName, 
             <p className="text-[11px] font-semibold uppercase tracking-[3px] text-white/60">
               Paytrue Virtual
             </p>
-            <h2 className="text-2xl font-bold">{roleLabel} Wallet</h2>
+            <h2 className="text-2xl font-bold">{roleLabel || "Portal"} Wallet</h2>
           </div>
           <div className="text-right">
             <p className="text-[10px] uppercase text-white/50">Available Balance</p>
-            <p className="text-2xl font-bold">{formatCurrency(balance)}</p>
+            {loading ? (
+              <div className="mt-1 flex items-center justify-end gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-white/80" />
+                <span className="text-sm text-white/70">Loading balance...</span>
+              </div>
+            ) : (
+              <p className="text-2xl font-bold">
+                {loaded ? formatCurrency(balance) : error ? "—" : formatCurrency(balance)}
+              </p>
+            )}
           </div>
         </div>
         <div className="relative mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm">
           <div>
             <p className="text-[10px] uppercase text-white/50">Holder</p>
-            <p className="font-bold">{userName?.toUpperCase()}</p>
+            <p className="font-bold">{userName?.toUpperCase() || "—"}</p>
           </div>
           <div>
             <p className="text-[10px] uppercase text-white/50">ID</p>
-            <p className="font-bold">{userId}</p>
+            <p className="font-bold">{userId || "—"}</p>
           </div>
         </div>
       </div>

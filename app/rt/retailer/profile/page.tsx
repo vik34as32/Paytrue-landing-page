@@ -13,11 +13,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import VirtualCard from "@/components/retailer/VirtualCard";
 import { RETAILER_USER } from "@/features/retailer/constants";
-import { useWalletStore } from "@/features/retailer/store/walletStore";
+import { useWalletStore, selectRetailerDisplayBalance } from "@/features/retailer/store/walletStore";
 import { formatCurrency } from "@/lib/utils";
 
 export default function ProfilePage() {
-  const balance = useWalletStore((s) => s.retailerWallet);
+  const balance = useWalletStore(selectRetailerDisplayBalance);
   const transactions = useWalletStore((s) => s.transactions);
 
   return (

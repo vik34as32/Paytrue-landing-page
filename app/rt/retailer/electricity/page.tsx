@@ -11,6 +11,7 @@ export default function ElectricityPage() {
       description="Pay electricity bills instantly"
       icon={Zap}
       providers={ELECTRICITY_BOARDS}
+      serviceType="electricity"
       consumerLabel="Consumer Number"
     />
   );

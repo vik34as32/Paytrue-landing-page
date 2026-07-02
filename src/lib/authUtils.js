@@ -10,12 +10,30 @@ export function normalizeUser(user) {
   const firstName = user.firstName || "";
   const lastName = user.lastName || "";
   const fullName = `${firstName} ${lastName}`.trim();
+  const profileImage =
+    user.profileImage ||
+    user.profileImageUrl ||
+    user.avatar ||
+    user.image ||
+    null;
 
   return {
     ...user,
+    firstName,
+    lastName,
     name: fullName || user.name || user.email,
+    profileImage,
     roleLabel: USER_TYPE_LABELS[user.userType] || user.userType,
-    userId: user.id || user.userId || user._id,
+    userId:
+      user.id ||
+      user.userId ||
+      user._id ||
+      user.distributorId ||
+      user.retailerId,
+    status:
+      user.status ||
+      user.accountStatus ||
+      (user.isActive === false ? "inactive" : "active"),
     portalPath: ROLE_PORTAL_PATHS[user.userType],
     dashboardPath: ROLE_DASHBOARD_PATHS[user.userType],
   };

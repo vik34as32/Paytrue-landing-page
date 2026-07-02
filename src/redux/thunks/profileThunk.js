@@ -15,10 +15,14 @@ export const fetchProfile = createAsyncThunk(
       const profile = response.data?.data || response.data;
       const normalized = normalizeUser(profile);
 
-      setUserCookie(profile, false);
+      setUserCookie(normalized, false);
       return normalized;
     } catch (error) {
-      return rejectWithValue(error.message || "Failed to fetch profile");
+      const message =
+        error?.message ||
+        error?.originalError?.message ||
+        "Failed to fetch profile";
+      return rejectWithValue(message);
     }
   }
 );

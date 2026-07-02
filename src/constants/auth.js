@@ -24,7 +24,7 @@ export const ROLE_PORTAL_PATHS = {
   [USER_TYPES.RETAILER]: "/rt/retailer",
 };
 
-export const PROTECTED_PREFIXES = ["/md", "/dd", "/dashboard", "/rt/retailer"];
+export const PROTECTED_PREFIXES = ["/md", "/dd", "/dashboard", "/rt/retailer", "/rt/balance-transfer"];
 
 export const PUBLIC_PATHS = [
   "/auth/login",

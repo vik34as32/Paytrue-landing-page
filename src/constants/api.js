@@ -5,4 +5,7 @@ export const API_ENDPOINTS = {
   login: "/auth/login",
   profile: "/auth/profile",
   users: "/users",
+  wallet: "/wallet",
+  walletTransfer: "/wallet/transfer",
+  walletTransfers: "/wallet/transfers",
 };

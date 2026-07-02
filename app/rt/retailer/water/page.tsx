@@ -18,6 +18,7 @@ export default function WaterPage() {
       description="Pay water utility bills"
       icon={Droplets}
       providers={WATER_BOARDS}
+      serviceType="water"
       consumerLabel="Connection Number"
     />
   );

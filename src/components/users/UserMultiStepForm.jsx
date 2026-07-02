@@ -10,6 +10,7 @@ import PageHeader from "@/src/components/common/PageHeader";
 import SuccessModal from "@/src/components/common/SuccessModal";
 import ImageUpload from "@/src/components/common/ImageUpload";
 import VideoUpload from "@/src/components/common/VideoUpload";
+import SelectField from "@/src/components/common/SelectField";
 import PasswordStrengthMeter from "@/src/components/common/PasswordStrengthMeter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,10 @@ import {
   mapApiUserToExistingUrls,
 } from "@/src/lib/buildUserFormData";
 import { USER_FILE_FIELDS } from "@/src/constants/uploadConfig";
+import {
+  BUSINESS_TYPES,
+  getBusinessTypeLabel,
+} from "@/src/constants/businessTypes";
 import {
   createDistributor,
   updateDistributor,
@@ -334,7 +339,14 @@ export default function UserMultiStepForm({
               {step === 2 && (
                 <div className="grid gap-4 lg:grid-cols-2">
                   <Field name="outletName" label="Outlet Name" placeholder="Enter outlet name" methods={methods} />
-                  <Field name="businessType" label="Business Type" placeholder="e.g. Retail, Franchise" methods={methods} />
+                  <SelectField
+                    name="businessType"
+                    label="Business Type"
+                    placeholder="Select business type"
+                    options={BUSINESS_TYPES}
+                    methods={methods}
+                    searchable
+                  />
                   <Field name="gstNumber" label="GST Number" placeholder="Optional" methods={methods} />
                   <Field name="address" label="Address" placeholder="Full address" methods={methods} />
                   <Field name="state" label="State" placeholder="State" methods={methods} />
@@ -428,7 +440,7 @@ export default function UserMultiStepForm({
                     title="Outlet Information"
                     items={[
                       ["Outlet", values.outletName],
-                      ["Business Type", values.businessType],
+                      ["Business Type", getBusinessTypeLabel(values.businessType)],
                       ["GST", values.gstNumber],
                       ["Address", values.address],
                       ["City", `${values.city}, ${values.district}, ${values.state}`],

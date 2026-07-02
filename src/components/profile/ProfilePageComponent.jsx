@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   User,
@@ -11,6 +11,7 @@ import {
   Landmark,
   Pencil,
 } from "lucide-react";
+import { toast } from "sonner";
 import PageHeader from "@/src/components/common/PageHeader";
 import PageLoader from "@/src/components/common/PageLoader";
 import {
@@ -27,6 +28,13 @@ import {
   selectProfileLoading,
   selectProfileError,
 } from "@/src/redux/slices/profileSlice";
+import { selectUser } from "@/src/redux/slices/authSlice";
+import { getBusinessTypeLabel } from "@/src/constants/businessTypes";
+
+function formatStatus(status) {
+  if (!status) return "—";
+  return String(status).charAt(0).toUpperCase() + String(status).slice(1);
+}
 
 function InfoCard({ icon: Icon, title, children }) {
   return (
@@ -58,17 +66,28 @@ function InfoField({ label, value }) {
 export default function ProfilePageComponent({ role }) {
   const dispatch = useDispatch();
   const profile = useSelector(selectProfile);
+  const authUser = useSelector(selectUser);
   const loading = useSelector(selectProfileLoading);
   const error = useSelector(selectProfileError);
+  const lastErrorRef = useRef(null);
 
   useEffect(() => {
     dispatch(fetchProfile());
   }, [dispatch]);
 
-  const backHref = role === "md" ? "/md/dashboard" : "/dd/dashboard";
-  const data = profile || {};
+  useEffect(() => {
+    if (loading || !error) return;
+    if (lastErrorRef.current === error) return;
+    lastErrorRef.current = error;
+    toast.error(typeof error === "string" ? error : "Failed to fetch profile");
+  }, [loading, error]);
 
-  if (loading && !profile) {
+  const backHref = role === "md" ? "/md/dashboard" : "/dd/dashboard";
+  const data = profile || authUser || {};
+  const outlet = data.outlet || {};
+  const distributorId = data.userId || data.id || data._id;
+
+  if (loading && !profile && !authUser?.email) {
     return <PageLoader message="Loading profile..." />;
   }
 
@@ -119,6 +138,9 @@ export default function ProfilePageComponent({ role }) {
                 <Phone className="h-3.5 w-3.5" />
                 {data.mobile}
               </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-3 py-1 text-emerald-100">
+                {formatStatus(data.status)}
+              </span>
             </div>
           </div>
         </CardContent>
@@ -127,22 +149,31 @@ export default function ProfilePageComponent({ role }) {
       <InfoCard icon={User} title="Personal Information">
         <InfoField label="First Name" value={data.firstName} />
         <InfoField label="Last Name" value={data.lastName} />
+        <InfoField label="Full Name" value={data.name} />
         <InfoField label="Email" value={data.email} />
-        <InfoField label="Mobile" value={data.mobile} />
+        <InfoField label="Mobile Number" value={data.mobile} />
+        <InfoField
+          label={role === "dd" ? "Distributor ID" : "User ID"}
+          value={distributorId}
+        />
         <InfoField label="Alternate Mobile" value={data.alternateMobileNumber} />
         <InfoField label="User Type" value={data.roleLabel || data.userType} />
+        <InfoField label="Status" value={formatStatus(data.status)} />
       </InfoCard>
 
-      {data.outlet && (
+      {(outlet.outletName || data.outlet) && (
         <InfoCard icon={Building2} title="Outlet Information">
-          <InfoField label="Outlet Name" value={data.outlet.outletName} />
-          <InfoField label="Business Type" value={data.outlet.businessType} />
-          <InfoField label="GST Number" value={data.outlet.gstNumber} />
-          <InfoField label="Address" value={data.outlet.address} />
-          <InfoField label="State" value={data.outlet.state} />
-          <InfoField label="District" value={data.outlet.district} />
-          <InfoField label="City" value={data.outlet.city} />
-          <InfoField label="Pincode" value={data.outlet.pincode} />
+          <InfoField label="Outlet Name" value={outlet.outletName} />
+          <InfoField
+            label="Business Type"
+            value={getBusinessTypeLabel(outlet.businessType) || outlet.businessType}
+          />
+          <InfoField label="GST Number" value={outlet.gstNumber} />
+          <InfoField label="Address" value={outlet.address} />
+          <InfoField label="State" value={outlet.state} />
+          <InfoField label="District" value={outlet.district} />
+          <InfoField label="City" value={outlet.city} />
+          <InfoField label="Pincode" value={outlet.pincode} />
         </InfoCard>
       )}
 

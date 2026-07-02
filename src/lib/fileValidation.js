@@ -21,11 +21,11 @@ export function validateImageFile(file, maxSizeMB = MAX_IMAGE_SIZE_MB) {
     ALLOWED_IMAGE_EXTENSIONS.includes(ext);
 
   if (!typeOk) {
-    return "Allowed images: JPG, JPEG, PNG, WEBP";
+    return "Only JPG, JPEG and PNG images are allowed.";
   }
 
   if (file.size > maxSizeMB * 1024 * 1024) {
-    return `Image must be under ${maxSizeMB}MB`;
+    return "Maximum image size is 5 MB";
   }
 
   return "";

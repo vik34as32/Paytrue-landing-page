@@ -51,11 +51,11 @@ export const SIDEBAR_LINKS = [
     href: "/rt/retailer/profile",
     icon: "UserCog",
   },
-  {
-    label: "My Account",
-    href: "/rt/retailer/profile",
-    icon: "User",
-  },
+  // {
+  //   label: "My Account",
+  //   href: "/rt/retailer/profile",
+  //   icon: "User",
+  // },
 ];
 
 export const POPULAR_SERVICES: ServiceItem[] = [

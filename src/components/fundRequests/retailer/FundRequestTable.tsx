@@ -1,17 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import DataTable, { type TableColumn } from "react-data-table-component";
 import {
+  ChevronLeft,
+  ChevronRight,
   Download,
   Eye,
-  MoreHorizontal,
+  FileSpreadsheet,
+  FileText,
+  Printer,
   Search,
+  X,
   XCircle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -19,17 +25,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { formatCurrency, cn } from "@/lib/utils";
 import {
   exportFundRequestsCsv,
+  exportFundRequestsExcel,
+  exportFundRequestsPdf,
+  filterFundRequests,
   formatFundRequestDate,
-  downloadFundRequestReceipt,
+  formatFundRequestDateOnly,
+  formatPaymentModeLabel,
+  printFundRequests,
+  viewFundRequestReceipt,
 } from "@/src/lib/fundRequestUtils";
 import {
   FUND_REQUEST_STATUS_FILTERS,
@@ -38,65 +44,40 @@ import {
 } from "@/src/types/fundRequest";
 import FundRequestStatusBadge from "./FundRequestStatusBadge";
 import EmptyState from "./EmptyState";
+import {
+  cyanDataTableStyles,
+  CyanDataTableSortIcon,
+} from "@/src/components/common/cyanDataTableStyles";
 
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
-const tableCustomStyles = {
-  table: {
-    style: {
-      backgroundColor: "transparent",
-    },
-  },
-  headRow: {
-    style: {
-      backgroundColor: "#f8fafc",
-      borderBottom: "1px solid #e2e8f0",
-      minHeight: "48px",
-    },
-  },
-  headCells: {
-    style: {
-      fontSize: "12px",
-      fontWeight: 700,
-      color: "#475569",
-      textTransform: "uppercase",
-      letterSpacing: "0.04em",
-    },
-  },
-  rows: {
-    style: {
-      minHeight: "56px",
-      fontSize: "14px",
-      color: "#334155",
-      borderBottom: "1px solid #f1f5f9",
-      "&:hover": {
-        backgroundColor: "#f8fbff",
-        cursor: "pointer",
-      },
-    },
-    highlightOnHoverStyle: {
-      backgroundColor: "#f8fbff",
-      borderBottomColor: "#e2e8f0",
-    },
-  },
-  cells: {
-    style: {
-      paddingTop: "12px",
-      paddingBottom: "12px",
-    },
-  },
-  pagination: {
-    style: {
-      borderTop: "1px solid #e2e8f0",
-      minHeight: "56px",
-      fontSize: "13px",
-      color: "#64748b",
-    },
-  },
-};
+function StackedHeader({ lines }: { lines: string[] }) {
+  return (
+    <span className="inline-flex flex-col items-center justify-center leading-[1.15]">
+      {lines.map((line) => (
+        <span key={line}>{line}</span>
+      ))}
+    </span>
+  );
+}
 
 interface FundRequestTableProps {
   requests: FundRequest[];
+  total?: number;
+  page?: number;
+  limit?: number;
+  search?: string;
+  statusFilter?: FundRequestStatusFilter;
+  dateFrom?: string;
+  dateTo?: string;
+  serverMode?: boolean;
+  loading?: boolean;
+  onSearchChange?: (value: string) => void;
+  onStatusFilterChange?: (value: FundRequestStatusFilter) => void;
+  onDateFromChange?: (value: string) => void;
+  onDateToChange?: (value: string) => void;
+  onPageChange?: (page: number) => void;
+  onLimitChange?: (limit: number) => void;
   onRowClick: (request: FundRequest) => void;
   onCancelRequest: (request: FundRequest) => void;
   onCreateClick?: () => void;
@@ -106,12 +87,12 @@ function MobileRequestCard({
   request,
   onView,
   onCancel,
-  onDownloadReceipt,
+  onViewReceipt,
 }: {
   request: FundRequest;
   onView: () => void;
   onCancel: () => void;
-  onDownloadReceipt: () => void;
+  onViewReceipt: () => void;
 }) {
   return (
     <motion.div
@@ -128,7 +109,7 @@ function MobileRequestCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            {request.requestId}
+            {request.referenceNumber || request.requestId}
           </p>
           <p className="mt-1 text-lg font-bold text-[#001F5B]">
             {formatCurrency(request.amount)}
@@ -139,16 +120,20 @@ function MobileRequestCard({
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
         <div>
+          <p className="text-slate-400">Company Bank</p>
+          <p className="font-medium">{request.companyBankName || "—"}</p>
+        </div>
+        <div>
           <p className="text-slate-400">Mode</p>
-          <p className="font-medium">{request.paymentMode}</p>
+          <p className="font-medium">{formatPaymentModeLabel(request.paymentMode)}</p>
+        </div>
+        <div>
+          <p className="text-slate-400">UTR</p>
+          <p className="font-medium">{request.utrNumber || "—"}</p>
         </div>
         <div>
           <p className="text-slate-400">Date</p>
           <p className="font-medium">{formatFundRequestDate(request.createdAt)}</p>
-        </div>
-        <div className="col-span-2">
-          <p className="text-slate-400">Remark</p>
-          <p className="line-clamp-2 font-medium">{request.remark || "—"}</p>
         </div>
       </div>
 
@@ -159,6 +144,10 @@ function MobileRequestCard({
         <Button type="button" size="sm" variant="outline" onClick={onView}>
           <Eye className="h-3.5 w-3.5" />
           View
+        </Button>
+        <Button type="button" size="sm" variant="outline" onClick={onViewReceipt}>
+          <Download className="h-3.5 w-3.5" />
+          Receipt
         </Button>
         {request.status === "pending" && (
           <Button
@@ -172,68 +161,212 @@ function MobileRequestCard({
             Cancel
           </Button>
         )}
-        {request.status === "approved" && (
-          <Button type="button" size="sm" variant="outline" onClick={onDownloadReceipt}>
-            <Download className="h-3.5 w-3.5" />
-            Receipt
-          </Button>
-        )}
       </div>
     </motion.div>
   );
 }
 
+function MobilePagination({
+  page,
+  totalPages,
+  rowsPerPage,
+  totalRows,
+  onPageChange,
+  onRowsPerPageChange,
+}: {
+  page: number;
+  totalPages: number;
+  rowsPerPage: number;
+  totalRows: number;
+  onPageChange: (page: number) => void;
+  onRowsPerPageChange: (rows: number) => void;
+}) {
+  const from = totalRows === 0 ? 0 : (page - 1) * rowsPerPage + 1;
+  const to = Math.min(page * rowsPerPage, totalRows);
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-xs text-slate-500">
+        Showing {from}–{to} of {totalRows}
+      </p>
+      <div className="flex items-center gap-2">
+        <select
+          value={rowsPerPage}
+          onChange={(event) => onRowsPerPageChange(Number(event.target.value))}
+          className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs"
+          aria-label="Rows per page"
+        >
+          {ROWS_PER_PAGE_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {option} / page
+            </option>
+          ))}
+        </select>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+          aria-label="Previous page"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <span className="min-w-[4rem] text-center text-xs font-medium text-slate-600">
+          {page} / {totalPages || 1}
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9"
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+          aria-label="Next page"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function FundRequestTable({
   requests,
+  total: totalRowsProp,
+  page: pageProp,
+  limit: limitProp,
+  search: searchProp,
+  statusFilter: statusFilterProp,
+  dateFrom: dateFromProp,
+  dateTo: dateToProp,
+  serverMode = false,
+  loading = false,
+  onSearchChange,
+  onStatusFilterChange,
+  onDateFromChange,
+  onDateToChange,
+  onPageChange,
+  onLimitChange,
   onRowClick,
   onCancelRequest,
   onCreateClick,
 }: FundRequestTableProps) {
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] =
+  const [localSearch, setLocalSearch] = useState("");
+  const [localStatusFilter, setLocalStatusFilter] =
     useState<FundRequestStatusFilter>("All");
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [localDateFrom, setLocalDateFrom] = useState("");
+  const [localDateTo, setLocalDateTo] = useState("");
+  const [localRowsPerPage, setLocalRowsPerPage] = useState(10);
+  const [localCurrentPage, setLocalCurrentPage] = useState(1);
+  const [localMobilePage, setLocalMobilePage] = useState(1);
 
-  const filteredRequests = useMemo(() => {
-    const query = search.trim().toLowerCase();
+  const search = serverMode ? (searchProp ?? "") : localSearch;
+  const statusFilter = serverMode ? (statusFilterProp ?? "All") : localStatusFilter;
+  const dateFrom = serverMode ? (dateFromProp ?? "") : localDateFrom;
+  const dateTo = serverMode ? (dateToProp ?? "") : localDateTo;
+  const rowsPerPage = serverMode ? (limitProp ?? 10) : localRowsPerPage;
+  const currentPage = serverMode ? (pageProp ?? 1) : localCurrentPage;
+  const mobilePage = serverMode ? (pageProp ?? 1) : localMobilePage;
 
-    return requests.filter((request) => {
-      const matchesStatus =
-        statusFilter === "All" ||
-        request.status === statusFilter.toLowerCase();
+  const setSearch = (value: string) => {
+    if (serverMode) onSearchChange?.(value);
+    else setLocalSearch(value);
+  };
+  const setStatusFilter = (value: FundRequestStatusFilter) => {
+    if (serverMode) onStatusFilterChange?.(value);
+    else setLocalStatusFilter(value);
+  };
+  const setDateFrom = (value: string) => {
+    if (serverMode) onDateFromChange?.(value);
+    else setLocalDateFrom(value);
+  };
+  const setDateTo = (value: string) => {
+    if (serverMode) onDateToChange?.(value);
+    else setLocalDateTo(value);
+  };
+  const setRowsPerPage = (value: number) => {
+    if (serverMode) onLimitChange?.(value);
+    else setLocalRowsPerPage(value);
+  };
+  const setCurrentPage = (value: number) => {
+    if (serverMode) onPageChange?.(value);
+    else setLocalCurrentPage(value);
+  };
+  const setMobilePage = (value: number) => {
+    if (serverMode) onPageChange?.(value);
+    else setLocalMobilePage(value);
+  };
+  const [exportingPdf, setExportingPdf] = useState(false);
 
-      if (!matchesStatus) return false;
-      if (!query) return true;
+  const filteredRequests = useMemo(
+    () =>
+      serverMode
+        ? requests
+        : filterFundRequests(requests, {
+            search,
+            statusFilter,
+            dateFrom,
+            dateTo,
+          }),
+    [requests, search, statusFilter, dateFrom, dateTo, serverMode]
+  );
 
-      return (
-        request.requestId.toLowerCase().includes(query) ||
-        request.paymentMode.toLowerCase().includes(query) ||
-        request.utrNumber.toLowerCase().includes(query) ||
-        request.remark.toLowerCase().includes(query) ||
-        request.status.toLowerCase().includes(query) ||
-        request.approvedBy.toLowerCase().includes(query)
-      );
-    });
-  }, [requests, search, statusFilter]);
+  const totalRows = serverMode ? (totalRowsProp ?? requests.length) : filteredRequests.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+
+  const paginatedMobileRequests = useMemo(() => {
+    if (serverMode) return filteredRequests;
+    const start = (mobilePage - 1) * rowsPerPage;
+    return filteredRequests.slice(start, start + rowsPerPage);
+  }, [filteredRequests, mobilePage, rowsPerPage, serverMode]);
+
+  useEffect(() => {
+    if (serverMode) return;
+    setMobilePage(1);
+    setCurrentPage(1);
+  }, [search, statusFilter, dateFrom, dateTo, rowsPerPage, serverMode]);
+
+  useEffect(() => {
+    if (serverMode) return;
+    if (mobilePage > totalPages) {
+      setMobilePage(totalPages);
+    }
+  }, [mobilePage, totalPages, serverMode]);
+
+  const hasActiveFilters =
+    search.trim() !== "" ||
+    statusFilter !== "All" ||
+    dateFrom !== "" ||
+    dateTo !== "";
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatusFilter("All");
+    setDateFrom("");
+    setDateTo("");
+  };
 
   const columns: TableColumn<FundRequest>[] = useMemo(
     () => [
       {
-        id: "requestId",
-        name: "Request ID",
-        selector: (row) => row.requestId,
-        sortable: true,
-        minWidth: "130px",
-        cell: (row) => (
-          <span className="font-semibold text-[#0057D9]">{row.requestId}</span>
+        id: "sno",
+        name: "S.No",
+        width: "64px",
+        center: true,
+        cell: (_row, index) => (
+          <span className="font-medium text-slate-700">
+            {(currentPage - 1) * rowsPerPage + (index ?? 0) + 1}
+          </span>
         ),
       },
       {
         id: "amount",
-        name: "Requested Amount",
+        name: "Amount",
         selector: (row) => row.amount,
         sortable: true,
-        minWidth: "150px",
+        minWidth: "110px",
         cell: (row) => (
           <span className="font-semibold tabular-nums">
             {formatCurrency(row.amount)}
@@ -241,42 +374,100 @@ export default function FundRequestTable({
         ),
       },
       {
-        id: "paymentMode",
-        name: "Payment Mode",
-        selector: (row) => row.paymentMode,
-        sortable: true,
-        minWidth: "130px",
-      },
-      {
-        id: "utrNumber",
-        name: "UTR",
-        selector: (row) => row.utrNumber,
-        sortable: true,
-        minWidth: "140px",
-        cell: (row) => (
-          <span className="text-slate-600">{row.utrNumber || "—"}</span>
-        ),
-      },
-      {
-        id: "remark",
-        name: "Remark",
-        selector: (row) => row.remark,
-        sortable: true,
-        minWidth: "180px",
-        wrap: true,
-        cell: (row) => (
-          <span className="line-clamp-2 text-slate-600">{row.remark || "—"}</span>
-        ),
-      },
-      {
         id: "createdAt",
-        name: "Requested Date",
+        name: <StackedHeader lines={["Request", "Date"]} />,
         selector: (row) => row.createdAt,
         sortable: true,
-        minWidth: "170px",
+        minWidth: "108px",
+        center: true,
         cell: (row) => (
-          <span className="whitespace-nowrap text-slate-600">
-            {formatFundRequestDate(row.createdAt)}
+          <span className="whitespace-nowrap text-center text-slate-600">
+            {formatFundRequestDateOnly(row.createdAt)}
+          </span>
+        ),
+      },
+      {
+        id: "paymentDate",
+        name: <StackedHeader lines={["Deposit", "Date"]} />,
+        selector: (row) => row.paymentDate,
+        sortable: true,
+        minWidth: "108px",
+        center: true,
+        cell: (row) => (
+          <span className="whitespace-nowrap text-center text-slate-600">
+            {row.paymentDate
+              ? formatFundRequestDateOnly(row.paymentDate)
+              : "—"}
+          </span>
+        ),
+      },
+      {
+        id: "depositBank",
+        name: <StackedHeader lines={["Deposit", "Bank"]} />,
+        selector: (row) => row.companyBankName || row.bankName || "",
+        sortable: true,
+        minWidth: "120px",
+        center: true,
+        cell: (row) => (
+          <span className="text-center text-slate-600">
+            {row.companyBankName || row.bankName || "—"}
+          </span>
+        ),
+      },
+      {
+        id: "requestId",
+        name: <StackedHeader lines={["Request", "Id"]} />,
+        selector: (row) => row.requestId || row.referenceNumber || "",
+        sortable: true,
+        minWidth: "110px",
+        center: true,
+        cell: (row) => (
+          <span className="font-semibold text-[#0057D9]">
+            {row.requestId || row.referenceNumber || "—"}
+          </span>
+        ),
+      },
+      {
+        id: "bankRefId",
+        name: <StackedHeader lines={["Bank", "Ref.", "Id"]} />,
+        selector: (row) => row.utrNumber,
+        sortable: true,
+        minWidth: "110px",
+        center: true,
+        cell: (row) => (
+          <span className="text-center text-slate-600">
+            {row.utrNumber || "—"}
+          </span>
+        ),
+      },
+      {
+        id: "approvedDate",
+        name: <StackedHeader lines={["Approved", "Date"]} />,
+        selector: (row) => row.approvedDate,
+        sortable: true,
+        minWidth: "108px",
+        center: true,
+        cell: (row) => (
+          <span className="whitespace-nowrap text-center text-slate-600">
+            {row.approvedDate
+              ? formatFundRequestDateOnly(row.approvedDate)
+              : "—"}
+          </span>
+        ),
+      },
+      {
+        id: "adminRemark",
+        name: <StackedHeader lines={["Admin", "Remark"]} />,
+        selector: (row) => row.adminRemark || "",
+        sortable: true,
+        minWidth: "130px",
+        center: true,
+        cell: (row) => (
+          <span
+            className="block max-w-[160px] truncate text-center text-slate-600"
+            title={row.adminRemark || undefined}
+          >
+            {row.adminRemark || "—"}
           </span>
         ),
       },
@@ -286,84 +477,26 @@ export default function FundRequestTable({
         selector: (row) => row.status,
         sortable: true,
         minWidth: "120px",
+        center: true,
         cell: (row) => <FundRequestStatusBadge status={row.status} />,
       },
-      {
-        id: "approvedBy",
-        name: "Approved By",
-        selector: (row) => row.approvedBy,
-        sortable: true,
-        minWidth: "150px",
-        cell: (row) => (
-          <span className="text-slate-600">{row.approvedBy || "—"}</span>
-        ),
-      },
-      {
-        id: "approvedDate",
-        name: "Approved Date",
-        selector: (row) => row.approvedDate,
-        sortable: true,
-        minWidth: "170px",
-        cell: (row) => (
-          <span className="whitespace-nowrap text-slate-600">
-            {row.approvedDate ? formatFundRequestDate(row.approvedDate) : "—"}
-          </span>
-        ),
-      },
-      {
-        name: "Actions",
-        minWidth: "100px",
-        center: true,
-        cell: (row) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-                <span className="sr-only">Actions</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem
-                onClick={() => onRowClick(row)}
-              >
-                <Eye className="h-4 w-4" />
-                View Details
-              </DropdownMenuItem>
-              {row.status === "pending" && (
-                <DropdownMenuItem
-                  className="text-red-600 focus:text-red-600"
-                  onClick={() => onCancelRequest(row)}
-                >
-                  <XCircle className="h-4 w-4" />
-                  Cancel Request
-                </DropdownMenuItem>
-              )}
-              {row.status === "approved" && (
-                <DropdownMenuItem
-                  onClick={() => void downloadFundRequestReceipt(row)}
-                >
-                  <Download className="h-4 w-4" />
-                  Download Receipt
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
-        ignoreRowClick: true,
-        allowOverflow: true,
-        button: true,
-      },
     ],
-    [onCancelRequest, onRowClick]
+    [currentPage, rowsPerPage]
   );
 
-  const showEmpty = requests.length === 0;
-  const showFilteredEmpty = !showEmpty && filteredRequests.length === 0;
+  const showEmpty = !loading && totalRows === 0 && !hasActiveFilters;
+  const showFilteredEmpty = !loading && !showEmpty && filteredRequests.length === 0;
+  const exportDisabled = filteredRequests.length === 0;
+
+  const handleExportPdf = async () => {
+    if (exportDisabled) return;
+    setExportingPdf(true);
+    try {
+      await exportFundRequestsPdf(filteredRequests);
+    } finally {
+      setExportingPdf(false);
+    }
+  };
 
   return (
     <Card className="rounded-2xl border-slate-200/80 shadow-sm">
@@ -372,32 +505,109 @@ export default function FundRequestTable({
           <div>
             <CardTitle className="text-[#001F5B]">Fund Request History</CardTitle>
             <CardDescription>
-              {filteredRequests.length} of {requests.length} requests
+              {totalRows} request{totalRows === 1 ? "" : "s"}
+              {hasActiveFilters ? " (filtered)" : ""}
             </CardDescription>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5 self-start"
-            disabled={filteredRequests.length === 0}
-            onClick={() => exportFundRequestsCsv(filteredRequests)}
-          >
-            <Download className="h-4 w-4" />
-            Export CSV
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={exportDisabled}
+              onClick={() => exportFundRequestsCsv(filteredRequests)}
+            >
+              <Download className="h-4 w-4" />
+              CSV
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={exportDisabled}
+              onClick={() => exportFundRequestsExcel(filteredRequests)}
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Excel
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={exportDisabled || exportingPdf}
+              onClick={() => void handleExportPdf()}
+            >
+              <FileText className="h-4 w-4" />
+              {exportingPdf ? "Exporting..." : "PDF"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={exportDisabled}
+              onClick={() => printFundRequests(filteredRequests)}
+            >
+              <Printer className="h-4 w-4" />
+              Print
+            </Button>
+          </div>
         </div>
 
         {!showEmpty && (
           <>
-            <div className="relative w-full lg:max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                placeholder="Search ID, UTR, remark, status..."
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                className="pl-9"
-              />
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto]">
+              <div className="relative sm:col-span-2 lg:col-span-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  placeholder="Search reference, UTR, bank, status..."
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  className="pl-9"
+                  disabled={loading}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="fund-date-from" className="text-xs text-slate-500">
+                  Start Date
+                </Label>
+                <Input
+                  id="fund-date-from"
+                  type="date"
+                  value={dateFrom}
+                  max={dateTo || undefined}
+                  onChange={(event) => setDateFrom(event.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="fund-date-to" className="text-xs text-slate-500">
+                  End Date
+                </Label>
+                <Input
+                  id="fund-date-to"
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={(event) => setDateTo(event.target.value)}
+                />
+              </div>
+              {hasActiveFilters && (
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-11 w-full gap-1.5"
+                    onClick={clearFilters}
+                  >
+                    <X className="h-4 w-4" />
+                    Clear
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -409,7 +619,13 @@ export default function FundRequestTable({
                   className={cn(
                     "rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all",
                     statusFilter === filter
-                      ? "bg-[#1565d8] text-white shadow-md shadow-blue-200"
+                      ? filter === "Approved"
+                        ? "bg-emerald-600 text-white shadow-md shadow-emerald-200"
+                        : filter === "Declined"
+                          ? "bg-red-600 text-white shadow-md shadow-red-200"
+                          : filter === "Pending"
+                            ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+                            : "bg-[#1565d8] text-white shadow-md shadow-blue-200"
                       : "border border-slate-200 bg-white text-slate-600 hover:border-[#1565d8]/30 hover:bg-blue-50 hover:text-[#1565d8]"
                   )}
                 >
@@ -426,28 +642,44 @@ export default function FundRequestTable({
           <EmptyState onCreateClick={onCreateClick} />
         ) : (
           <>
-            <div className="hidden overflow-x-auto px-4 sm:px-6 md:block">
+            <div className="paytrue-cyan-datatable hidden overflow-x-auto px-4 sm:px-6 md:block">
               <DataTable
+                key={`${search}-${statusFilter}-${dateFrom}-${dateTo}-${rowsPerPage}-${currentPage}`}
                 columns={columns}
                 data={filteredRequests}
+                progressPending={loading}
                 pagination
+                paginationServer={serverMode}
+                paginationTotalRows={serverMode ? totalRows : filteredRequests.length}
+                paginationDefaultPage={currentPage}
                 paginationPerPage={rowsPerPage}
                 paginationRowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
                 onChangeRowsPerPage={setRowsPerPage}
+                onChangePage={setCurrentPage}
+                paginationResetDefaultPage={!serverMode}
                 paginationComponentOptions={{
                   rowsPerPageText: "Rows per page:",
                   rangeSeparatorText: "of",
                 }}
-                sortIcon={<span className="ml-1 text-slate-400">↕</span>}
+                sortIcon={<CyanDataTableSortIcon />}
                 defaultSortFieldId="createdAt"
                 defaultSortAsc={false}
                 highlightOnHover
                 striped
                 responsive
                 fixedHeader
-                fixedHeaderScrollHeight="520px"
+                fixedHeaderScrollHeight="480px"
                 persistTableHead
-                customStyles={tableCustomStyles}
+                customStyles={{
+                  ...cyanDataTableStyles,
+                  rows: {
+                    ...cyanDataTableStyles.rows,
+                    style: {
+                      ...cyanDataTableStyles.rows.style,
+                      cursor: "pointer",
+                    },
+                  },
+                }}
                 onRowClicked={onRowClick}
                 pointerOnHover
                 noDataComponent={
@@ -455,31 +687,61 @@ export default function FundRequestTable({
                     <p className="text-sm font-medium text-slate-600">
                       No matching requests found
                     </p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      Try adjusting your search or filter
-                    </p>
+                    {hasActiveFilters && (
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="mt-2"
+                        onClick={clearFilters}
+                      >
+                        Clear filters
+                      </Button>
+                    )}
                   </div>
                 }
               />
             </div>
 
-            <div className="space-y-3 px-4 pb-6 md:hidden">
-              {showFilteredEmpty ? (
-                <div className="py-12 text-center">
-                  <p className="text-sm font-medium text-slate-600">
-                    No matching requests found
-                  </p>
-                </div>
-              ) : (
-                filteredRequests.map((request) => (
-                  <MobileRequestCard
-                    key={request.id}
-                    request={request}
-                    onView={() => onRowClick(request)}
-                    onCancel={() => onCancelRequest(request)}
-                    onDownloadReceipt={() => void downloadFundRequestReceipt(request)}
-                  />
-                ))
+            <div className="md:hidden">
+              <div className="space-y-3 px-4 pb-2">
+                {showFilteredEmpty ? (
+                  <div className="py-12 text-center">
+                    <p className="text-sm font-medium text-slate-600">
+                      No matching requests found
+                    </p>
+                    {hasActiveFilters && (
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="mt-2"
+                        onClick={clearFilters}
+                      >
+                        Clear filters
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  paginatedMobileRequests.map((request) => (
+                    <MobileRequestCard
+                      key={request.id}
+                      request={request}
+                      onView={() => onRowClick(request)}
+                      onCancel={() => onCancelRequest(request)}
+                      onViewReceipt={() => viewFundRequestReceipt(request)}
+                    />
+                  ))
+                )}
+              </div>
+
+              {!showFilteredEmpty && totalRows > 0 && (
+                <MobilePagination
+                  page={mobilePage}
+                  totalPages={totalPages}
+                  rowsPerPage={rowsPerPage}
+                  totalRows={totalRows}
+                  onPageChange={setMobilePage}
+                  onRowsPerPageChange={setRowsPerPage}
+                />
               )}
             </div>
           </>

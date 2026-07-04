@@ -50,7 +50,7 @@ export const retailerOwnFundRequests: FundRequest[] = [
     id: "fr_rt_004",
     requestId: "FRRT10004",
     amount: 1500,
-    paymentMode: "Cash Deposit",
+    paymentMode: "CASH_DEPOSIT",
     utrNumber: "",
     paymentDate: "2026-06-12",
     remark: "Cash deposited at distributor office",

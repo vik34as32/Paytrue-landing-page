@@ -6,13 +6,6 @@ function appendIfPresent(formData, key, value) {
   }
 }
 
-function appendNested(formData, prefix, obj) {
-  if (!obj) return;
-  Object.entries(obj).forEach(([key, value]) => {
-    appendIfPresent(formData, `${prefix}[${key}]`, value);
-  });
-}
-
 function appendFileIfPresent(formData, key, file) {
   if (file instanceof File) {
     formData.append(key, file);
@@ -35,42 +28,51 @@ export function buildUserFormData(values, files = {}, options = {}) {
   appendIfPresent(formData, "mobile", values.mobile);
   appendIfPresent(formData, "alternateMobileNumber", values.alternateMobileNumber);
   appendIfPresent(formData, "userType", userType);
+  appendIfPresent(formData, "gender", values.gender);
+  appendIfPresent(formData, "dateOfBirth", values.dateOfBirth);
+  appendIfPresent(formData, "address", values.address);
+  appendIfPresent(formData, "state", values.state);
+  appendIfPresent(formData, "city", values.city);
+  appendIfPresent(formData, "pincode", values.pincode);
 
   if (includePassword && values.password) {
     appendIfPresent(formData, "password", values.password);
   }
 
   formData.append(
-  "outlet",
-  JSON.stringify({
-    outletName: values.outletName,
-    businessType: values.businessType,
-    gstNumber: values.gstNumber,
-    address: values.address,
-    state: values.state,
-    district: values.district,
-    city: values.city,
-    village: values.village,
-    pincode: values.pincode,
-    latitude: values.latitude,
-    longitude: values.longitude,
-  })
-);
+    "outlet",
+    JSON.stringify({
+      outletName: values.outletName,
+      businessType: values.businessType,
+      gstNumber: values.gstNumber,
+      address: values.address,
+      state: values.state,
+      district: values.district,
+      city: values.city,
+      village: values.village,
+      pincode: values.pincode,
+      latitude: values.latitude,
+      longitude: values.longitude,
+    })
+  );
 
- formData.append("kyc", JSON.stringify({
-  aadhaarNumber: values.aadhaarNumber,
-  panNumber: values.panNumber
-}));
+  const kycPayload = {
+    panNumber: values.panNumber ? String(values.panNumber).toUpperCase() : "",
+  };
+  if (userType === "RETAILER") {
+    kycPayload.aadhaarNumber = values.aadhaarNumber || "";
+  }
+  formData.append("kyc", JSON.stringify(kycPayload));
 
-
-  formData.append("bankAccount", JSON.stringify({
-  accountHolderName: values.accountHolderName,
-  bankName: values.bankName,
-  accountNumber: values.accountNumber,
-  ifscCode: values.ifscCode
-}));
-
-
+  formData.append(
+    "bankAccount",
+    JSON.stringify({
+      accountHolderName: values.accountHolderName,
+      bankName: values.bankName,
+      accountNumber: values.accountNumber,
+      ifscCode: values.ifscCode ? String(values.ifscCode).toUpperCase() : "",
+    })
+  );
 
   Object.entries(USER_FILE_FIELDS).forEach(([formKey, apiKey]) => {
     appendFileIfPresent(formData, apiKey, files[formKey]);
@@ -88,25 +90,29 @@ export function mapApiUserToFormValues(user = {}) {
     firstName: user.firstName || "",
     lastName: user.lastName || "",
     email: user.email || "",
+    emailVerified: Boolean(user.emailVerified ?? user.isEmailVerified),
     mobile: user.mobile || "",
     password: "",
     alternateMobileNumber: user.alternateMobileNumber || "",
+    gender: user.gender || "",
+    dateOfBirth: user.dateOfBirth || user.dob || "",
     outletName: outlet.outletName || "",
     businessType: outlet.businessType || "",
     gstNumber: outlet.gstNumber || "",
-    address: outlet.address || "",
-    state: outlet.state || outlet.state || user.state || "",
+    address: outlet.address || user.address || "",
+    state: outlet.state || user.state || "",
     district: outlet.district || "",
     city: outlet.city || user.city || "",
     village: outlet.village || "",
-    pincode: outlet.pincode || "",
-    latitude: outlet.latitude || "",
-    longitude: outlet.longitude || "",
+    pincode: outlet.pincode || user.pincode || "",
+    latitude: outlet.latitude != null ? String(outlet.latitude) : "",
+    longitude: outlet.longitude != null ? String(outlet.longitude) : "",
     aadhaarNumber: kyc.aadhaarNumber || "",
     panNumber: kyc.panNumber || "",
     accountHolderName: bank.accountHolderName || "",
     bankName: bank.bankName || "",
     accountNumber: bank.accountNumber || "",
+    confirmAccountNumber: bank.accountNumber || "",
     ifscCode: bank.ifscCode || "",
   };
 }

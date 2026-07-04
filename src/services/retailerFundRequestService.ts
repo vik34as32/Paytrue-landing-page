@@ -1,80 +1,98 @@
-import { retailerOwnFundRequests } from "@/src/mock/retailerFundRequestHistory";
+import api from "@/src/lib/axios";
+import { API_ENDPOINTS } from "@/src/constants/api";
+import {
+  buildFundRequestListQuery,
+  extractCompanyBankAccounts,
+  extractFundRequestList,
+  extractFundRequestPagination,
+  normalizeCompanyBankAccount,
+  normalizeFundRequest,
+} from "@/src/lib/fundRequestUtils";
 import type {
+  CompanyBankAccount,
   CreateFundRequestPayload,
   FundRequest,
+  FundRequestListParams,
+  FundRequestListResult,
 } from "@/src/types/fundRequest";
 
-const delay = (ms = 450) =>
-  new Promise<void>((resolve) => setTimeout(resolve, ms));
+export async function fetchRetailerFundRequests(
+  params: FundRequestListParams = {}
+): Promise<FundRequestListResult> {
+  const page = params.page ?? 1;
+  const limit = params.limit ?? 10;
+  const query = buildFundRequestListQuery({ ...params, page, limit });
 
-function generateId(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-}
-
-function generateRequestId(prefix: string): string {
-  return `${prefix}${Math.floor(10000 + Math.random() * 90000)}`;
-}
-
-let requestStore: FundRequest[] = [...retailerOwnFundRequests];
-
-export async function fetchRetailerOwnFundRequests(): Promise<FundRequest[]> {
-  await delay();
-  return [...requestStore].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  const response = await api.get(API_ENDPOINTS.fundRequests, { params: query });
+  const payload = response.data?.data ?? response.data;
+  const list = extractFundRequestList(payload).map((item) =>
+    normalizeFundRequest(item)
   );
+  const pagination = extractFundRequestPagination(payload, { page, limit });
+
+  return {
+    list,
+    total: pagination.total || list.length,
+    page: pagination.page,
+    limit: pagination.limit,
+  };
+}
+
+export async function fetchCompanyBankAccounts(): Promise<CompanyBankAccount[]> {
+  try {
+    const response = await api.get(`${API_ENDPOINTS.fundRequests}/company-bank-accounts`);
+    const data = response.data?.data ?? response.data;
+    const list = Array.isArray(data) ? data : extractCompanyBankAccounts(data);
+    return list
+      .map((item) => normalizeCompanyBankAccount(item))
+      .filter((item) => item.id && item.isActive !== false);
+  } catch {
+    return [];
+  }
 }
 
 export async function createRetailerFundRequest(
   payload: CreateFundRequestPayload
 ): Promise<FundRequest> {
-  await delay(600);
+  const formData = new FormData();
+  formData.append("amount", String(payload.amount));
+  formData.append("paymentMode", payload.paymentMode);
+  formData.append("companyBankAccountId", payload.companyBankAccountId);
+  formData.append("paymentDate", payload.paymentDate);
 
-  const now = new Date().toISOString();
-  const request: FundRequest = {
-    id: generateId("fr_rt"),
-    requestId: generateRequestId("FRRT"),
-    amount: payload.amount,
-    paymentMode: payload.paymentMode,
-    utrNumber: payload.utrNumber?.trim() ?? "",
-    paymentDate: payload.paymentDate,
-    remark: payload.remark?.trim() ?? "",
-    status: "pending",
-    createdBy: payload.createdBy,
-    approvedBy: "",
-    approvedDate: "",
-    createdAt: now,
-    updatedAt: now,
-  };
+  if (payload.utrNumber?.trim()) {
+    formData.append("utrNumber", payload.utrNumber.trim());
+  }
+  if (payload.bankName?.trim()) {
+    formData.append("bankName", payload.bankName.trim());
+  }
+  if (payload.remark?.trim()) {
+    formData.append("remark", payload.remark.trim());
+  }
+  if (payload.receipt) {
+    formData.append("receipt", payload.receipt);
+  }
 
-  requestStore = [request, ...requestStore];
-  return request;
+  const response = await api.post(API_ENDPOINTS.fundRequests, formData);
+  const data = response.data?.data ?? response.data;
+  return normalizeFundRequest(
+    (data?.fundRequest as Record<string, unknown>) ||
+      (data?.request as Record<string, unknown>) ||
+      (data as Record<string, unknown>) ||
+      {}
+  );
 }
 
 export async function cancelRetailerFundRequest(
   requestId: string
 ): Promise<FundRequest> {
-  await delay(400);
-
-  const index = requestStore.findIndex((item) => item.id === requestId);
-  if (index === -1) {
-    throw new Error("Fund request not found");
-  }
-
-  const request = requestStore[index];
-  if (request.status !== "pending") {
-    throw new Error("Only pending requests can be cancelled");
-  }
-
-  const updated: FundRequest = {
-    ...request,
-    status: "cancelled",
-    updatedAt: new Date().toISOString(),
-  };
-
-  requestStore[index] = updated;
-  return updated;
-}
-
-export function resetRetailerFundRequestStore(): void {
-  requestStore = [...retailerOwnFundRequests];
+  const response = await api.patch(
+    `${API_ENDPOINTS.fundRequests}/${requestId}/cancel`
+  );
+  const data = response.data?.data ?? response.data;
+  return normalizeFundRequest(
+    (data?.fundRequest as Record<string, unknown>) ||
+      (data as Record<string, unknown>) ||
+      {}
+  );
 }

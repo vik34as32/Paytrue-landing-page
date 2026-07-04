@@ -10,6 +10,7 @@ import {
   Settings,
   LogOut,
   ChevronDown,
+  KeyRound,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -25,15 +26,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import ChangePasswordDialog from "@/src/components/common/ChangePasswordDialog";
 import { RETAILER_USER } from "@/features/retailer/constants";
 import VirtualCard from "./VirtualCard";
-import { useWalletStore } from "@/features/retailer/store/walletStore";
-import { formatCurrency } from "@/lib/utils";
 
 export default function ProfileDropdown() {
   const [showVirtualCard, setShowVirtualCard] = useState(false);
-  const [showWalletHistory, setShowWalletHistory] = useState(false);
-  const transactions = useWalletStore((s) => s.transactions);
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   return (
     <>
@@ -81,12 +80,14 @@ export default function ProfileDropdown() {
             </Link>
           </DropdownMenuItem>
 
-          <DropdownMenuItem
-            onClick={() => setShowWalletHistory(true)}
-            className="rounded-lg"
-          >
-            <Wallet className="h-4 w-4 text-emerald-600" />
-            Wallet History
+          <DropdownMenuItem asChild>
+            <Link
+              href="/rt/retailer/wallet-history"
+              className="cursor-pointer rounded-lg"
+            >
+              <Wallet className="h-4 w-4 text-emerald-600" />
+              Wallet History
+            </Link>
           </DropdownMenuItem>
 
           <DropdownMenuItem
@@ -97,12 +98,20 @@ export default function ProfileDropdown() {
             Virtual Card
           </DropdownMenuItem>
 
-          <DropdownMenuItem asChild>
+          <DropdownMenuItem
+            onClick={() => setShowChangePassword(true)}
+            className="rounded-lg"
+          >
+            <KeyRound className="h-4 w-4 text-amber-600" />
+            Change Password
+          </DropdownMenuItem>
+
+          {/* <DropdownMenuItem asChild>
             <Link href="/rt/retailer/profile" className="cursor-pointer rounded-lg">
               <Settings className="h-4 w-4 text-slate-500" />
               Settings
             </Link>
-          </DropdownMenuItem>
+          </DropdownMenuItem> */}
 
           <DropdownMenuSeparator />
 
@@ -127,53 +136,10 @@ export default function ProfileDropdown() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showWalletHistory} onOpenChange={setShowWalletHistory}>
-        <DialogContent className="max-h-[80vh] max-w-lg overflow-y-auto rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-[#0b1f3a]">
-              Wallet Transaction History
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            {transactions.length === 0 ? (
-              <p className="py-8 text-center text-sm text-slate-400">
-                No transactions yet
-              </p>
-            ) : (
-              transactions.map((txn) => (
-                <div
-                  key={txn.id}
-                  className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/80 p-3.5"
-                >
-                  <div>
-                    <p className="text-[13px] font-semibold text-[#0b1f3a]">
-                      {txn.description}
-                    </p>
-                    <p className="text-[11px] text-slate-400">
-                      {new Date(txn.createdAt).toLocaleString("en-IN")}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p
-                      className={`text-[13px] font-bold ${
-                        txn.type === "debit"
-                          ? "text-red-600"
-                          : "text-emerald-600"
-                      }`}
-                    >
-                      {txn.type === "debit" ? "-" : "+"}
-                      {formatCurrency(txn.amount)}
-                    </p>
-                    <p className="text-[11px] text-slate-400">
-                      Bal: {formatCurrency(txn.balanceAfter)}
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ChangePasswordDialog
+        open={showChangePassword}
+        onOpenChange={setShowChangePassword}
+      />
     </>
   );
 }

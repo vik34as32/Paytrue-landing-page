@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/sheet";
 import { formatCurrency } from "@/lib/utils";
 import type { FundRequest, FundRequestStatus } from "@/src/types/fundRequest";
+import { formatPaymentModeLabel } from "@/src/lib/fundRequestUtils";
 import FundRequestStatusBadge from "./FundRequestStatusBadge";
 
 interface RequestDrawerProps {
@@ -105,8 +106,8 @@ function buildTimeline(status: FundRequestStatus): TimelineStep[] {
       { ...base[2], state: "current" },
       {
         key: "rejected",
-        label: "Rejected",
-        description: "Request was rejected",
+        label: "Declined",
+        description: "Request was declined",
         state: "failed",
       },
     ];
@@ -190,7 +191,11 @@ export default function RequestDrawer({
               </h4>
             </div>
             <div className="divide-y divide-slate-100 px-4">
-              <DetailRow label="Payment Mode" value={request.paymentMode} />
+              <DetailRow
+                label="Company Bank"
+                value={request.companyBankName || "—"}
+              />
+              <DetailRow label="Payment Mode" value={formatPaymentModeLabel(request.paymentMode)} />
               <DetailRow
                 label="UTR Number"
                 value={request.utrNumber || "—"}

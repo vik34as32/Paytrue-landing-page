@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   Mail,
@@ -14,6 +15,7 @@ import {
   Sun,
   Wallet,
   Loader2,
+  KeyRound,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -27,6 +29,7 @@ import { SUPPORT_EMAIL, SUPPORT_MOBILE } from "@/src/constants/portalConfig";
 import { useDarkMode } from "@/src/hooks/useDarkMode";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
+import ChangePasswordDialog from "@/src/components/common/ChangePasswordDialog";
 
 function ProfileAvatar({ user, loading }) {
   if (loading && !user?.name) {
@@ -64,6 +67,7 @@ export default function PortalHeader({
   profileLoading = false,
 }) {
   const { dark, toggle } = useDarkMode();
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   const copyUserId = async () => {
     if (!user?.userId) return;
@@ -207,6 +211,13 @@ export default function PortalHeader({
                   Settings
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setShowChangePassword(true)}
+                className="cursor-pointer rounded-lg"
+              >
+                <KeyRound className="h-4 w-4 text-amber-600" />
+                Change Password
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={onLogout}
@@ -219,6 +230,11 @@ export default function PortalHeader({
           </DropdownMenu>
         </div>
       </div>
+
+      <ChangePasswordDialog
+        open={showChangePassword}
+        onOpenChange={setShowChangePassword}
+      />
     </header>
   );
 }

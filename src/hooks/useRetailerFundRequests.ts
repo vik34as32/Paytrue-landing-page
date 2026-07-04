@@ -8,20 +8,32 @@ import {
 import {
   cancelRetailerFundRequest,
   createRetailerFundRequest,
-  fetchRetailerOwnFundRequests,
+  fetchCompanyBankAccounts,
+  fetchRetailerFundRequests,
 } from "@/src/services/retailerFundRequestService";
 import type {
   CreateFundRequestPayload,
-  FundRequest,
+  FundRequestListParams,
+  FundRequestListResult,
 } from "@/src/types/fundRequest";
 
 export const RETAILER_FUND_REQUESTS_KEY = ["retailer", "fund-requests"] as const;
+export const COMPANY_BANK_ACCOUNTS_KEY = ["retailer", "company-bank-accounts"] as const;
 
-export function useRetailerFundRequests() {
+export function useRetailerFundRequests(params: FundRequestListParams = {}) {
   return useQuery({
-    queryKey: RETAILER_FUND_REQUESTS_KEY,
-    queryFn: fetchRetailerOwnFundRequests,
+    queryKey: [...RETAILER_FUND_REQUESTS_KEY, params],
+    queryFn: () => fetchRetailerFundRequests(params),
     staleTime: 30_000,
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useCompanyBankAccounts() {
+  return useQuery({
+    queryKey: COMPANY_BANK_ACCOUNTS_KEY,
+    queryFn: fetchCompanyBankAccounts,
+    staleTime: 5 * 60_000,
   });
 }
 
@@ -31,11 +43,8 @@ export function useSubmitRetailerFundRequest() {
   return useMutation({
     mutationFn: (payload: CreateFundRequestPayload) =>
       createRetailerFundRequest(payload),
-    onSuccess: (newRequest) => {
-      queryClient.setQueryData<FundRequest[]>(
-        RETAILER_FUND_REQUESTS_KEY,
-        (current = []) => [newRequest, ...current]
-      );
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: RETAILER_FUND_REQUESTS_KEY });
     },
   });
 }
@@ -45,14 +54,10 @@ export function useCancelRetailerFundRequest() {
 
   return useMutation({
     mutationFn: (requestId: string) => cancelRetailerFundRequest(requestId),
-    onSuccess: (updatedRequest) => {
-      queryClient.setQueryData<FundRequest[]>(
-        RETAILER_FUND_REQUESTS_KEY,
-        (current = []) =>
-          current.map((item) =>
-            item.id === updatedRequest.id ? updatedRequest : item
-          )
-      );
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: RETAILER_FUND_REQUESTS_KEY });
     },
   });
 }
+
+export type { FundRequestListResult };

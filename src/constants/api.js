@@ -8,4 +8,8 @@ export const API_ENDPOINTS = {
   wallet: "/wallet",
   walletTransfer: "/wallet/transfer",
   walletTransfers: "/wallet/transfers",
+  fundRequests: "/fund-requests",
+  changePassword: "/auth/change-password",
+  sendEmailVerification: "/auth/send-email-verification",
+  verifyEmail: "/auth/verify-email",
 };

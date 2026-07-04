@@ -266,3 +266,72 @@ body {
     page-break-inside: avoid;
   }
 }
+
+/* react-data-table cyan header — white sort controls, visible headers */
+.paytrue-cyan-datatable {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+}
+
+.paytrue-cyan-datatable .rdt_Table {
+  min-width: 1320px;
+}
+
+.paytrue-cyan-datatable .rdt_TableHeadRow {
+  background-color: #00aeef !important;
+  min-height: 56px !important;
+}
+
+.paytrue-cyan-datatable .rdt_TableCol,
+.paytrue-cyan-datatable .rdt_TableCol_Sortable,
+.paytrue-cyan-datatable .rdt_TableCol_Sortable > div {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  text-overflow: unset !important;
+}
+
+.paytrue-cyan-datatable .rdt_TableCol_Sortable:hover {
+  opacity: 0.92;
+}
+
+.paytrue-cyan-datatable .rdt_TableCol_Sortable svg,
+.paytrue-cyan-datatable .rdt_TableCol_Sortable span {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+.paytrue-cyan-datatable .rdt_TableHeadRow .rdt_TableCol:last-child,
+.paytrue-cyan-datatable .rdt_TableHeadRow .rdt_TableCol_Sortable:last-child {
+  border-right: none !important;
+}
+
+.paytrue-cyan-datatable .rdt_TableBody,
+.paytrue-cyan-datatable .rdt_TableHead {
+  overflow: visible !important;
+}
+
+/* Filter date inputs — align with search field */
+.paytrue-filter-date {
+  display: block;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  line-height: 1.25rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  appearance: auto;
+}
+
+.paytrue-filter-date::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.65;
+  margin-left: 0.25rem;
+}
+
+.paytrue-filter-date:focus::-webkit-calendar-picker-indicator {
+  opacity: 1;
+}

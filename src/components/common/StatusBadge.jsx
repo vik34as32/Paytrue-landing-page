@@ -15,10 +15,18 @@ const STATUS_VARIANTS = {
 export default function StatusBadge({ status }) {
   const normalized = String(status || "").toLowerCase();
   const variant = STATUS_VARIANTS[normalized] || "secondary";
+  const label =
+    normalized === "success"
+      ? "Success"
+      : normalized === "pending"
+        ? "Pending"
+        : normalized === "failed"
+          ? "Failed"
+          : status || "—";
 
   return (
-    <Badge variant={variant} className="capitalize">
-      {status}
+    <Badge variant={variant} className="shrink-0 whitespace-nowrap capitalize">
+      {label}
     </Badge>
   );
 }

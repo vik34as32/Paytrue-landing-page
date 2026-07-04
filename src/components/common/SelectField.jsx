@@ -36,7 +36,7 @@ export default function SelectField({
   }, [options, search, searchable]);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-field={name}>
       <Label>{label}</Label>
       <Controller
         name={name}

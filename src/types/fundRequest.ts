@@ -2,19 +2,51 @@ export type FundRequestStatus =
   | "pending"
   | "approved"
   | "rejected"
-  | "cancelled";
+  | "cancelled"
+  | "processing";
 
 export type PaymentMode =
-  | "UPI"
-  | "IMPS"
+  | "BANK_TRANSFER"
+  | "CASH_DEPOSIT"
   | "NEFT"
+  | "IMPS"
   | "RTGS"
-  | "Cash Deposit"
-  | "Bank Transfer";
+  | "UPI";
+
+export interface PaymentModeOption {
+  value: PaymentMode;
+  label: string;
+}
+
+export const PAYMENT_MODE_OPTIONS: PaymentModeOption[] = [
+  { value: "BANK_TRANSFER", label: "Bank Transfer" },
+  { value: "CASH_DEPOSIT", label: "Cash Deposit" },
+  { value: "NEFT", label: "NEFT" },
+  { value: "IMPS", label: "IMPS" },
+  { value: "RTGS", label: "RTGS" },
+  { value: "UPI", label: "UPI" },
+];
+
+/** @deprecated use PAYMENT_MODE_OPTIONS */
+export const PAYMENT_MODES: PaymentMode[] = PAYMENT_MODE_OPTIONS.map(
+  (option) => option.value
+);
+
+export interface CompanyBankAccount {
+  id: string;
+  bankName: string;
+  accountHolderName: string;
+  accountNumber: string;
+  ifscCode: string;
+  branch?: string;
+  upiId?: string;
+  isActive?: boolean;
+}
 
 export interface FundRequest {
   id: string;
   requestId: string;
+  referenceNumber?: string;
   amount: number;
   paymentMode: PaymentMode;
   utrNumber: string;
@@ -24,33 +56,50 @@ export interface FundRequest {
   createdBy: string;
   approvedBy: string;
   approvedDate: string;
+  adminRemark?: string;
   createdAt: string;
   updatedAt: string;
+  companyBankId?: string;
+  companyBankName?: string;
+  bankName?: string;
+  receiptUrl?: string;
 }
 
 export interface CreateFundRequestPayload {
   amount: number;
   paymentMode: PaymentMode;
+  companyBankAccountId: string;
   utrNumber?: string;
+  bankName?: string;
   paymentDate: string;
   remark?: string;
-  createdBy: string;
+  receipt?: File;
 }
 
-export const PAYMENT_MODES: PaymentMode[] = [
-  "UPI",
-  "IMPS",
-  "NEFT",
-  "RTGS",
-  "Cash Deposit",
-  "Bank Transfer",
-];
+export interface FundRequestListParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+}
+
+export interface FundRequestListResult {
+  list: FundRequest[];
+  total: number;
+  page: number;
+  limit: number;
+}
 
 export const FUND_REQUEST_STATUS_FILTERS = [
   "All",
   "Pending",
+  "Processing",
   "Approved",
-  "Rejected",
+  "Declined",
   "Cancelled",
 ] as const;
 

@@ -90,7 +90,14 @@ export const fetchTransferHistory = createAsyncThunk(
       const payload = response.data?.data ?? response.data;
       const rows = Array.isArray(payload)
         ? payload
-        : payload?.transfers ?? payload?.items ?? payload?.data ?? [];
+        : payload?.transfers ??
+          payload?.transactions ??
+          payload?.history ??
+          payload?.ledgerEntries ??
+          payload?.ledger ??
+          payload?.items ??
+          payload?.data ??
+          [];
       const total =
         payload?.total ??
         payload?.totalCount ??

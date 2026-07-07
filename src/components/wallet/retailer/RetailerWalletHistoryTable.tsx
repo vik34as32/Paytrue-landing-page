@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch } from "@/src/redux/types";
 import DataTable, { type TableColumn } from "react-data-table-component";
 import {
   ChevronLeft,
@@ -162,7 +163,7 @@ function MobilePagination({
 }
 
 export default function RetailerWalletHistoryTable() {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const wallet = useSelector(selectRtWallet);
   const history = useSelector(selectTransferHistory);
 

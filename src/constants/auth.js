@@ -28,6 +28,8 @@ export const PROTECTED_PREFIXES = ["/md", "/dd", "/dashboard", "/rt/retailer", "
 
 export const PUBLIC_PATHS = [
   "/auth/login",
+  "/auth/forgot-password",
+  "/auth/reset-password",
   "/",
   "/about",
   "/contact",
@@ -44,3 +46,6 @@ export const COOKIE_KEYS = {
   user: "pt_user",
   remember: "pt_remember",
 };
+
+/** Auto-logout after 1 hour of no user activity (retailer / DD / MD portals) */
+export const IDLE_SESSION_TIMEOUT_MS = 60 * 60 * 1000;

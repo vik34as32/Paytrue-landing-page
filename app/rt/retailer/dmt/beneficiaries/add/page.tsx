@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,13 +15,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DmtPageHeader from "@/src/components/dmt/DmtPageHeader";
 import DmtErrorState from "@/src/components/dmt/DmtErrorState";
 import { useAddBeneficiary } from "@/src/hooks/useDmt";
+import { resolveSenderMobile, setActiveSenderMobile, setBeneficiaryReferenceKey } from "@/src/lib/dmtSession";
 import type { DmtApiError } from "@/src/types/dmt";
-import { useState } from "react";
 
 const schema = z
   .object({
+    senderMobile: z
+      .string()
+      .regex(/^[6-9]\d{9}$/, "Enter valid 10-digit remitter mobile"),
     name: z.string().min(3, "Name must be at least 3 characters"),
-    mobile: z.string().regex(/^[6-9]\d{9}$/, "Enter valid mobile number"),
+    mobile: z
+      .string()
+      .regex(/^[6-9]\d{9}$/, "Enter valid beneficiary mobile")
+      .optional(),
     accountNumber: z.string().regex(/^\d{9,18}$/, "Account number must be 9-18 digits"),
     confirmAccountNumber: z.string(),
     ifscCode: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Enter valid IFSC code"),
@@ -35,37 +42,56 @@ type FormValues = z.infer<typeof schema>;
 function AddBeneficiaryForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const mobile = params.get("mobile") ?? "";
+  const mobileFromUrl = params?.get("mobile") ?? "";
   const addMutation = useAddBeneficiary();
   const [error, setError] = useState<DmtApiError | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
+      senderMobile: "",
       name: "",
-      mobile: mobile || "",
+      mobile: "",
       accountNumber: "",
       confirmAccountNumber: "",
       ifscCode: "",
     },
   });
 
+  useEffect(() => {
+    const resolved = resolveSenderMobile(mobileFromUrl);
+    if (resolved) {
+      form.setValue("senderMobile", resolved, { shouldValidate: true });
+    }
+  }, [mobileFromUrl, form]);
+
   const onSubmit = async (values: FormValues) => {
+    const senderMobile = values.senderMobile.replace(/\D/g, "");
+    setActiveSenderMobile(senderMobile);
     setError(null);
+
     try {
       const created = await addMutation.mutateAsync({
         name: values.name,
-        mobile: values.mobile,
+        beneficiaryMobileNumber: values.mobile?.replace(/\D/g, "") || undefined,
         accountNumber: values.accountNumber,
         ifscCode: values.ifscCode.toUpperCase(),
+        senderMobile,
       });
+      if (created.referenceKey) {
+        setBeneficiaryReferenceKey(created.id, created.referenceKey);
+      }
       toast.success("Beneficiary added successfully");
       if (!created.isVerified) {
-        router.push(`/rt/retailer/dmt/beneficiaries/${created.id}/verify`);
+        const query = new URLSearchParams({ mobile: senderMobile });
+        if (created.referenceKey) query.set("referenceKey", created.referenceKey);
+        router.push(
+          `/rt/retailer/dmt/beneficiaries/${created.id}/verify?${query.toString()}`
+        );
         return;
       }
       router.push(
-        `/rt/retailer/dmt/beneficiaries${mobile ? `?mobile=${encodeURIComponent(mobile)}` : ""}`
+        `/rt/retailer/dmt/beneficiaries?mobile=${encodeURIComponent(senderMobile)}`
       );
     } catch (err) {
       const mapped = err as DmtApiError;
@@ -74,12 +100,18 @@ function AddBeneficiaryForm() {
     }
   };
 
+  const senderMobile = form.watch("senderMobile");
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <DmtPageHeader
         title="Add Beneficiary"
-        description="Register a new beneficiary for DMT transfer"
-        backHref="/rt/retailer/dmt/beneficiaries"
+        description="Enter remitter mobile and beneficiary bank details"
+        backHref={
+          senderMobile
+            ? `/rt/retailer/dmt/beneficiaries?mobile=${encodeURIComponent(senderMobile)}`
+            : "/rt/retailer/dmt/beneficiaries"
+        }
       />
 
       <Card>
@@ -88,20 +120,45 @@ function AddBeneficiaryForm() {
         </CardHeader>
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
-            <Field label="Name" error={form.formState.errors.name?.message}>
+            <div className="sm:col-span-2">
+              <Field
+                label="Remitter Mobile (Sender)"
+                error={form.formState.errors.senderMobile?.message}
+              >
+                <Input
+                  maxLength={10}
+                  inputMode="numeric"
+                  placeholder="10-digit sender mobile"
+                  {...form.register("senderMobile")}
+                />
+              </Field>
+              {!senderMobile ? (
+                <p className="mt-1 text-xs text-slate-500">
+                  Not sure?{" "}
+                  <Link href="/rt/retailer/dmt/sender" className="font-semibold text-[#0057D9]">
+                    Search remitter first
+                  </Link>
+                </p>
+              ) : null}
+            </div>
+
+            <Field label="Beneficiary Name" error={form.formState.errors.name?.message}>
               <Input {...form.register("name")} placeholder="Beneficiary name" />
             </Field>
-            <Field label="Mobile" error={form.formState.errors.mobile?.message}>
-              <Input maxLength={10} {...form.register("mobile")} />
+            <Field
+              label="Beneficiary Mobile"
+              error={form.formState.errors.mobile?.message}
+            >
+              <Input maxLength={10} inputMode="numeric" {...form.register("mobile")} />
             </Field>
             <Field label="Account Number" error={form.formState.errors.accountNumber?.message}>
-              <Input {...form.register("accountNumber")} />
+              <Input inputMode="numeric" {...form.register("accountNumber")} />
             </Field>
             <Field
               label="Confirm Account Number"
               error={form.formState.errors.confirmAccountNumber?.message}
             >
-              <Input {...form.register("confirmAccountNumber")} />
+              <Input inputMode="numeric" {...form.register("confirmAccountNumber")} />
             </Field>
             <div className="sm:col-span-2">
               <Field label="IFSC Code" error={form.formState.errors.ifscCode?.message}>
@@ -129,9 +186,9 @@ function AddBeneficiaryForm() {
         </CardContent>
       </Card>
 
-      {error && (
+      {error ? (
         <DmtErrorState code={error.code} message={error.message} onRetry={() => setError(null)} />
-      )}
+      ) : null}
     </div>
   );
 }
@@ -149,7 +206,7 @@ function Field({
     <div className="space-y-2">
       <Label>{label}</Label>
       {children}
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error ? <p className="text-xs text-red-500">{error}</p> : null}
     </div>
   );
 }

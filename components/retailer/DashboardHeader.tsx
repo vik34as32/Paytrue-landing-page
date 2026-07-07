@@ -1,7 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { RETAILER_USER } from "@/features/retailer/constants";
+import { useSelector } from "react-redux";
+import { selectUser } from "@/src/redux/slices/authSlice";
+import { getUserDisplayName } from "@/src/lib/userUtils";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -11,6 +13,10 @@ function getGreeting() {
 }
 
 export default function DashboardHeader() {
+  const user = useSelector(selectUser);
+  const displayName = getUserDisplayName(user, "Retailer");
+  const retailerId = user?.userId || user?.retailerId || user?.id || "—";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -23,16 +29,14 @@ export default function DashboardHeader() {
           {getGreeting()}
         </p>
         <h1 className="text-xl font-bold tracking-tight text-[#0b1f3a] sm:text-2xl">
-          {RETAILER_USER.name}
+          {displayName}
           <span className="ml-2 text-base font-medium text-slate-400 sm:text-lg">
             · Retailer
           </span>
         </h1>
         <p className="mt-0.5 text-[13px] text-slate-500">
           Retailer ID:{" "}
-          <span className="font-semibold text-slate-700">
-            {RETAILER_USER.retailerId}
-          </span>
+          <span className="font-semibold text-slate-700">{retailerId}</span>
           {" · "}
           <span className="inline-flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />

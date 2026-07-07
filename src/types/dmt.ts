@@ -1,4 +1,4 @@
-export type DmtTransferMode = "IMPS" | "NEFT";
+export type DmtTransferMode = "IMPS" | "NEFT" | "RTGS";
 export type DmtVerificationStatus = "verified" | "pending" | "unverified" | "failed";
 export type DmtTransactionStatus = "success" | "pending" | "failed" | "processing";
 
@@ -78,46 +78,120 @@ export interface DmtPaginatedResponse<T> {
 export interface CheckSenderResponse {
   exists: boolean;
   sender?: DmtSender | null;
+  referenceKey?: string;
 }
 
 export interface RegisterSenderPayload {
   mobile: string;
-  aadhaarNumber: string;
+  aadhaar: string;
+  referenceKey?: string;
+  firstName?: string;
+  lastName?: string;
+  pincode?: string;
+  address?: string;
+  city?: string;
+  state?: string;
 }
 
 export interface VerifyOtpPayload {
   mobile: string;
   otp: string;
+  referenceKey?: string;
   requestId?: string;
 }
 
+export interface OtpActionResponse {
+  message?: string;
+  requestId?: string;
+  referenceKey?: string;
+}
+
+export interface DmtBank {
+  id: string;
+  name: string;
+  code?: string;
+  ifsc?: string;
+  instantPayBankId?: string | number;
+}
+
 export interface AddBeneficiaryPayload {
+  senderMobile: string;
   name: string;
   accountNumber: string;
   ifscCode: string;
-  mobile: string;
-  bankName?: string;
+  mobile?: string;
+  beneficiaryMobileNumber?: string;
+  bankId?: string;
+  instantPayBankId?: string | number;
 }
 
 export interface VerifyBeneficiaryPayload {
   otp: string;
+  referenceKey: string;
+}
+
+export interface VerifyBeneficiaryDeletePayload {
+  otp: string;
+  referenceKey?: string;
+}
+
+export interface DeleteBeneficiaryResponse {
+  message?: string;
+  referenceKey?: string;
+}
+
+export interface GenerateTransactionOtpPayload {
+  senderMobile: string;
+  amount: number;
+  referenceKey?: string;
+}
+
+export interface VerifyTransactionOtpPayload {
+  senderMobile: string;
+  otp: string;
+  referenceKey: string;
+  amount?: number;
 }
 
 export interface TransferPayload {
+  senderMobile: string;
   beneficiaryId: string;
   amount: number;
   transferMode: DmtTransferMode;
-  remark?: string;
-  otp?: string;
+  otp: string;
+  referenceKey: string;
+  latitude: string;
+  longitude: string;
+  remarks?: string;
 }
 
 export interface TransferInitResponse {
   requiresOtp: boolean;
   requestId?: string;
+  referenceKey?: string;
+  reference?: string;
   transaction?: DmtTransaction;
   charges?: number;
   gst?: number;
   netAmount?: number;
+}
+
+export interface RemitterEkycPayload {
+  mobile: string;
+  referenceKey?: string;
+  latitude: string;
+  longitude: string;
+  externalRef?: string;
+  consentTaken: "Y" | "N";
+  captureType?: "FINGER" | "FACE";
+  pidData: string;
+}
+
+export interface RefundPayload {
+  reason?: string;
+  otp?: string;
+  referenceKey?: string;
+  ipayId?: string;
 }
 
 export interface DmtTransactionFilters {

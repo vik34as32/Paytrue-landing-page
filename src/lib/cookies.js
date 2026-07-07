@@ -61,7 +61,12 @@ export function setRememberLogin(remember) {
 }
 
 export function clearAuthCookies() {
-  Object.values(COOKIE_KEYS).forEach((key) => Cookies.remove(key));
+  const paths = ["/", undefined];
+  Object.values(COOKIE_KEYS).forEach((key) => {
+    paths.forEach((path) => {
+      Cookies.remove(key, path ? { path } : undefined);
+    });
+  });
 }
 
 export function persistAuthSession({ accessToken, refreshToken, user, remember }) {

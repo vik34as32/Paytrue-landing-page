@@ -14,14 +14,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DmtPageHeader from "@/src/components/dmt/DmtPageHeader";
 import DmtErrorState from "@/src/components/dmt/DmtErrorState";
 import { useRegisterSender, useSendSenderOtp } from "@/src/hooks/useDmt";
+import { setActiveSenderMobile } from "@/src/lib/dmtSession";
 import type { DmtApiError } from "@/src/types/dmt";
 import { useState } from "react";
 
 const schema = z.object({
   mobile: z.string().regex(/^[6-9]\d{9}$/, "Enter valid mobile number"),
-  aadhaarNumber: z
-    .string()
-    .regex(/^\d{12}$/, "Enter valid 12-digit Aadhaar number"),
+  aadhaar: z.string().regex(/^\d{12}$/, "Enter valid 12-digit Aadhaar number"),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -36,25 +35,30 @@ function RegisterSenderForm() {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      mobile: params.get("mobile") ?? "",
-      aadhaarNumber: "",
+      mobile: params?.get("mobile") ?? "",
+      aadhaar: "",
     },
   });
 
   useEffect(() => {
-    const mobile = params.get("mobile");
+    const mobile = params?.get("mobile");
     if (mobile) form.setValue("mobile", mobile);
   }, [params, form]);
 
   const onSubmit = async (values: FormValues) => {
     setError(null);
     try {
-      await registerMutation.mutateAsync(values);
-      await sendOtpMutation.mutateAsync(values.mobile);
+      const registered = await registerMutation.mutateAsync({
+        mobile: values.mobile,
+        aadhaar: values.aadhaar,
+      });
+      setActiveSenderMobile(values.mobile);
+      const otpResult = await sendOtpMutation.mutateAsync(values.mobile);
       toast.success("OTP sent to sender mobile");
-      router.push(
-        `/rt/retailer/dmt/sender/verify?mobile=${encodeURIComponent(values.mobile)}`
-      );
+      const referenceKey = otpResult.referenceKey || registered.referenceKey || "";
+      const query = new URLSearchParams({ mobile: values.mobile });
+      if (referenceKey) query.set("referenceKey", referenceKey);
+      router.push(`/rt/retailer/dmt/sender/verify?${query.toString()}`);
     } catch (err) {
       const mapped = err as DmtApiError;
       setError(mapped);
@@ -92,11 +96,11 @@ function RegisterSenderForm() {
               <Input
                 placeholder="12-digit Aadhaar"
                 maxLength={12}
-                {...form.register("aadhaarNumber")}
+                {...form.register("aadhaar")}
               />
-              {form.formState.errors.aadhaarNumber && (
+              {form.formState.errors.aadhaar && (
                 <p className="text-xs text-red-500">
-                  {form.formState.errors.aadhaarNumber.message}
+                  {form.formState.errors.aadhaar.message}
                 </p>
               )}
             </div>

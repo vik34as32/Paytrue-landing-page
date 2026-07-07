@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DmtPageHeader from "@/src/components/dmt/DmtPageHeader";
 import DmtErrorState from "@/src/components/dmt/DmtErrorState";
 import { useCheckSender } from "@/src/hooks/useDmt";
+import { setActiveSenderMobile } from "@/src/lib/dmtSession";
 import type { DmtApiError } from "@/src/types/dmt";
 
 const schema = z.object({
@@ -36,6 +37,7 @@ export default function SenderSearchPage() {
     setError(null);
     try {
       const result = await checkMutation.mutateAsync(values.mobile);
+      setActiveSenderMobile(values.mobile);
       if (result.exists) {
         toast.success("Sender found");
         router.push(

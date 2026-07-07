@@ -7,6 +7,8 @@ import retailerReducer from "@/src/redux/slices/retailerSlice";
 import fundRequestReducer from "@/src/redux/slices/fundRequestSlice";
 import transactionReducer from "@/src/redux/slices/transactionSlice";
 import walletReducer from "@/src/redux/slices/walletSlice";
+import aepsReducer from "@/src/redux/slices/aepsSlice";
+import merchantReducer from "@/src/redux/slices/merchantSlice";
 
 const rootReducer = combineReducers({
   auth: authReducer,
@@ -17,6 +19,8 @@ const rootReducer = combineReducers({
   fundRequest: fundRequestReducer,
   transaction: transactionReducer,
   wallet: walletReducer,
+  aeps: aepsReducer,
+  merchant: merchantReducer,
 });
 
 export default rootReducer;

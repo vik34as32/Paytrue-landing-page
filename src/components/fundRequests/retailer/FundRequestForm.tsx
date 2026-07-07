@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input } from "@/components/ui/input";
@@ -63,7 +63,7 @@ export const fundRequestSchema = z
 
 export type FundRequestFormValues = z.infer<typeof fundRequestSchema>;
 
-const defaultValues: FundRequestFormValues = {
+const defaultValues = {
   companyBankAccountId: "",
   amount: undefined as unknown as number,
   paymentMode: "",
@@ -71,7 +71,7 @@ const defaultValues: FundRequestFormValues = {
   paymentDate: new Date().toISOString().slice(0, 10),
   remark: "",
   receipt: null,
-};
+} as unknown as FundRequestFormValues;
 
 interface FundRequestFormProps {
   formId: string;
@@ -140,7 +140,7 @@ export default function FundRequestForm({
   );
 
   const form = useForm<FundRequestFormValues>({
-    resolver: zodResolver(fundRequestSchema),
+    resolver: zodResolver(fundRequestSchema) as Resolver<FundRequestFormValues>,
     defaultValues,
     mode: "onChange",
   });

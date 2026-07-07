@@ -1,5 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { fetchProfile } from "@/src/redux/thunks/profileThunk";
+import { logoutUser } from "@/src/redux/thunks/authThunk";
 
 const initialState = {
   data: null,
@@ -32,6 +33,11 @@ const profileSlice = createSlice({
       .addCase(fetchProfile.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+      .addCase(logoutUser.fulfilled, (state) => {
+        state.data = null;
+        state.loading = false;
+        state.error = null;
       });
   },
 });

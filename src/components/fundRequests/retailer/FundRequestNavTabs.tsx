@@ -20,7 +20,7 @@ function isTabActive(pathname: string, href: string, exact: boolean) {
 }
 
 export default function FundRequestNavTabs() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
 
   return (
     <div className="overflow-hidden rounded-xl shadow-md ring-1 ring-slate-200/80 dark:ring-slate-800">

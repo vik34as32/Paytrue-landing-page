@@ -40,6 +40,11 @@ export const SIDEBAR_LINKS = [
     href: "/rt/retailer/fund-request",
     icon: "Wallet",
   },
+  // {
+  //   label: "AEPS",
+  //   href: "/rt/retailer/aeps",
+  //   icon: "Fingerprint",
+  // },
   { label: "Services", href: "/rt/retailer", icon: "Grid3x3" },
   {
     label: "Statement",
@@ -57,6 +62,122 @@ export const SIDEBAR_LINKS = [
   //   icon: "User",
   // },
 ];
+
+export const SIDEBAR_SUPPORT_LINKS = [
+  {
+    label: "Help & Support",
+    href: "/rt/retailer/help-support",
+    icon: "Headset",
+  },
+  {
+    label: "Raise Ticket",
+    href: "/rt/retailer/raise-ticket",
+    icon: "Ticket",
+  },
+  {
+    label: "Notices & Updates",
+    href: "/rt/retailer/notices",
+    icon: "BellRing",
+  },
+];
+
+export const SIDEBAR_OTHER_LINKS = [
+  {
+    label: "Refer & Earn",
+    href: "/rt/retailer/refer-earn",
+    icon: "Gift",
+  },
+  {
+    label: "Settings",
+    href: "/rt/retailer/settings",
+    icon: "Settings",
+  },
+];
+
+export const FAQ_ITEMS = [
+  {
+    id: "faq_1",
+    question: "How do I add balance to my wallet?",
+    answer:
+      "Go to Fund Request, choose a company bank account, enter the deposit amount and UTR/reference number, then submit. Your wallet is credited after admin approval.",
+  },
+  {
+    id: "faq_2",
+    question: "What is the minimum transaction limit?",
+    answer:
+      "Transaction limits depend on your KYC status. Complete profile verification to unlock higher daily limits for DMT, AEPS, and bill payments.",
+  },
+  {
+    id: "faq_3",
+    question: "How long does a fund request take to approve?",
+    answer:
+      "Most fund requests are processed within 15–30 minutes during business hours. You can track status on the Fund Request page.",
+  },
+  {
+    id: "faq_4",
+    question: "How do I reset my password?",
+    answer:
+      "Open Settings → Security → Change Password, or use the Change Password option from your profile menu in the header.",
+  },
+  {
+    id: "faq_5",
+    question: "Who do I contact for failed transactions?",
+    answer:
+      "Raise a ticket with your transaction reference number, or call our support line. Our team responds within 2 business hours.",
+  },
+];
+
+export const PORTAL_NOTICES = [
+  {
+    id: "notice_1",
+    title: "New commission structure — July 2026",
+    message:
+      "Updated commission slabs are now live for DMT and AEPS. Check your Statement page for detailed earnings.",
+    date: "2026-07-01",
+    type: "success" as const,
+  },
+  {
+    id: "notice_2",
+    title: "ICICI AEPS — 24×7 availability",
+    message:
+      "ICICI AEPS cash withdrawal and balance enquiry are now available round the clock with instant settlement.",
+    date: "2026-06-28",
+    type: "info" as const,
+  },
+  {
+    id: "notice_3",
+    title: "Complete KYC for higher limits",
+    message:
+      "Retailers with verified KYC get 3× higher daily transaction limits. Upload pending documents from Profile Management.",
+    date: "2026-06-25",
+    type: "warning" as const,
+  },
+  {
+    id: "notice_4",
+    title: "Scheduled maintenance — 12 July",
+    message:
+      "DMT services will be unavailable from 2:00 AM to 4:00 AM IST on 12 July for system upgrades.",
+    date: "2026-06-20",
+    type: "warning" as const,
+  },
+];
+
+export const REFERRAL_BONUS_TIERS = [
+  { label: "Per successful referral", amount: 500, unit: "₹" },
+  { label: "Bonus after 5 referrals", amount: 1500, unit: "₹" },
+  { label: "Monthly top referrer", amount: 5000, unit: "₹" },
+];
+
+export const TICKET_CATEGORIES = [
+  "Transaction Issue",
+  "Wallet / Fund Request",
+  "KYC & Profile",
+  "Technical Problem",
+  "Commission / Statement",
+  "Other",
+] as const;
+
+export const TICKET_PRIORITIES = ["Low", "Medium", "High", "Urgent"] as const;
 
 export const POPULAR_SERVICES: ServiceItem[] = [
   {
@@ -94,7 +215,7 @@ export const POPULAR_SERVICES: ServiceItem[] = [
   {
     id: "aadhaar_pay",
     title: "Aadhaar Pay",
-    href: "/rt/retailer/aeps",
+    href: "/rt/retailer/aeps/aadhaar-pay",
     icon: "BadgeCheck",
     color: "from-fuchsia-500 to-fuchsia-700",
     category: "aeps",

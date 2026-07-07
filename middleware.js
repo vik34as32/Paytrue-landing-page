@@ -14,6 +14,8 @@ function isPublicPath(pathname) {
   }
   if (pathname.startsWith("/services")) return true;
   if (pathname.startsWith("/auth/login")) return true;
+  if (pathname.startsWith("/auth/forgot-password")) return true;
+  if (pathname.startsWith("/auth/reset-password")) return true;
   return false;
 }
 
@@ -60,9 +62,12 @@ export const config = {
     "/md/:path*",
     "/dd/:path*",
     "/dashboard/:path*",
+    "/rt/retailer",
     "/rt/retailer/:path*",
     "/rt/balance-transfer",
     "/auth/login",
+    "/auth/forgot-password",
+    "/auth/reset-password",
     "/unauthorized",
   ],
 };

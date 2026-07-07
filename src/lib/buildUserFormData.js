@@ -84,7 +84,7 @@ export function buildUserFormData(values, files = {}, options = {}) {
 export function mapApiUserToFormValues(user = {}) {
   const outlet = user.outlet || {};
   const kyc = user.kyc || {};
-  const bank = user.bankAccount || {};
+  const bank = user.bankDetails || user.bankAccount || {};
 
   return {
     firstName: user.firstName || "",
@@ -119,16 +119,16 @@ export function mapApiUserToFormValues(user = {}) {
 
 export function mapApiUserToExistingUrls(user = {}) {
   const kyc = user.kyc || {};
-  const bank = user.bankAccount || {};
+  const bank = user.bankDetails || user.bankAccount || {};
 
   return {
     profileImage: user.profileImage || null,
-    aadhaarFront: kyc.aadhaarFrontImage || kyc.aadhaarFront || null,
-    aadhaarBack: kyc.aadhaarBackImage || kyc.aadhaarBack || null,
-    panCard: kyc.panCardImage || kyc.panCard || null,
-    ownerPhoto: kyc.ownerPhoto || null,
-    videoVerification: kyc.videoVerification || null,
-    passbookImage: bank.passbookImage || null,
-    cancelledChequeImage: bank.cancelledChequeImage || null,
+    aadhaarFront: kyc.aadhaarFrontUrl || kyc.aadhaarFrontImage || kyc.aadhaarFront || null,
+    aadhaarBack: kyc.aadhaarBackUrl || kyc.aadhaarBackImage || kyc.aadhaarBack || null,
+    panCard: kyc.panCardUrl || kyc.panCardImage || kyc.panCard || null,
+    ownerPhoto: kyc.ownerPhotoUrl || kyc.ownerPhoto || null,
+    videoVerification: kyc.videoVerificationUrl || kyc.videoVerification || null,
+    passbookImage: bank.passbookImage || bank.passbookImageUrl || null,
+    cancelledChequeImage: bank.cancelledChequeImage || bank.cancelledChequeImageUrl || null,
   };
 }

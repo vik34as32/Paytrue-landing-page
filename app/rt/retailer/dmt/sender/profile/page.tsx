@@ -13,7 +13,7 @@ import { formatCurrency } from "@/lib/utils";
 
 function SenderProfileContent() {
   const params = useSearchParams();
-  const mobile = params.get("mobile") ?? "";
+  const mobile = params?.get("mobile") ?? "";
   const { data, isLoading, isError, error, refetch } = useSenderByMobile(
     mobile,
     Boolean(mobile)
@@ -49,11 +49,18 @@ function SenderProfileContent() {
         description="Remitter details and transfer limits"
         backHref="/rt/retailer/dmt/sender"
         actions={
-          <Button asChild>
-            <Link href={`/rt/retailer/dmt/beneficiaries?mobile=${encodeURIComponent(mobile)}`}>
-              View Beneficiaries
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link href={`/rt/retailer/dmt/sender/ekyc?mobile=${encodeURIComponent(mobile)}`}>
+                Complete eKYC
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href={`/rt/retailer/dmt/beneficiaries?mobile=${encodeURIComponent(mobile)}`}>
+                View Beneficiaries
+              </Link>
+            </Button>
+          </div>
         }
       />
 

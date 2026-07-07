@@ -13,7 +13,10 @@ export const fetchProfile = createAsyncThunk(
 
       const response = await api.get(API_ENDPOINTS.profile);
       const profile = response.data?.data || response.data;
-      const normalized = normalizeUser(profile);
+      const normalized = normalizeUser({
+        ...profile,
+        bankAccount: profile?.bankDetails || profile?.bankAccount,
+      });
 
       setUserCookie(normalized, false);
       return normalized;

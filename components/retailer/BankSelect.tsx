@@ -28,6 +28,8 @@ interface BankSelectProps {
   disabled?: boolean;
   loading?: boolean;
   id?: string;
+  /** Field used as the selected value — defaults to bank name */
+  valueKey?: "name" | "id";
 }
 
 function BankSelectSkeleton() {
@@ -49,6 +51,7 @@ function BankSelectComponent({
   disabled = false,
   loading = false,
   id,
+  valueKey = "name",
 }: BankSelectProps) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
@@ -93,10 +96,10 @@ function BankSelectComponent({
 
   const selectBank = useCallback(
     (bank: BankOption) => {
-      onChange(bank.name);
+      onChange(valueKey === "id" ? bank.id : bank.name);
       closeDropdown();
     },
-    [closeDropdown, onChange]
+    [closeDropdown, onChange, valueKey]
   );
 
   useEffect(() => {

@@ -20,7 +20,8 @@ const RESEND_SECONDS = 30;
 function VerifySenderOtpForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const mobile = params.get("mobile") ?? "";
+  const mobile = params?.get("mobile") ?? "";
+  const referenceKey = params?.get("referenceKey") ?? "";
   const verifyMutation = useVerifySenderOtp();
   const resendMutation = useResendSenderOtp();
   const [otp, setOtp] = useState("");
@@ -40,7 +41,11 @@ function VerifySenderOtpForm() {
     }
     setError(null);
     try {
-      await verifyMutation.mutateAsync({ mobile, otp });
+      await verifyMutation.mutateAsync({
+        mobile,
+        otp,
+        referenceKey: referenceKey || undefined,
+      });
       toast.success("Sender verified successfully");
       router.push(
         `/rt/retailer/dmt/sender/profile?mobile=${encodeURIComponent(mobile)}`

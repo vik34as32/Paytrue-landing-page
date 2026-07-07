@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/src/hooks/useAuth";
 import PageLoader from "@/src/components/common/PageLoader";
+import IdleSessionGuard from "@/src/components/auth/IdleSessionGuard";
 
 export default function AuthGuard({ children, allowedTypes = [] }) {
   const { hydrated, isAuthenticated } = useRequireAuth(allowedTypes);
@@ -23,5 +24,5 @@ export default function AuthGuard({ children, allowedTypes = [] }) {
     return <PageLoader message="Redirecting to login..." />;
   }
 
-  return children;
+  return <IdleSessionGuard>{children}</IdleSessionGuard>;
 }

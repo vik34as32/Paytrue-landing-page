@@ -1,0 +1,47 @@
+const DMT_SENDER_MOBILE_KEY = "dmt_active_sender_mobile";
+
+export function setActiveSenderMobile(mobile: string): void {
+  if (typeof window === "undefined") return;
+  const value = String(mobile || "").replace(/\D/g, "");
+  if (value) {
+    sessionStorage.setItem(DMT_SENDER_MOBILE_KEY, value);
+  }
+}
+
+export function getActiveSenderMobile(): string {
+  if (typeof window === "undefined") return "";
+  return sessionStorage.getItem(DMT_SENDER_MOBILE_KEY) || "";
+}
+
+export function getBeneficiaryReferenceKey(beneficiaryId: string): string {
+  if (typeof window === "undefined") return "";
+  return sessionStorage.getItem(`dmt_beneficiary_ref_${beneficiaryId}`) || "";
+}
+
+export function setBeneficiaryReferenceKey(
+  beneficiaryId: string,
+  referenceKey: string
+): void {
+  if (typeof window === "undefined") return;
+  if (referenceKey) {
+    sessionStorage.setItem(`dmt_beneficiary_ref_${beneficiaryId}`, referenceKey);
+  }
+}
+
+export function getTransactionReferenceKey(): string {
+  if (typeof window === "undefined") return "";
+  return sessionStorage.getItem("dmt_transaction_reference_key") || "";
+}
+
+export function setTransactionReferenceKey(referenceKey: string): void {
+  if (typeof window === "undefined") return;
+  if (referenceKey) {
+    sessionStorage.setItem("dmt_transaction_reference_key", referenceKey);
+  }
+}
+
+export function resolveSenderMobile(preferred?: string): string {
+  const fromArg = String(preferred || "").replace(/\D/g, "");
+  if (fromArg) return fromArg;
+  return getActiveSenderMobile();
+}

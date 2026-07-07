@@ -5,8 +5,8 @@ import type {
   FundRequestStatusFilter,
   FundRequestListParams,
   PaymentMode,
-  PAYMENT_MODE_OPTIONS,
 } from "@/src/types/fundRequest";
+import { PAYMENT_MODE_OPTIONS } from "@/src/types/fundRequest";
 import { exportToCsv, exportToExcel, printTable } from "@/src/lib/exportUtils";
 
 export function formatFundRequestDate(value: string): string {

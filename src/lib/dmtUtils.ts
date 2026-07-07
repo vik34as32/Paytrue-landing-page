@@ -206,8 +206,30 @@ export function mapDmtError(error: unknown): DmtApiError {
   const err = error as {
     message?: string;
     status?: number;
-    data?: { message?: string; code?: string; error?: string };
+    data?: {
+      message?: string;
+      code?: string;
+      error?: string;
+      errors?: Array<{ field?: string; message?: string }>;
+    };
   };
+
+  const validationErrors = err?.data?.errors;
+  if (Array.isArray(validationErrors) && validationErrors.length > 0) {
+    const details = validationErrors
+      .map((item) =>
+        item.field ? `${item.field}: ${item.message || "invalid"}` : item.message
+      )
+      .filter(Boolean)
+      .join("; ");
+    const mapped = new Error(
+      details || err?.data?.message || err?.message || "Validation failed."
+    ) as DmtApiError;
+    mapped.status = err?.status;
+    mapped.code = (err?.data?.code as DmtErrorCode) ?? "UNKNOWN";
+    mapped.data = err?.data;
+    return mapped;
+  }
 
   const message =
     err?.data?.message ??

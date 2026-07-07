@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import ReduxProvider from "@/src/components/common/ReduxProvider";
+import IdleSessionGuard from "@/src/components/auth/IdleSessionGuard";
 import Sidebar from "@/components/retailer/Sidebar";
 import Header from "@/components/retailer/Header";
 import WalletStrip from "@/components/retailer/WalletStrip";
@@ -12,7 +13,8 @@ export default function RtBalanceTransferLayout({ children }) {
 
   return (
     <ReduxProvider>
-      <RetailerWalletSync />
+      <IdleSessionGuard>
+        <RetailerWalletSync />
       <div className="rt-portal-bg min-h-screen">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -27,6 +29,7 @@ export default function RtBalanceTransferLayout({ children }) {
           </div>
         </div>
       </div>
+      </IdleSessionGuard>
     </ReduxProvider>
   );
 }

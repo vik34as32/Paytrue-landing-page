@@ -3,7 +3,7 @@
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Plus, Search, Send, Trash2, ShieldCheck } from "lucide-react";
+import { Plus, Search, Send, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,16 +25,27 @@ import {
 import DmtPageHeader from "@/src/components/dmt/DmtPageHeader";
 import DmtStatusBadge from "@/src/components/dmt/DmtStatusBadge";
 import DmtErrorState from "@/src/components/dmt/DmtErrorState";
-import { useBeneficiaries, useDeleteBeneficiary } from "@/src/hooks/useDmt";
+import OtpInput from "@/src/components/dmt/OtpInput";
+import {
+  useBeneficiaries,
+  useDeleteBeneficiary,
+  useVerifyBeneficiaryDelete,
+} from "@/src/hooks/useDmt";
 import { maskAccountNumber } from "@/src/lib/dmtUtils";
+import { resolveSenderMobile } from "@/src/lib/dmtSession";
 
 function BeneficiaryListContent() {
   const params = useSearchParams();
-  const mobile = params.get("mobile") ?? undefined;
+  const mobileFromUrl = params?.get("mobile") ?? "";
+  const senderMobile = resolveSenderMobile(mobileFromUrl);
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const { data = [], isLoading, isError, error, refetch } = useBeneficiaries(mobile);
+  const [deleteReferenceKey, setDeleteReferenceKey] = useState("");
+  const [deleteOtp, setDeleteOtp] = useState("");
+  const [otpStep, setOtpStep] = useState(false);
+  const { data = [], isLoading, isError, error, refetch } = useBeneficiaries(senderMobile);
   const deleteMutation = useDeleteBeneficiary();
+  const verifyDeleteMutation = useVerifyBeneficiaryDelete();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -48,26 +59,65 @@ function BeneficiaryListContent() {
     );
   }, [data, search]);
 
-  const handleDelete = async () => {
+  const initiateDelete = async () => {
     if (!deleteId) return;
     try {
-      await deleteMutation.mutateAsync(deleteId);
-      toast.success("Beneficiary deleted");
-      setDeleteId(null);
+      const result = await deleteMutation.mutateAsync({
+        beneficiaryId: deleteId,
+        senderMobile,
+      });
+      setDeleteReferenceKey(result.referenceKey || "");
+      setOtpStep(true);
+      toast.success(result.message || "OTP sent to verify beneficiary deletion.");
     } catch (err) {
       toast.error((err as Error).message);
     }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId || deleteOtp.length < 4) {
+      toast.error("Enter valid OTP");
+      return;
+    }
+    try {
+      await verifyDeleteMutation.mutateAsync({
+        beneficiaryId: deleteId,
+        payload: {
+          otp: deleteOtp,
+          referenceKey: deleteReferenceKey || undefined,
+        },
+      });
+      toast.success("Beneficiary deleted");
+      setDeleteId(null);
+      setOtpStep(false);
+      setDeleteOtp("");
+      setDeleteReferenceKey("");
+      refetch();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  const closeDeleteDialog = () => {
+    setDeleteId(null);
+    setOtpStep(false);
+    setDeleteOtp("");
+    setDeleteReferenceKey("");
   };
 
   return (
     <div className="space-y-6">
       <DmtPageHeader
         title="Beneficiary List"
-        description="Manage beneficiaries for money transfer"
+        description={
+          senderMobile
+            ? `Beneficiaries for sender ${senderMobile}`
+            : "Search sender first to load beneficiaries"
+        }
         actions={
           <Button asChild className="bg-gradient-to-r from-[#0A84FF] to-[#0057D9]">
             <Link
-              href={`/rt/retailer/dmt/beneficiaries/add${mobile ? `?mobile=${encodeURIComponent(mobile)}` : ""}`}
+              href={`/rt/retailer/dmt/beneficiaries/add${senderMobile ? `?mobile=${encodeURIComponent(senderMobile)}` : ""}`}
             >
               <Plus className="h-4 w-4" />
               Add Beneficiary
@@ -106,7 +156,17 @@ function BeneficiaryListContent() {
             />
           )}
 
-          {!isLoading && !isError && filtered.length === 0 && (
+          {!senderMobile && !isLoading && (
+            <p className="py-6 text-center text-sm text-amber-700">
+              No sender selected.{" "}
+              <Link href="/rt/retailer/dmt/sender" className="font-semibold underline">
+                Search remitter
+              </Link>{" "}
+              to continue.
+            </p>
+          )}
+
+          {!isLoading && !isError && senderMobile && filtered.length === 0 && (
             <p className="py-10 text-center text-sm text-slate-500">
               No beneficiaries found
             </p>
@@ -138,7 +198,7 @@ function BeneficiaryListContent() {
                 )}
                 <Button asChild size="sm">
                   <Link
-                    href={`/rt/retailer/dmt/transfer?beneficiaryId=${encodeURIComponent(ben.id)}${mobile ? `&mobile=${encodeURIComponent(mobile)}` : ""}`}
+                    href={`/rt/retailer/dmt/transfer?beneficiaryId=${encodeURIComponent(ben.id)}${senderMobile ? `&mobile=${encodeURIComponent(senderMobile)}` : ""}`}
                   >
                     <Send className="h-3.5 w-3.5" />
                     Transfer
@@ -158,26 +218,53 @@ function BeneficiaryListContent() {
         </CardContent>
       </Card>
 
-      <Dialog open={Boolean(deleteId)} onOpenChange={() => setDeleteId(null)}>
+      <Dialog open={Boolean(deleteId)} onOpenChange={closeDeleteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Beneficiary</DialogTitle>
+            <DialogTitle>
+              {otpStep ? "Verify Delete OTP" : "Delete Beneficiary"}
+            </DialogTitle>
             <DialogDescription>
-              This action cannot be undone. Are you sure?
+              {otpStep
+                ? "Enter OTP sent to verify beneficiary deletion."
+                : "This will send an OTP to confirm deletion."}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteId(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={deleteMutation.isPending}
-              onClick={handleDelete}
-            >
-              Delete
-            </Button>
-          </DialogFooter>
+
+          {otpStep ? (
+            <div className="space-y-4 py-2">
+              <OtpInput
+                value={deleteOtp}
+                onChange={setDeleteOtp}
+                disabled={verifyDeleteMutation.isPending}
+              />
+              <DialogFooter>
+                <Button variant="outline" onClick={closeDeleteDialog}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={verifyDeleteMutation.isPending}
+                  onClick={confirmDelete}
+                >
+                  Confirm Delete
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <DialogFooter>
+              <Button variant="outline" onClick={closeDeleteDialog}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={deleteMutation.isPending}
+                onClick={initiateDelete}
+              >
+                Send Delete OTP
+              </Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </div>

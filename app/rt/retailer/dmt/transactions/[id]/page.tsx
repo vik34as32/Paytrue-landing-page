@@ -4,14 +4,14 @@ import { useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useReactToPrint } from "react-to-print";
-import { Download, Printer, RefreshCw, Share2 } from "lucide-react";
+import { Download, Printer, RefreshCw, RotateCcw, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DmtPageHeader from "@/src/components/dmt/DmtPageHeader";
 import DmtStatusBadge from "@/src/components/dmt/DmtStatusBadge";
 import DmtErrorState from "@/src/components/dmt/DmtErrorState";
-import { useDmtTransaction } from "@/src/hooks/useDmt";
+import { useDmtTransaction, useRefundTransfer } from "@/src/hooks/useDmt";
 import { formatCurrency } from "@/lib/utils";
 
 function Info({ label, value }: { label: string; value?: string }) {
@@ -25,10 +25,12 @@ function Info({ label, value }: { label: string; value?: string }) {
 
 export default function DmtTransactionDetailPage() {
   const params = useParams<{ id: string }>();
+  const transactionId = params?.id ?? "";
   const receiptRef = useRef<HTMLDivElement>(null);
   const { data, isLoading, isError, error, refetch, isFetching } = useDmtTransaction(
-    params.id
+    transactionId
   );
+  const refundMutation = useRefundTransfer();
 
   const handlePrint = useReactToPrint({
     contentRef: receiptRef,
@@ -47,6 +49,18 @@ export default function DmtTransactionDetailPage() {
       }
     } catch {
       toast.error("Unable to share receipt");
+    }
+  };
+
+  const handleRefund = async () => {
+    if (!data) return;
+    const reference = data.referenceNumber || data.transactionId || transactionId;
+    try {
+      await refundMutation.mutateAsync({ reference });
+      toast.success("Refund request submitted");
+      refetch();
+    } catch {
+      toast.error("Unable to process refund");
     }
   };
 
@@ -87,6 +101,17 @@ export default function DmtTransactionDetailPage() {
               <Download className="h-4 w-4" />
               Download PDF
             </Button>
+            {data.status === "success" || data.status === "failed" ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={refundMutation.isPending}
+                onClick={handleRefund}
+              >
+                <RotateCcw className="h-4 w-4" />
+                Refund
+              </Button>
+            ) : null}
           </div>
         }
       />

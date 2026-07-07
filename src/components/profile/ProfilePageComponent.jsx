@@ -82,10 +82,21 @@ export default function ProfilePageComponent({ role }) {
     toast.error(typeof error === "string" ? error : "Failed to fetch profile");
   }, [loading, error]);
 
-  const backHref = role === "md" ? "/md/dashboard" : "/dd/dashboard";
+  const backHref =
+    role === "md"
+      ? "/md/dashboard"
+      : role === "dd"
+        ? "/dd/dashboard"
+        : "/rt/retailer";
   const data = profile || authUser || {};
   const outlet = data.outlet || {};
-  const distributorId = data.userId || data.id || data._id;
+  const userId = data.userId || data.id || data._id;
+  const userIdLabel =
+    role === "dd"
+      ? "Distributor ID"
+      : role === "rt"
+        ? "Retailer ID"
+        : "User ID";
 
   if (loading && !profile && !authUser?.email) {
     return <PageLoader message="Loading profile..." />;
@@ -153,8 +164,8 @@ export default function ProfilePageComponent({ role }) {
         <InfoField label="Email" value={data.email} />
         <InfoField label="Mobile Number" value={data.mobile} />
         <InfoField
-          label={role === "dd" ? "Distributor ID" : "User ID"}
-          value={distributorId}
+          label={userIdLabel}
+          value={userId}
         />
         <InfoField label="Alternate Mobile" value={data.alternateMobileNumber} />
         <InfoField label="User Type" value={data.roleLabel || data.userType} />

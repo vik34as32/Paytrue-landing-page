@@ -15,14 +15,14 @@ import {
   ArrowRight,
   Loader2,
 } from "lucide-react";
-import { toast } from "sonner";
-
 import Header from "@/app/shared/components/layout/Header";
+import FormStatusAlert from "@/src/components/common/FormStatusAlert";
 import PremiumFintechFooter from "@/app/shared/components/layout/Footer";
 import ReduxProvider from "@/src/components/common/ReduxProvider";
 import PasswordStrengthMeter from "@/src/components/common/PasswordStrengthMeter";
 import { loginSchema } from "@/src/validation/schemas";
 import { loginUser } from "@/src/redux/thunks/authThunk";
+import { fetchProfile } from "@/src/redux/thunks/profileThunk";
 import {
   selectAuthLoading,
   selectAuthError,
@@ -37,6 +37,7 @@ function LoginForm() {
   const loading = useSelector(selectAuthLoading);
   const authError = useSelector(selectAuthError);
   const [showPassword, setShowPassword] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState("");
 
   const {
     register,
@@ -57,6 +58,9 @@ function LoginForm() {
   }, [dispatch]);
 
   const onSubmit = async (data) => {
+    setLoginSuccess("");
+    dispatch(clearAuthError());
+
     const action = await dispatch(
       loginUser({
         email: data.email,
@@ -66,17 +70,14 @@ function LoginForm() {
     );
 
     if (loginUser.fulfilled.match(action)) {
-      toast.success("Login successful");
+      await dispatch(fetchProfile());
+      setLoginSuccess("Login successful. Redirecting to your dashboard...");
       const redirect =
         searchParams.get("redirect") ||
         getRedirectPathForUserType(action.payload.user?.userType);
       router.replace(redirect);
       return;
     }
-
-    toast.error(
-      typeof action.payload === "string" ? action.payload : "Login failed"
-    );
   };
 
   return (
@@ -155,25 +156,41 @@ function LoginForm() {
                   <label className="mb-3 block text-sm font-semibold text-gray-700 dark:text-slate-300">
                     Password
                   </label>
+
                   <div className="flex items-center rounded-2xl border border-gray-200 bg-slate-50 px-5 py-4 focus-within:border-[#0057D9] dark:border-slate-700 dark:bg-slate-800">
                     <Lock className="mr-4 text-gray-400" size={22} />
+
                     <input
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                       className="w-full bg-transparent text-lg text-gray-800 outline-none dark:text-white"
                       {...register("password")}
                     />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)}>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="text-gray-400 transition hover:text-[#0057D9]"
+                    >
                       {showPassword ? <EyeOff size={22} /> : <Eye size={22} />}
                     </button>
                   </div>
+
                   {errors.password && (
                     <p className="mt-2 text-sm text-red-500">{errors.password.message}</p>
                   )}
-                  {/* <div className="mt-3">
-                    <PasswordStrengthMeter password={password} />
-                  </div> */}
+
+                  {/* Forgot Password */}
+                  <div className="mt-3 flex justify-end">
+                    <Link
+                      href="/auth/forgot-password"
+                      className="text-sm font-medium text-[#0057D9] transition-colors duration-200 hover:text-[#0A84FF] hover:underline"
+                    >
+                      Forgot Password?
+                    </Link>
+                  </div>
                 </div>
+
 
                 <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-slate-400">
                   <input
@@ -184,11 +201,13 @@ function LoginForm() {
                   Remember me
                 </label>
 
-                {authError && (
-                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
-                    {authError}
-                  </div>
-                )}
+                {authError ? (
+                  <FormStatusAlert
+                    variant="error"
+                    title="Login failed"
+                    message={authError}
+                  />
+                ) : null}
 
                 <button
                   type="submit"
@@ -207,6 +226,14 @@ function LoginForm() {
                     </>
                   )}
                 </button>
+
+                {loginSuccess ? (
+                  <FormStatusAlert
+                    variant="success"
+                    title="Welcome back"
+                    message={loginSuccess}
+                  />
+                ) : null}
               </form>
 
               <p className="mt-10 text-center text-base text-gray-600 dark:text-slate-400">

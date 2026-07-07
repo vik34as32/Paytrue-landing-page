@@ -9,7 +9,12 @@ export function normalizeUser(user) {
 
   const firstName = user.firstName || "";
   const lastName = user.lastName || "";
-  const fullName = `${firstName} ${lastName}`.trim();
+  const fullName =
+    `${firstName} ${lastName}`.trim() ||
+    user.fullName ||
+    user.full_name ||
+    user.name ||
+    "";
   const profileImage =
     user.profileImage ||
     user.profileImageUrl ||
@@ -21,15 +26,17 @@ export function normalizeUser(user) {
     ...user,
     firstName,
     lastName,
-    name: fullName || user.name || user.email,
+    name: fullName || user.email,
     profileImage,
     roleLabel: USER_TYPE_LABELS[user.userType] || user.userType,
     userId:
+      user.userCode ||
       user.id ||
       user.userId ||
       user._id ||
       user.distributorId ||
-      user.retailerId,
+      user.retailerId ||
+      user.retailerCode,
     status:
       user.status ||
       user.accountStatus ||

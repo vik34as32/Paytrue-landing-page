@@ -14,7 +14,7 @@ const NAV = [
 ];
 
 function DmtNav() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
 
   return (
     <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">

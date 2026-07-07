@@ -41,7 +41,7 @@ function PasswordField({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id} className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+      <Label htmlFor={id} className="text-sm font-semibold text-slate-700 dark:text-slate-100">
         {label}
       </Label>
       <div className="relative">
@@ -49,13 +49,13 @@ function PasswordField({
           id={id}
           type={show ? "text" : "password"}
           autoComplete={id === "oldPassword" ? "current-password" : "new-password"}
-          className="h-11 rounded-xl pr-11 dark:border-slate-700 dark:bg-slate-950"
+          className="h-11 rounded-xl border-slate-200 bg-white pr-11 text-slate-900 caret-[#0A84FF] placeholder:text-slate-400 dark:border-slate-600 dark:bg-[#0b1f3a] dark:text-white dark:placeholder:text-slate-500 dark:caret-white"
           {...register(id)}
         />
         <button
           type="button"
           onClick={onToggle}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-white"
           aria-label={show ? "Hide password" : "Show password"}
         >
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -105,7 +105,7 @@ export default function ChangePassword({
       onSuccess?.();
 
       if (logoutAfterSuccess) {
-        await dispatch(logoutUser());
+        await (dispatch as (action: unknown) => Promise<unknown>)(logoutUser());
         router.push("/auth/login");
       }
     } catch (error: unknown) {

@@ -114,8 +114,13 @@ export interface AepsTransactionResult {
   status: string;
   message: string;
   amount?: number;
+  /** Primary display balance — usually bank account balance from provider */
   balance?: number;
+  bankAccountBalance?: number;
+  openingBalance?: number;
+  closingBalance?: number;
   bankName?: string;
+  accountNumber?: string;
   aadhaarNumber?: string;
   mobileNumber?: string;
   customerName?: string;

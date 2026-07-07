@@ -106,9 +106,13 @@ export function mapAepsError(error: unknown): Error {
   if (error && typeof error === "object") {
     const err = error as {
       message?: string;
-      data?: {
+      data?: Record<string, unknown> & {
         message?: string;
+        status?: string;
+        statuscode?: string;
         errors?: Array<{ field?: string; message?: string }>;
+        provider?: Record<string, unknown>;
+        data?: Record<string, unknown>;
       };
     };
 
@@ -123,6 +127,11 @@ export function mapAepsError(error: unknown): Error {
       return new Error(details || err.data?.message || err.message || "Validation failed.");
     }
 
+    const providerMessage = extractInstantPayErrorMessage(err.data);
+    if (providerMessage) {
+      return new Error(providerMessage);
+    }
+
     const message =
       err.data?.message ||
       err.message ||
@@ -130,6 +139,48 @@ export function mapAepsError(error: unknown): Error {
     return new Error(message);
   }
   return new Error("AEPS request failed. Please try again.");
+}
+
+function extractInstantPayErrorMessage(
+  payload: Record<string, unknown> | undefined
+): string | undefined {
+  if (!payload || typeof payload !== "object") return undefined;
+
+  const candidates: Record<string, unknown>[] = [payload];
+
+  const provider = payload.provider as Record<string, unknown> | undefined;
+  if (provider) candidates.unshift(provider);
+
+  const nested = payload.data as Record<string, unknown> | undefined;
+  if (nested && typeof nested === "object") {
+    candidates.unshift(nested);
+    const nestedProvider = nested.provider as Record<string, unknown> | undefined;
+    if (nestedProvider) candidates.unshift(nestedProvider);
+  }
+
+  for (const item of candidates) {
+    const statuscode = String(item.statuscode ?? "").toUpperCase();
+    const statusText = item.status != null ? String(item.status).trim() : "";
+    const isErrorCode =
+      statuscode === "ERR" ||
+      statuscode === "FAILED" ||
+      statuscode === "FAIL" ||
+      statuscode.startsWith("ERR");
+
+    if (isErrorCode && statusText) {
+      return statusText;
+    }
+
+    if (
+      statusText &&
+      !statusText.toLowerCase().includes("successful") &&
+      (item.success === false || payload.success === false)
+    ) {
+      return statusText;
+    }
+  }
+
+  return undefined;
 }
 
 export function normalizeAepsBank(raw: Record<string, unknown>): AepsBank | null {
@@ -219,11 +270,67 @@ export function normalizeAepsLoginResult(raw: Record<string, unknown>): AepsLogi
   };
 }
 
+function parseAepsAmount(value: unknown): number | undefined {
+  if (value == null || value === "") return undefined;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : undefined;
+}
+
+/** Merge InstantPay / backend nested provider + transaction payloads */
+function extractInstantPayProviderData(
+  raw: Record<string, unknown>
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...raw };
+
+  const provider = raw.provider as Record<string, unknown> | undefined;
+  if (provider?.data && typeof provider.data === "object") {
+    Object.assign(merged, provider.data as Record<string, unknown>);
+  }
+
+  const transaction = raw.transaction as Record<string, unknown> | undefined;
+  if (transaction) {
+    Object.assign(merged, transaction);
+
+    const instantpay = transaction.instantpayResponse as Record<string, unknown> | undefined;
+    if (instantpay?.data && typeof instantpay.data === "object") {
+      Object.assign(merged, instantpay.data as Record<string, unknown>);
+    }
+
+    const responsePayload = transaction.responsePayload as Record<string, unknown> | undefined;
+    if (responsePayload?.data && typeof responsePayload.data === "object") {
+      Object.assign(merged, responsePayload.data as Record<string, unknown>);
+    }
+  }
+
+  if (raw.data && typeof raw.data === "object" && !Array.isArray(raw.data)) {
+    const data = raw.data as Record<string, unknown>;
+    if (data.bankAccountBalance != null || data.closingBalance != null) {
+      Object.assign(merged, data);
+    }
+  }
+
+  return merged;
+}
+
 export function normalizeAepsTransactionResult(
   raw: Record<string, unknown>
 ): AepsTransactionResult {
+  const transaction = (raw.transaction as Record<string, unknown>) ?? raw;
+  const provider = raw.provider as Record<string, unknown> | undefined;
+  const providerData = extractInstantPayProviderData(raw);
+
+  const bankAccountBalance = parseAepsAmount(providerData.bankAccountBalance);
+  const closingBalance = parseAepsAmount(providerData.closingBalance);
+  const openingBalance = parseAepsAmount(providerData.openingBalance);
+  const balance =
+    bankAccountBalance ?? parseAepsAmount(raw.balance ?? transaction.balance);
+
   const miniStatementRaw =
-    raw.miniStatement ?? raw.statement ?? raw.transactions ?? raw.mini_statement;
+    providerData.miniStatement ??
+    raw.miniStatement ??
+    raw.statement ??
+    raw.transactions ??
+    raw.mini_statement;
 
   let miniStatement: AepsMiniStatementRow[] | undefined;
   if (Array.isArray(miniStatementRaw)) {
@@ -239,18 +346,67 @@ export function normalizeAepsTransactionResult(
     });
   }
 
+  const rrnRaw = transaction.rrn ?? transaction.bankRRN ?? raw.rrn;
+  const rrn =
+    rrnRaw != null && String(rrnRaw).trim() !== "" && String(rrnRaw) !== "-1"
+      ? String(rrnRaw)
+      : undefined;
+
+  const accountNumber = String(
+    providerData.accountNumber ??
+      transaction.aadhaarMasked ??
+      raw.accountNumber ??
+      raw.aadhaarNumber ??
+      ""
+  ).trim();
+
   return {
-    referenceId: String(raw.referenceId ?? raw.reference ?? raw.refId ?? ""),
-    transactionId: String(raw.transactionId ?? raw.txnId ?? raw.id ?? ""),
-    status: String(raw.status ?? "pending").toLowerCase(),
-    message: String(raw.message ?? raw.statusMessage ?? ""),
-    amount: raw.amount != null ? Number(raw.amount) : undefined,
-    balance: raw.balance != null ? Number(raw.balance) : undefined,
-    bankName: raw.bankName ? String(raw.bankName) : undefined,
-    aadhaarNumber: raw.aadhaarNumber ? String(raw.aadhaarNumber) : undefined,
+    referenceId: String(
+      transaction.referenceId ??
+        providerData.externalRef ??
+        raw.referenceId ??
+        raw.reference ??
+        raw.refId ??
+        ""
+    ),
+    transactionId: String(
+      transaction.txnId ??
+        providerData.ipayId ??
+        raw.transactionId ??
+        raw.txnId ??
+        transaction.id ??
+        raw.id ??
+        ""
+    ),
+    status: String(
+      transaction.status ?? provider?.statuscode ?? provider?.status ?? raw.status ?? "pending"
+    ).toLowerCase(),
+    message: String(
+      raw.message ??
+        transaction.message ??
+        provider?.status ??
+        providerData.status ??
+        raw.statusMessage ??
+        ""
+    ),
+    amount:
+      transaction.amount != null
+        ? Number(transaction.amount)
+        : parseAepsAmount(providerData.transactionValue ?? raw.amount),
+    balance,
+    bankAccountBalance,
+    openingBalance,
+    closingBalance,
+    bankName: providerData.bankName ? String(providerData.bankName) : undefined,
+    accountNumber: accountNumber || undefined,
+    aadhaarNumber: transaction.aadhaarMasked
+      ? String(transaction.aadhaarMasked)
+      : raw.aadhaarNumber
+        ? String(raw.aadhaarNumber)
+        : undefined,
     mobileNumber: raw.mobileNumber ? String(raw.mobileNumber) : undefined,
     customerName: raw.customerName ? String(raw.customerName) : undefined,
-    rrn: raw.rrn ? String(raw.rrn) : undefined,
+    rrn,
     stan: raw.stan ? String(raw.stan) : undefined,
     miniStatement,
     receipt: (raw.receipt as Record<string, unknown>) ?? undefined,

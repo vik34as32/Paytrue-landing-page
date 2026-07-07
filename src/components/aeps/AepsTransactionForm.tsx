@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Fingerprint, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,8 @@ interface AepsTransactionFormProps {
   onSubmit: (payload: AepsTransactionPayload) => Promise<AepsTransactionResult>;
   onSuccess?: (result: AepsTransactionResult) => void;
   submitLabel?: string;
+  /** Renders below submit button instead of generic success toast-style alert */
+  renderInlineSuccess?: (result: AepsTransactionResult) => ReactNode;
 }
 
 export default function AepsTransactionForm({
@@ -55,6 +57,7 @@ export default function AepsTransactionForm({
   onSubmit,
   onSuccess,
   submitLabel = "Proceed",
+  renderInlineSuccess,
 }: AepsTransactionFormProps) {
   const {
     rdStatus,
@@ -70,6 +73,8 @@ export default function AepsTransactionForm({
   );
   const [pendingReferenceId, setPendingReferenceId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastResult, setLastResult] = useState<AepsTransactionResult | null>(null);
+  const inlineResultRef = useRef<HTMLDivElement>(null);
   const { status, clearStatus, showError, showSuccess, showInfo } = useFormStatus();
 
   const {
@@ -111,6 +116,7 @@ export default function AepsTransactionForm({
   const executeSubmit = async (payload: AepsTransactionPayload) => {
     setIsSubmitting(true);
     clearStatus();
+    setLastResult(null);
     try {
       const result = await onSubmit(payload);
       const needsOtp =
@@ -130,10 +136,14 @@ export default function AepsTransactionForm({
         return;
       }
 
-      showSuccess(
-        result.message || "Transaction completed successfully.",
-        "Transaction successful"
-      );
+      if (renderInlineSuccess) {
+        setLastResult(result);
+      } else {
+        showSuccess(
+          result.message || "Transaction completed successfully.",
+          "Transaction successful"
+        );
+      }
       onSuccess?.(result);
       setStep("form");
       setOtp("");
@@ -149,6 +159,7 @@ export default function AepsTransactionForm({
 
   const onFormSubmit = handleSubmit(async (values) => {
     clearStatus();
+    setLastResult(null);
 
     if (!rdStatus.isRunning) {
       showError(
@@ -181,6 +192,11 @@ export default function AepsTransactionForm({
   };
 
   const busy = isCapturing || isFetchingLocation || isSubmitting;
+
+  useEffect(() => {
+    if (!lastResult || !inlineResultRef.current) return;
+    inlineResultRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [lastResult]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -365,7 +381,9 @@ export default function AepsTransactionForm({
                 )}
               </Button>
 
-              {status && !isFormErrorVariant(status.variant) ? (
+              {lastResult && renderInlineSuccess ? (
+                <div ref={inlineResultRef}>{renderInlineSuccess(lastResult)}</div>
+              ) : status && !isFormErrorVariant(status.variant) ? (
                 <FormStatusAlert
                   variant={status.variant}
                   title={status.title}

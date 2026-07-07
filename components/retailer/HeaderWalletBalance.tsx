@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
+import { useAppDispatch } from "@/src/redux/types";
 import { usePathname } from "next/navigation";
 import { Eye, EyeOff, Wallet } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
@@ -24,7 +25,7 @@ function isDashboardPath(pathname: string | null) {
 }
 
 export default function HeaderWalletBalance() {
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
   const pathname = usePathname();
   const wallet = useSelector(selectRtWallet);
   const prevPathRef = useRef<string | null>(null);
@@ -43,7 +44,6 @@ export default function HeaderWalletBalance() {
     }
 
     if (prevPathRef.current !== null && prevPathRef.current !== pathname) {
-      // @ts-expect-error wallet thunk arg typing in JS module
       dispatch(fetchWalletBalance({ role: "rt" }));
     }
 

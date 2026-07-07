@@ -78,8 +78,12 @@ export async function aepsBalanceEnquiry(
   return request(async () => {
     const body = buildAepsTransactionApiBody(payload);
     const { data } = await api.post(AEPS_ENDPOINTS.balanceEnquiry, body);
-    const raw = unwrapAepsData<Record<string, unknown>>(data) ?? (data as Record<string, unknown>);
-    return normalizeAepsTransactionResult(raw);
+    const envelope = data as Record<string, unknown>;
+    const raw = unwrapAepsData<Record<string, unknown>>(data) ?? envelope;
+    return normalizeAepsTransactionResult({
+      ...(raw ?? {}),
+      message: envelope.message ?? raw?.message,
+    });
   });
 }
 
@@ -89,8 +93,12 @@ export async function aepsMiniStatement(
   return request(async () => {
     const body = buildAepsTransactionApiBody(payload);
     const { data } = await api.post(AEPS_ENDPOINTS.miniStatement, body);
-    const raw = unwrapAepsData<Record<string, unknown>>(data) ?? (data as Record<string, unknown>);
-    return normalizeAepsTransactionResult(raw);
+    const envelope = data as Record<string, unknown>;
+    const raw = unwrapAepsData<Record<string, unknown>>(data) ?? envelope;
+    return normalizeAepsTransactionResult({
+      ...(raw ?? {}),
+      message: envelope.message ?? raw?.message,
+    });
   });
 }
 

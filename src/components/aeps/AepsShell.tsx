@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
+import { useAppDispatch } from "@/src/redux/types";
 import { cn } from "@/lib/utils";
 import AepsDailyLoginGuard from "@/src/components/aeps/AepsDailyLoginGuard";
 import {
@@ -78,7 +79,7 @@ function AepsBankPrefetch() {
 }
 
 export default function AepsShell({ children }: { children: React.ReactNode }) {
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
   const loginDoneFromStore = useSelector(selectAepsDailyLoginDone);
   const [sessionReady, setSessionReady] = useState(false);
 

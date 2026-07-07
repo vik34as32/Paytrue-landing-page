@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useDispatch, useSelector } from "react-redux";
-import { motion } from "framer-motion";
+import { useSelector } from "react-redux";
+import { useAppDispatch } from "@/src/redux/types";
+import { motion, type Variants } from "framer-motion";
 import {
   ArrowLeft,
   BadgeCheck,
@@ -62,12 +63,12 @@ import {
   resolveStatusBadge,
 } from "@/src/lib/profileUtils";
 
-const fadeUp = {
+const fadeUp: Variants = {
   hidden: { opacity: 0, y: 24 },
   show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } },
 };
 
-const stagger = {
+const stagger: Variants = {
   hidden: {},
   show: { transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
 };
@@ -200,7 +201,7 @@ function SectionCard({
 }
 
 export default function RetailerProfileView() {
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
   const profile = useSelector(selectProfile) as Record<string, unknown> | null;
   const authUser = useSelector(selectUser);
   const loading = useSelector(selectProfileLoading);
@@ -506,7 +507,7 @@ export default function RetailerProfileView() {
                 {String(outlet.address ?? "—")}
                 {outlet.latitude && outlet.longitude ? (
                   <span className="block text-xs font-normal text-slate-500">
-                    GPS: {outlet.latitude}, {outlet.longitude}
+                    GPS: {String(outlet.latitude)}, {String(outlet.longitude)}
                   </span>
                 ) : null}
               </p>

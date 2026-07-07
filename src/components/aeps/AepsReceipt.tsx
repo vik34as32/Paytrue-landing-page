@@ -40,8 +40,13 @@ const AepsReceipt = forwardRef<HTMLDivElement, AepsReceiptProps>(
           {result.amount != null ? (
             <Row label="Amount" value={formatCurrency(result.amount)} />
           ) : null}
-          {result.balance != null ? (
-            <Row label="Balance" value={formatCurrency(result.balance)} />
+          {result.bankAccountBalance != null ? (
+            <Row
+              label="Bank Account Balance"
+              value={formatCurrency(result.bankAccountBalance)}
+            />
+          ) : result.balance != null ? (
+            <Row label="Bank Account Balance" value={formatCurrency(result.balance)} />
           ) : null}
           {result.rrn ? <Row label="RRN" value={result.rrn} /> : null}
           {result.stan ? <Row label="STAN" value={result.stan} /> : null}

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useDispatch } from "react-redux";
+import { useAppDispatch } from "@/src/redux/types";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, KeyRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -70,7 +70,7 @@ export default function ChangePassword({
   onSuccess,
   logoutAfterSuccess = true,
 }: ChangePasswordProps) {
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
   const router = useRouter();
   const [showOld, setShowOld] = useState(false);
   const [showNew, setShowNew] = useState(false);

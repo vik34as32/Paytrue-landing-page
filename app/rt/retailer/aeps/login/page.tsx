@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
+import { useAppDispatch } from "@/src/redux/types";
 import { useForm } from "react-hook-form";
 import { CreditCard, Fingerprint, Loader2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,7 +40,7 @@ interface LoginFormValues {
 }
 
 export default function AepsDailyLoginPage() {
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
   const profile = useSelector(selectProfile);
   const profileLoading = useSelector(selectProfileLoading);
   const authHydrated = useSelector(selectAuthHydrated);

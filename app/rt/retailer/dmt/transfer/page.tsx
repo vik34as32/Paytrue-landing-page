@@ -191,7 +191,11 @@ function TransferPageContent() {
       <DmtPageHeader
         title="Money Transfer"
         description="Generate OTP, verify, and transfer via IMPS or NEFT"
-        backHref="/rt/retailer/dmt/beneficiaries"
+        backHref={
+          mobile
+            ? `/rt/retailer/dmt/sender/profile?mobile=${encodeURIComponent(mobile)}`
+            : "/rt/retailer/dmt/beneficiaries"
+        }
       />
 
       <div className="grid gap-4 lg:grid-cols-2">

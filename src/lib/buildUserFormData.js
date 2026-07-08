@@ -1,3 +1,4 @@
+import { resolveRetailerNameFields } from "@/src/lib/userNameUtils";
 import { USER_FILE_FIELDS } from "@/src/constants/uploadConfig";
 
 function appendIfPresent(formData, key, value) {
@@ -22,8 +23,14 @@ export function buildUserFormData(values, files = {}, options = {}) {
   const { userType, includePassword = true } = options;
   const formData = new FormData();
 
-  appendIfPresent(formData, "firstName", values.firstName);
-  appendIfPresent(formData, "lastName", values.lastName);
+  if (userType === "RETAILER") {
+    const { firstName, lastName } = resolveRetailerNameFields(values);
+    appendIfPresent(formData, "firstName", firstName);
+    appendIfPresent(formData, "lastName", lastName);
+  } else {
+    appendIfPresent(formData, "firstName", values.firstName);
+    appendIfPresent(formData, "lastName", values.lastName);
+  }
   appendIfPresent(formData, "email", values.email);
   appendIfPresent(formData, "mobile", values.mobile);
   appendIfPresent(formData, "alternateMobileNumber", values.alternateMobileNumber);
@@ -89,6 +96,7 @@ export function mapApiUserToFormValues(user = {}) {
   return {
     firstName: user.firstName || "",
     lastName: user.lastName || "",
+    fullName: user.firstName || "",
     email: user.email || "",
     emailVerified: Boolean(user.emailVerified ?? user.isEmailVerified),
     mobile: user.mobile || "",

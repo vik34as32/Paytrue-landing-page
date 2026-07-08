@@ -20,6 +20,7 @@ import { useState } from "react";
 
 const schema = z.object({
   mobile: z.string().regex(/^[6-9]\d{9}$/, "Enter valid mobile number"),
+  name: z.string().min(2, "Enter sender name"),
   aadhaar: z.string().regex(/^\d{12}$/, "Enter valid 12-digit Aadhaar number"),
 });
 
@@ -36,6 +37,7 @@ function RegisterSenderForm() {
     resolver: zodResolver(schema),
     defaultValues: {
       mobile: params?.get("mobile") ?? "",
+      name: "",
       aadhaar: "",
     },
   });
@@ -51,6 +53,7 @@ function RegisterSenderForm() {
       const registered = await registerMutation.mutateAsync({
         mobile: values.mobile,
         aadhaar: values.aadhaar,
+        firstName: values.name.trim(),
       });
       setActiveSenderMobile(values.mobile);
       const otpResult = await sendOtpMutation.mutateAsync(values.mobile);
@@ -83,6 +86,15 @@ function RegisterSenderForm() {
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
+              <Label>Name</Label>
+              <Input placeholder="Sender full name" {...form.register("name")} />
+              {form.formState.errors.name && (
+                <p className="text-xs text-red-500">
+                  {form.formState.errors.name.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
               <Label>Mobile Number</Label>
               <Input maxLength={10} {...form.register("mobile")} />
               {form.formState.errors.mobile && (
@@ -110,7 +122,7 @@ function RegisterSenderForm() {
               disabled={loading}
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              Register & Send OTP
+              Register Sender
             </Button>
           </form>
         </CardContent>

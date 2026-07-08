@@ -25,6 +25,7 @@ import VerificationSuccess from "@/components/biometric/VerificationSuccess";
 import { useBiometricDevice } from "@/src/hooks/useBiometricDevice";
 import { useFingerprint } from "@/src/hooks/useFingerprint";
 import useScannerConnection from "@/src/hooks/useScannerConnection";
+import { clearAllProviderCaches } from "@/src/lib/biometric/BiometricFactory";
 import { BIOMETRIC_DEVICE_OPTIONS } from "@/src/types/biometric";
 import type { AppDispatch } from "@/src/redux/types";
 import {
@@ -34,6 +35,8 @@ import {
   selectMerchantError,
   selectMerchantModalOpen,
   selectMerchantPidOptionWadh,
+  selectMerchantStatusChecked,
+  selectMerchantStatusLoading,
   selectMerchantVerificationPhase,
   setVerificationPhase,
 } from "@/src/redux/slices/merchantSlice";
@@ -56,8 +59,10 @@ export default function BiometricVerificationDialog({
   const phase = useSelector(selectMerchantVerificationPhase);
   const error = useSelector(selectMerchantError);
   const pidOptionWadh = useSelector(selectMerchantPidOptionWadh);
+  const statusLoading = useSelector(selectMerchantStatusLoading);
+  const statusChecked = useSelector(selectMerchantStatusChecked);
   const { selectedDevice, changeDevice } = useBiometricDevice();
-  const { capture, refreshRdService } = useFingerprint();
+  const { capture, refreshRdService } = useFingerprint({ autoRefresh: false });
   const {
     isConnected,
     isConnecting,
@@ -66,9 +71,10 @@ export default function BiometricVerificationDialog({
     error: connectError,
     connectScanner,
     device,
-  } = useScannerConnection(false);
+  } = useScannerConnection(false, { autoRefresh: false });
 
   const [scannerConnected, setScannerConnected] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   const isScanning = phase === "scanning";
   const busy = isScanning || phase === "verifying" || isConnecting;
@@ -78,6 +84,7 @@ export default function BiometricVerificationDialog({
   useEffect(() => {
     if (!open) {
       setScannerConnected(false);
+      setScanError(null);
       return;
     }
     dispatch(clearMerchantError());
@@ -102,15 +109,19 @@ export default function BiometricVerificationDialog({
 
   const handleConnect = async () => {
     dispatch(clearMerchantError());
+    setScanError(null);
+    clearAllProviderCaches();
     const result = await connectScanner();
     setScannerConnected(result.state === "connected");
   };
 
   const handleStartScan = useCallback(async () => {
     dispatch(clearMerchantError());
+    setScanError(null);
     dispatch(setVerificationPhase("scanning"));
 
     try {
+      clearAllProviderCaches();
       const rdCheck = await refreshRdService(true);
       if (!rdCheck?.isRunning) {
         throw new Error(
@@ -131,11 +142,8 @@ export default function BiometricVerificationDialog({
       await dispatch(submitMerchantBiometricVerification(captureResult.pidData)).unwrap();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Verification failed.";
-      if (!message.toLowerCase().includes("capture")) {
-        dispatch(setVerificationPhase("error"));
-      } else {
-        dispatch(setVerificationPhase("idle"));
-      }
+      setScanError(message);
+      dispatch(setVerificationPhase("idle"));
     }
   }, [capture, device, dispatch, pidOptionWadh, refreshRdService]);
 
@@ -195,6 +203,8 @@ export default function BiometricVerificationDialog({
                   onChange={(e) => {
                     changeDevice(e.target.value as "MANTRA" | "MORPHO");
                     setScannerConnected(false);
+                    setScanError(null);
+                    clearAllProviderCaches();
                   }}
                 >
                   {BIOMETRIC_DEVICE_OPTIONS.map((opt) => (
@@ -264,9 +274,16 @@ export default function BiometricVerificationDialog({
                 </Button>
               </Box>
 
-              {(connectError || error) && phase !== "verifying" ? (
+              {(connectError || scanError || error) && phase !== "verifying" ? (
                 <Alert severity="error">
-                  {connectError || error}
+                  {scanError || connectError || error}
+                </Alert>
+              ) : null}
+
+              {statusChecked && !statusLoading && !pidOptionWadh?.trim() ? (
+                <Alert severity="warning">
+                  Biometric WADH is not ready yet. Wait a few seconds or close and reopen this
+                  dialog after merchant status loads.
                 </Alert>
               ) : null}
 
@@ -316,7 +333,7 @@ export default function BiometricVerificationDialog({
             </Button>
             <Button
               variant="contained"
-              disabled={!canScan || busy}
+              disabled={!canScan || busy || !pidOptionWadh?.trim()}
               onClick={handleStartScan}
               sx={{
                 minWidth: 160,

@@ -144,15 +144,22 @@ function readInnerBiometricStatus(inner: Record<string, unknown>): string {
   return status ? status.toUpperCase() : "";
 }
 
-const AUTH_RETAILER_ID_KEYS = [
-  "retailerId",
-  "retailer_id",
-  "retailerCode",
-  "userId",
-  "user_id",
-  "id",
-  "_id",
-];
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const AUTH_RETAILER_UUID_KEYS = ["id", "_id", "retailerId", "retailer_id", "userId", "user_id"];
+
+function isUuid(value: string): boolean {
+  return UUID_REGEX.test(value.trim());
+}
+
+function pickAuthRetailerUuid(record: Record<string, unknown>): string | undefined {
+  for (const key of AUTH_RETAILER_UUID_KEYS) {
+    const value = pickString(record, [key]);
+    if (value && isUuid(value)) return value;
+  }
+  return undefined;
+}
 
 function resolveReferenceRecord(source: unknown): Record<string, unknown> {
   if (!source || typeof source !== "object") return {};
@@ -175,18 +182,18 @@ function resolveReferenceRecord(source: unknown): Record<string, unknown> {
   return extractInstantPayKycPayload(source);
 }
 
-/** Logged-in retailer user id — never InstantPay outletId */
+/** Logged-in retailer UUID — never display codes (PTRT...) or InstantPay outletId */
 export function resolveAuthRetailerId(...sources: unknown[]): string {
   for (const source of sources) {
     if (!source || typeof source !== "object") continue;
 
     const record = source as Record<string, unknown>;
-    const direct = pickString(record, AUTH_RETAILER_ID_KEYS);
+    const direct = pickAuthRetailerUuid(record);
     if (direct) return direct;
 
     const outlet = record.outlet;
     if (outlet && typeof outlet === "object") {
-      const fromOutlet = pickString(outlet as Record<string, unknown>, AUTH_RETAILER_ID_KEYS);
+      const fromOutlet = pickAuthRetailerUuid(outlet as Record<string, unknown>);
       if (fromOutlet) return fromOutlet;
     }
   }
@@ -329,6 +336,13 @@ export function mapMerchantError(error: unknown): Error {
 
     const validationErrors = err.data?.errors;
     if (Array.isArray(validationErrors) && validationErrors.length > 0) {
+      const retailerIdError = validationErrors.find((item) => item.field === "retailerId");
+      if (retailerIdError) {
+        return new Error(
+          "Invalid retailer session. Please logout and login again, then retry biometric verification."
+        );
+      }
+
       const details = validationErrors
         .map((item) =>
           item.field ? `${item.field}: ${item.message || "invalid"}` : item.message

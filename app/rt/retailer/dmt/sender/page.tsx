@@ -41,7 +41,7 @@ export default function SenderSearchPage() {
       if (result.exists) {
         toast.success("Sender found");
         router.push(
-          `/rt/retailer/dmt/beneficiaries?mobile=${encodeURIComponent(values.mobile)}`
+          `/rt/retailer/dmt/sender/profile?mobile=${encodeURIComponent(values.mobile)}`
         );
       } else {
         toast.info("Sender not registered. Please register sender.");
@@ -59,8 +59,8 @@ export default function SenderSearchPage() {
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <DmtPageHeader
-        title="Check Remitter"
-        description="Search sender by mobile number to continue"
+        title="Search Sender"
+        description="Enter mobile number to continue with money transfer"
       />
 
       <Card>

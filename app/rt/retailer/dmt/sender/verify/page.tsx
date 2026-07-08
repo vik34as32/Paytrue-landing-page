@@ -11,8 +11,10 @@ import DmtErrorState from "@/src/components/dmt/DmtErrorState";
 import OtpInput from "@/src/components/dmt/OtpInput";
 import {
   useResendSenderOtp,
+  useSearchSender,
   useVerifySenderOtp,
 } from "@/src/hooks/useDmt";
+import { setActiveSenderMobile } from "@/src/lib/dmtSession";
 import type { DmtApiError } from "@/src/types/dmt";
 
 const RESEND_SECONDS = 30;
@@ -23,6 +25,7 @@ function VerifySenderOtpForm() {
   const mobile = params?.get("mobile") ?? "";
   const referenceKey = params?.get("referenceKey") ?? "";
   const verifyMutation = useVerifySenderOtp();
+  const searchMutation = useSearchSender();
   const resendMutation = useResendSenderOtp();
   const [otp, setOtp] = useState("");
   const [timer, setTimer] = useState(RESEND_SECONDS);
@@ -46,6 +49,8 @@ function VerifySenderOtpForm() {
         otp,
         referenceKey: referenceKey || undefined,
       });
+      setActiveSenderMobile(mobile);
+      await searchMutation.mutateAsync(mobile);
       toast.success("Sender verified successfully");
       router.push(
         `/rt/retailer/dmt/sender/profile?mobile=${encodeURIComponent(mobile)}`
@@ -83,10 +88,12 @@ function VerifySenderOtpForm() {
           <OtpInput value={otp} onChange={setOtp} disabled={verifyMutation.isPending} />
           <Button
             className="w-full bg-gradient-to-r from-[#0A84FF] to-[#0057D9]"
-            disabled={verifyMutation.isPending}
+            disabled={verifyMutation.isPending || searchMutation.isPending}
             onClick={handleVerify}
           >
-            {verifyMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            {(verifyMutation.isPending || searchMutation.isPending) && (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            )}
             Verify OTP
           </Button>
           <Button

@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { getProvider } from "@/src/lib/biometric/BiometricFactory";
+import { clearAllProviderCaches } from "@/src/lib/biometric/BiometricFactory";
 import { bioLog } from "@/src/lib/biometric/biometricLogger";
-import { useRDService } from "@/src/hooks/useRDService";
+import { useRDService, type UseRDServiceOptions } from "@/src/hooks/useRDService";
 import { selectAepsSelectedDevice } from "@/src/redux/slices/aepsSlice";
 import type { BiometricDeviceType } from "@/src/types/biometric";
 import type { RdServiceStatus } from "@/src/types/aeps";
@@ -24,12 +25,20 @@ export interface ScannerConnectionResult {
   error: string | null;
 }
 
-export function useScannerConnection(autoConnectOnMount = true) {
+export interface UseScannerConnectionOptions extends UseRDServiceOptions {
+  autoConnectOnMount?: boolean;
+}
+
+export function useScannerConnection(
+  autoConnectOnMount = true,
+  options: UseScannerConnectionOptions = {}
+) {
+  const { autoRefresh = true, pollIntervalMs = 10_000 } = options;
   const selectedDevice = useSelector(selectAepsSelectedDevice) as BiometricDeviceType;
   const device = selectedDevice || "MANTRA";
   const { status, refresh, isChecking } = useRDService({
-    autoRefresh: true,
-    pollIntervalMs: 10_000,
+    autoRefresh,
+    pollIntervalMs,
   });
 
   const [connectionState, setConnectionState] = useState<ScannerConnectionState>("idle");
@@ -41,7 +50,8 @@ export function useScannerConnection(autoConnectOnMount = true) {
   const connectScanner = useCallback(async (): Promise<ScannerConnectionResult> => {
     setConnectionState("connecting");
     setError(null);
-    bioLog(device, "Connect scanner — discovering RD Service ...");
+    bioLog(device, "Connect scanner — clearing cache and discovering RD Service ...");
+    clearAllProviderCaches();
 
     try {
       const rdStatus = await refresh(true);

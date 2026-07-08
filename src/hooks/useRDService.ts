@@ -30,6 +30,8 @@ interface UseRDServiceOptions {
   autoRefresh?: boolean;
 }
 
+export type { UseRDServiceOptions };
+
 export function useRDService(options: UseRDServiceOptions = {}) {
   const { pollIntervalMs = 12_000, autoRefresh = true } = options;
   const dispatch = useDispatch();

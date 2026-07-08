@@ -5,15 +5,15 @@ import { useSelector } from "react-redux";
 import { getProvider } from "@/src/lib/biometric/BiometricFactory";
 import { getCurrentLocation } from "@/src/lib/rdService";
 import { bioError, bioLog } from "@/src/lib/biometric/biometricLogger";
-import { useRDService } from "@/src/hooks/useRDService";
+import { useRDService, type UseRDServiceOptions } from "@/src/hooks/useRDService";
 import { selectAepsSelectedDevice } from "@/src/redux/slices/aepsSlice";
 import type { BiometricDeviceType } from "@/src/types/biometric";
 import type { AepsLocation, AepsPidCaptureResult, PidCaptureOptions } from "@/src/types/aeps";
 
-export function useFingerprint() {
+export function useFingerprint(options: UseRDServiceOptions = {}) {
   const selectedDevice = useSelector(selectAepsSelectedDevice) as BiometricDeviceType;
   const device = selectedDevice || "MANTRA";
-  const { status, refresh, canCapture } = useRDService();
+  const { status, refresh, canCapture } = useRDService(options);
   const [isCapturing, setIsCapturing] = useState(false);
   const [lastCapture, setLastCapture] = useState<AepsPidCaptureResult | null>(
     null

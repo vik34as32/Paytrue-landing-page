@@ -3,10 +3,10 @@ import {
   checkRDService,
   clearRdServiceCache,
   discoverRDService,
+  getCachedRdEndpoint,
   getDeviceInfo,
   type RdDiscoveredEndpoint,
 } from "@/src/lib/rdService";
-import { RD_SERVICE_PATHS } from "@/src/constants/aepsApi";
 import { isMantraRdXml } from "@/src/lib/biometric/vendorFilters";
 import type { AepsPidCaptureResult, PidCaptureOptions, RdServiceStatus } from "@/src/types/aeps";
 import type { BiometricProvider } from "@/src/types/biometric";
@@ -45,19 +45,10 @@ export class MantraProvider implements BiometricProvider {
       this.clearCache();
     }
     const status = await checkRDService(forceRefresh, isMantraRdXml);
-    cachedEndpoint = status.baseUrl
-      ? {
-          baseUrl: status.baseUrl,
-          protocol: status.baseUrl.startsWith("https") ? "https" : "http",
-          host: status.baseUrl.includes("localhost") ? "localhost" : "127.0.0.1",
-          port: Number(status.baseUrl.split(":").pop()) || 11100,
-          capturePath: RD_SERVICE_PATHS.capture,
-          deviceInfoPath: RD_SERVICE_PATHS.info,
-          rdVersion: status.rdVersion,
-          serviceStatus: status.serviceStatus,
-          rawInfoXml: "",
-        }
-      : null;
+    cachedEndpoint = getCachedRdEndpoint();
+    if (!cachedEndpoint && status.baseUrl) {
+      cachedEndpoint = await discoverRDService(isMantraRdXml);
+    }
     return {
       ...status,
       provider: status.provider || "Mantra",

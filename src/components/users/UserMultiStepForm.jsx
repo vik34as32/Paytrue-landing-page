@@ -17,7 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  personalStepSchema,
+  getPersonalStepSchema,
   outletStepSchema,
   bankStepSchema,
   getKycStepSchema,
@@ -57,6 +57,7 @@ const FILE_FIELD_KEYS = Object.keys(USER_FILE_FIELDS);
 const emptyDefaults = {
   firstName: "",
   lastName: "",
+  fullName: "",
   email: "",
   emailVerified: false,
   mobile: "",
@@ -133,7 +134,7 @@ export default function UserMultiStepForm({
 
   const steps = useMemo(
     () => [
-      { id: 1, title: "Personal Details", schema: personalStepSchema },
+      { id: 1, title: "Personal Details", schema: getPersonalStepSchema(userType) },
       { id: 2, title: "Outlet Information", schema: outletStepSchema },
       { id: 3, title: "KYC", schema: getKycStepSchema(userType) },
       { id: 4, title: "Bank Details", schema: bankStepSchema },
@@ -324,6 +325,7 @@ export default function UserMultiStepForm({
                   setFile={setFile}
                   values={values}
                   originalEmail={initialUser?.email || ""}
+                  userType={userType}
                 />
               )}
 
@@ -362,7 +364,12 @@ export default function UserMultiStepForm({
                     title="Personal Details"
                     onEdit={() => jumpToStep(1)}
                     items={[
-                      ["Name", `${values.firstName} ${values.lastName}`],
+                      [
+                        "Name",
+                        userType === "RETAILER"
+                          ? values.fullName
+                          : `${values.firstName} ${values.lastName}`,
+                      ],
                       ["Email", values.emailVerified ? `${values.email} (Verified)` : values.email],
                       ["Mobile", values.mobile],
                       ["Gender", getGenderLabel(values.gender)],

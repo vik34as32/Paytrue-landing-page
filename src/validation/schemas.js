@@ -129,6 +129,19 @@ export const personalStepSchema = yup.object({
   profileImage: fileOptional,
 });
 
+export function getPersonalStepSchema(userType) {
+  if (userType === "RETAILER") {
+    return personalStepSchema.omit(["firstName", "lastName"]).shape({
+      fullName: yup
+        .string()
+        .trim()
+        .min(2, "Full name must be at least 2 characters")
+        .required("Full name is required"),
+    });
+  }
+  return personalStepSchema;
+}
+
 export const outletStepSchema = yup.object({
   outletName: yup.string().trim().required("Outlet name is required"),
   businessType: yup.string().trim().required("Business type is required"),

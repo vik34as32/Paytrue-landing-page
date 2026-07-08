@@ -12,9 +12,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import DmtPageHeader from "@/src/components/dmt/DmtPageHeader";
 import DmtErrorState from "@/src/components/dmt/DmtErrorState";
-import { useAddBeneficiary } from "@/src/hooks/useDmt";
+import { useAddBeneficiary, useDmtBanks } from "@/src/hooks/useDmt";
 import { resolveSenderMobile, setActiveSenderMobile, setBeneficiaryReferenceKey } from "@/src/lib/dmtSession";
 import type { DmtApiError } from "@/src/types/dmt";
 
@@ -31,6 +38,7 @@ const schema = z
     accountNumber: z.string().regex(/^\d{9,18}$/, "Account number must be 9-18 digits"),
     confirmAccountNumber: z.string(),
     ifscCode: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Enter valid IFSC code"),
+    bankId: z.string().min(1, "Select bank"),
   })
   .refine((data) => data.accountNumber === data.confirmAccountNumber, {
     message: "Account numbers do not match",
@@ -44,6 +52,7 @@ function AddBeneficiaryForm() {
   const params = useSearchParams();
   const mobileFromUrl = params?.get("mobile") ?? "";
   const addMutation = useAddBeneficiary();
+  const { data: banks = [], isLoading: banksLoading } = useDmtBanks();
   const [error, setError] = useState<DmtApiError | null>(null);
 
   const form = useForm<FormValues>({
@@ -55,6 +64,7 @@ function AddBeneficiaryForm() {
       accountNumber: "",
       confirmAccountNumber: "",
       ifscCode: "",
+      bankId: "",
     },
   });
 
@@ -77,6 +87,8 @@ function AddBeneficiaryForm() {
         accountNumber: values.accountNumber,
         ifscCode: values.ifscCode.toUpperCase(),
         senderMobile,
+        bankId: values.bankId,
+        instantPayBankId: values.bankId,
       });
       if (created.referenceKey) {
         setBeneficiaryReferenceKey(created.id, created.referenceKey);
@@ -160,6 +172,30 @@ function AddBeneficiaryForm() {
             >
               <Input inputMode="numeric" {...form.register("confirmAccountNumber")} />
             </Field>
+            <div className="sm:col-span-2">
+              <Field label="Bank" error={form.formState.errors.bankId?.message}>
+                <Select
+                  value={form.watch("bankId")}
+                  onValueChange={(value) =>
+                    form.setValue("bankId", value, { shouldValidate: true })
+                  }
+                  disabled={banksLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={banksLoading ? "Loading banks..." : "Select bank"}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {banks.map((bank) => (
+                      <SelectItem key={bank.id} value={bank.id}>
+                        {bank.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
             <div className="sm:col-span-2">
               <Field label="IFSC Code" error={form.formState.errors.ifscCode?.message}>
                 <Input

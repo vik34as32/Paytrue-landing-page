@@ -329,13 +329,28 @@ export function PersonalDetailsStep({
   setFile,
   values,
   originalEmail = "",
+  userType = "DISTRIBUTOR",
 }) {
   const dateOfBirth = values.dateOfBirth;
+  const isRetailer = userType === "RETAILER";
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <FormField name="firstName" label="First Name" placeholder="Enter first name" methods={methods} />
-      <FormField name="lastName" label="Last Name" placeholder="Enter last name" methods={methods} />
+      {isRetailer ? (
+        <div className="lg:col-span-2">
+          <FormField
+            name="fullName"
+            label="Full Name"
+            placeholder="Enter full name as per Aadhaar card"
+            methods={methods}
+          />
+        </div>
+      ) : (
+        <>
+          <FormField name="firstName" label="First Name" placeholder="Enter first name" methods={methods} />
+          <FormField name="lastName" label="Last Name" placeholder="Enter last name" methods={methods} />
+        </>
+      )}
       <EmailVerificationField
         methods={methods}
         isEdit={isEdit}

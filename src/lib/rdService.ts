@@ -355,6 +355,10 @@ export function clearRdServiceCache(): void {
   cachedEndpoint = null;
 }
 
+export function getCachedRdEndpoint(): RdDiscoveredEndpoint | null {
+  return cachedEndpoint;
+}
+
 async function resolveEndpoint(
   forceRefresh = false,
   vendorFilter?: (xml: string) => boolean
@@ -583,6 +587,244 @@ export async function checkRDService(
   return status;
 }
 
+function normalizeRdPath(path: string): string {
+  if (!path?.trim()) return "";
+  const trimmed = path.trim();
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
+function alternateBaseUrls(baseUrl: string): string[] {
+  const urls = [baseUrl];
+  if (baseUrl.includes("127.0.0.1")) {
+    urls.push(baseUrl.replace("127.0.0.1", "localhost"));
+  } else if (baseUrl.includes("localhost")) {
+    urls.push(baseUrl.replace("localhost", "127.0.0.1"));
+  }
+  return [...new Set(urls)];
+}
+
+function buildMantraCaptureUrls(endpoint: RdDiscoveredEndpoint): string[] {
+  const xmlPath = endpoint.rawInfoXml
+    ? parseInterfacePath(endpoint.rawInfoXml, "CAPTURE")
+    : "";
+
+  const paths = [xmlPath, endpoint.capturePath, RD_SERVICE_PATHS.capture]
+    .map(normalizeRdPath)
+    .filter((path, index, list) => path && list.indexOf(path) === index);
+
+  const urls: string[] = [];
+  for (const base of alternateBaseUrls(endpoint.baseUrl)) {
+    for (const path of paths) {
+      urls.push(`${base}${path}`);
+    }
+  }
+  return [...new Set(urls)];
+}
+
+/**
+ * Mantra RD Service capture — UIDAI spec uses custom HTTP verb CAPTURE (never POST).
+ * Matches official Mantra SDK: xhr.open('CAPTURE', url), responseType text, no extra headers.
+ */
+export function rdCaptureRequest(
+  url: string,
+  pidOptionsXml: string,
+  timeoutMs = RD_CAPTURE_TIMEOUT_MS
+): Promise<RdRequestResult> {
+  if (typeof window === "undefined" || typeof XMLHttpRequest === "undefined") {
+    return Promise.reject(
+      new RdRequestError(
+        "network",
+        url,
+        RD_METHOD.capture,
+        "RD capture requires a browser environment."
+      )
+    );
+  }
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    try {
+      xhr.open(RD_METHOD.capture, url, true);
+      xhr.responseType = "text";
+    } catch (error) {
+      reject(
+        new RdRequestError(
+          "network",
+          url,
+          RD_METHOD.capture,
+          error instanceof Error ? error.message : "Invalid capture URL."
+        )
+      );
+      return;
+    }
+
+    xhr.timeout = timeoutMs;
+
+    xhr.onload = () => {
+      const responseBody = xhr.responseText ?? "";
+      rdLogResult("RD CAPTURE response", {
+        url,
+        status: xhr.status,
+        statusText: xhr.statusText,
+        bodyLength: responseBody.length,
+        bodyPreview: responseBody.slice(0, 400),
+      });
+
+      if (xhr.status === 405) {
+        reject(
+          new RdRequestError(
+            "network",
+            url,
+            RD_METHOD.capture,
+            "Capture endpoint rejected CAPTURE method (405). Update Mantra L1 AVDM."
+          )
+        );
+        return;
+      }
+
+      if (xhr.status >= 400) {
+        reject(
+          new RdRequestError(
+            "network",
+            url,
+            RD_METHOD.capture,
+            `Capture request failed (HTTP ${xhr.status}).`
+          )
+        );
+        return;
+      }
+
+      resolve({
+        url,
+        method: RD_METHOD.capture,
+        status: xhr.status,
+        statusText: xhr.statusText,
+        body: responseBody,
+      });
+    };
+
+    xhr.onerror = () => {
+      const protocol = url.startsWith("https") ? "https" : "http";
+      reject(classifyXhrFailure(url, RD_METHOD.capture, protocol, xhr));
+    };
+
+    xhr.ontimeout = () => {
+      reject(
+        new RdRequestError(
+          "timeout",
+          url,
+          RD_METHOD.capture,
+          "Fingerprint capture timed out. Place finger on scanner and retry."
+        )
+      );
+    };
+
+    xhr.onabort = () => {
+      reject(
+        new RdRequestError("aborted", url, RD_METHOD.capture, "Fingerprint capture aborted.")
+      );
+    };
+
+    try {
+      xhr.send(pidOptionsXml);
+    } catch (error) {
+      reject(
+        new RdRequestError(
+          "network",
+          url,
+          RD_METHOD.capture,
+          error instanceof Error ? error.message : "Failed to send capture request."
+        )
+      );
+    }
+  });
+}
+
+async function captureFingerprintViaLocalProxy(
+  endpoint: RdDiscoveredEndpoint,
+  pidOptionsXml: string
+): Promise<RdRequestResult> {
+  const captureUrls = buildMantraCaptureUrls(endpoint);
+  rdLog("Trying local RD capture proxy", { captureUrls });
+
+  const response = await fetch("/api/local-rd/capture", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      captureUrls,
+      pidOptions: pidOptionsXml,
+    }),
+  });
+
+  const payload = (await response.json()) as {
+    success?: boolean;
+    body?: string;
+    url?: string;
+    error?: string;
+  };
+
+  if (!response.ok || !payload.success || !payload.body) {
+    throw new Error(payload.error || "Local RD capture proxy failed.");
+  }
+
+  return {
+    url: payload.url || captureUrls[0] || endpoint.baseUrl,
+    method: RD_METHOD.capture,
+    status: 200,
+    statusText: "OK",
+    body: payload.body,
+  };
+}
+
+function parseCaptureResponse(
+  response: RdRequestResult,
+  options: PidCaptureOptions
+): AepsPidCaptureResult {
+  const pidXml = (response.body || "").trim();
+
+  if (pidXml && /<\s*PidData\b/i.test(pidXml)) {
+    assertPidCaptureXml(pidXml);
+    rdLog("Capture Success", {
+      url: response.url,
+      method: response.method,
+      pidLength: pidXml.length,
+      hasWadh: Boolean(options.wadh?.trim()),
+    });
+    return {
+      pidData: pidXml,
+      capturedAt: new Date().toISOString(),
+    };
+  }
+
+  const errCode = parseXmlAttr(pidXml, "Resp", "errCode");
+  const errInfo = parseXmlAttr(pidXml, "Resp", "errInfo");
+  throw new Error(
+    errInfo || (errCode ? `Capture failed (code ${errCode})` : "Fingerprint capture failed.")
+  );
+}
+
+async function tryCaptureAtUrls(
+  captureUrls: string[],
+  pidOptionsXml: string,
+  options: PidCaptureOptions
+): Promise<AepsPidCaptureResult> {
+  let lastError: Error | null = null;
+
+  for (const url of captureUrls) {
+    rdLog("Sending CAPTURE request", { url });
+    try {
+      const response = await rdCaptureRequest(url, pidOptionsXml, RD_CAPTURE_TIMEOUT_MS);
+      return parseCaptureResponse(response, options);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error("Fingerprint capture failed.");
+      rdError("Capture Failed", { url, method: RD_METHOD.capture, error: lastError.message });
+    }
+  }
+
+  throw lastError ?? new Error("Fingerprint capture failed.");
+}
+
 /**
  * Capture fingerprint PID XML from Mantra device via CAPTURE method.
  */
@@ -600,76 +842,24 @@ export async function captureFingerprint(
     );
   }
 
-  const captureUrl = `${endpoint.baseUrl}${endpoint.capturePath}`;
-  rdLog("Sending CAPTURE request", { url: captureUrl });
+  const pidOptionsXml = buildPidOptions(options);
+  const captureUrls = buildMantraCaptureUrls(endpoint);
 
-  const attempts = [
-    { method: RD_METHOD.capture, url: captureUrl },
-    { method: "POST", url: captureUrl },
-  ];
-
-  let lastError: Error | null = null;
-
-  for (const attempt of attempts) {
-    try {
-      const response = await rdXhrRequest(
-        attempt.method,
-        attempt.url,
-        buildPidOptions(options),
-        RD_CAPTURE_TIMEOUT_MS
-      );
-
-      const pidXml = (response.body || "").trim();
-
-      if (pidXml && /<\s*PidData\b/i.test(pidXml)) {
-        try {
-          assertPidCaptureXml(pidXml);
-        } catch (validationError) {
-          lastError =
-            validationError instanceof Error
-              ? validationError
-              : new Error("Fingerprint capture failed.");
-          rdError("Capture Failed — PID validation", {
-            url: attempt.url,
-            error: lastError.message,
-            bodyPreview: pidXml.slice(0, 300),
-          });
-          continue;
-        }
-
-        rdLog("Capture Success", {
-          url: attempt.url,
-          method: attempt.method,
-          pidLength: pidXml.length,
-          hasWadh: Boolean(options.wadh?.trim()),
-        });
-        return {
-          pidData: pidXml,
-          capturedAt: new Date().toISOString(),
-        };
-      }
-
-      const errCode = parseXmlAttr(pidXml, "Resp", "errCode");
-      const errInfo = parseXmlAttr(pidXml, "Resp", "errInfo");
-      lastError = new Error(
-        errInfo ||
-          (errCode ? `Capture failed (code ${errCode})` : "Fingerprint capture failed.")
-      );
-      rdError("Capture Failed — invalid PID response", {
-        url: attempt.url,
-        errCode,
-        errInfo,
-        bodyPreview: pidXml.slice(0, 300),
-      });
-    } catch (error) {
-      lastError =
-        error instanceof Error ? error : new Error("Fingerprint capture failed.");
-      rdError("Capture Failed", { url: attempt.url, method: attempt.method, error });
-    }
+  try {
+    return await tryCaptureAtUrls(captureUrls, pidOptionsXml, options);
+  } catch (browserError) {
+    rdWarn("Browser CAPTURE failed — trying local RD proxy", { error: browserError });
   }
 
-  rdError("Capture Failed — all CAPTURE attempts exhausted");
-  throw lastError ?? new Error("Fingerprint capture failed.");
+  try {
+    const proxyResponse = await captureFingerprintViaLocalProxy(endpoint, pidOptionsXml);
+    return parseCaptureResponse(proxyResponse, options);
+  } catch (proxyError) {
+    rdError("Capture Failed — browser and proxy attempts exhausted", { error: proxyError });
+    throw proxyError instanceof Error
+      ? proxyError
+      : new Error("Fingerprint capture failed.");
+  }
 }
 
 export async function getCurrentLocation(): Promise<{
@@ -742,5 +932,7 @@ export default {
   captureFingerprint,
   getCurrentLocation,
   clearRdServiceCache,
+  getCachedRdEndpoint,
   rdXhrRequest,
+  rdCaptureRequest,
 };

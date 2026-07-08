@@ -106,11 +106,11 @@ export default function DmtPage() {
 
           {!showReceipt ? (
             <Box sx={{ display: "grid", gap: 3 }}>
-              {/* <SearchSenderCard
+               <SearchSenderCard
                 defaultMobile={sender.mobile}
                 loading={loading}
                 onSearch={searchSender}
-              /> */}
+              /> 
 
               {showBioAuth ? (
                 <Paper

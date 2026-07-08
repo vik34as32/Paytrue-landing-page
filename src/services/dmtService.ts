@@ -1,5 +1,6 @@
 import api from "@/src/lib/axios";
 import { DMT_ENDPOINTS } from "@/src/constants/dmtApi";
+import { logDmtApiCall, apiNameFromEndpoint } from "@/src/lib/dmtApiLogger";
 import { buildAepsLoginApiBody } from "@/src/lib/aepsUtils";
 import { formatGeoLocation } from "@/src/lib/geoUtils";
 import {
@@ -35,10 +36,38 @@ import type {
   VerifyTransactionOtpPayload,
 } from "@/src/types/dmt";
 
-async function request<T>(fn: () => Promise<T>): Promise<T> {
+async function request<T>(
+  fn: () => Promise<T>,
+  meta?: { endpoint: string; method?: string; body?: unknown }
+): Promise<T> {
+  const started = Date.now();
+  const endpoint = meta?.endpoint ?? "/dmt";
+  const method = meta?.method ?? "GET";
   try {
-    return await fn();
+    const result = await fn();
+    logDmtApiCall({
+      apiName: apiNameFromEndpoint(endpoint),
+      endpoint,
+      method,
+      request: meta?.body,
+      response: result,
+      status: 200,
+      latencyMs: Date.now() - started,
+      success: true,
+    });
+    return result;
   } catch (error) {
+    const err = error as { status?: number; message?: string; data?: unknown };
+    logDmtApiCall({
+      apiName: apiNameFromEndpoint(endpoint),
+      endpoint,
+      method,
+      request: meta?.body,
+      response: err.data ?? { message: err.message },
+      status: err.status ?? 500,
+      latencyMs: Date.now() - started,
+      success: false,
+    });
     throw mapDmtError(error);
   }
 }
@@ -114,17 +143,23 @@ function normalizeTransferResponse(
 }
 
 export async function searchSender(mobile: string): Promise<CheckSenderResponse> {
-  return request(async () => {
-    const response = await api.post(DMT_ENDPOINTS.senderSearch, { mobile });
-    return normalizeCheckSenderResponse(response.data);
-  });
+  return request(
+    async () => {
+      const response = await api.post(DMT_ENDPOINTS.senderSearch, { mobile });
+      return normalizeCheckSenderResponse(response.data);
+    },
+    { endpoint: DMT_ENDPOINTS.senderSearch, method: "POST", body: { mobile } }
+  );
 }
 
 export async function checkRemitter(mobile: string): Promise<CheckSenderResponse> {
-  return request(async () => {
-    const response = await api.post(DMT_ENDPOINTS.remitterCheck, { mobile });
-    return normalizeCheckSenderResponse(response.data);
-  });
+  return request(
+    async () => {
+      const response = await api.post(DMT_ENDPOINTS.remitterCheck, { mobile });
+      return normalizeCheckSenderResponse(response.data);
+    },
+    { endpoint: DMT_ENDPOINTS.remitterCheck, method: "POST", body: { mobile } }
+  );
 }
 
 /** @deprecated Use searchSender — kept for backward compatibility */
@@ -190,16 +225,25 @@ export async function registerSender(
 export async function registerRemitter(
   payload: RegisterSenderPayload
 ): Promise<OtpActionResponse> {
-  return request(async () => {
-    const body: Record<string, unknown> = {
-      mobile: payload.mobile.trim(),
-      aadhaar: payload.aadhaar.trim(),
-    };
-    if (payload.referenceKey) body.referenceKey = payload.referenceKey;
+  const body: Record<string, unknown> = {
+    mobile: payload.mobile.trim(),
+    aadhaar: payload.aadhaar.trim(),
+  };
+  if (payload.referenceKey) body.referenceKey = payload.referenceKey;
+  if (payload.firstName) body.firstName = payload.firstName;
+  if (payload.lastName) body.lastName = payload.lastName;
+  if (payload.pincode) body.pincode = payload.pincode;
+  if (payload.address) body.address = payload.address;
+  if (payload.city) body.city = payload.city;
+  if (payload.state) body.state = payload.state;
 
-    const response = await api.post(DMT_ENDPOINTS.remitterRegister, body);
-    return normalizeOtpResponse(response.data);
-  });
+  return request(
+    async () => {
+      const response = await api.post(DMT_ENDPOINTS.remitterRegister, body);
+      return normalizeOtpResponse(response.data);
+    },
+    { endpoint: DMT_ENDPOINTS.remitterRegister, method: "POST", body }
+  );
 }
 
 export async function sendSenderOtp(mobile: string): Promise<OtpActionResponse> {

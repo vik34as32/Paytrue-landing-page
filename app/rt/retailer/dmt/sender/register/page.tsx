@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,10 +13,17 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DmtPageHeader from "@/src/components/dmt/DmtPageHeader";
 import DmtErrorState from "@/src/components/dmt/DmtErrorState";
-import { useRegisterSender, useSendSenderOtp } from "@/src/hooks/useDmt";
-import { setActiveSenderMobile } from "@/src/lib/dmtSession";
+import {
+  useCheckRemitter,
+  useRegisterRemitter,
+  useSendRemitterOtp,
+} from "@/src/hooks/useDmt";
+import {
+  getSenderReferenceKey,
+  setActiveSenderMobile,
+  setSenderReferenceKey,
+} from "@/src/lib/dmtSession";
 import type { DmtApiError } from "@/src/types/dmt";
-import { useState } from "react";
 
 const schema = z.object({
   mobile: z.string().regex(/^[6-9]\d{9}$/, "Enter valid mobile number"),
@@ -29,9 +36,13 @@ type FormValues = z.infer<typeof schema>;
 function RegisterSenderForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const registerMutation = useRegisterSender();
-  const sendOtpMutation = useSendSenderOtp();
+  const registerMutation = useRegisterRemitter();
+  const sendOtpMutation = useSendRemitterOtp();
+  const checkMutation = useCheckRemitter();
   const [error, setError] = useState<DmtApiError | null>(null);
+  const [referenceKey, setReferenceKey] = useState(
+    () => params?.get("referenceKey") || getSenderReferenceKey() || ""
+  );
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -47,20 +58,67 @@ function RegisterSenderForm() {
     if (mobile) form.setValue("mobile", mobile);
   }, [params, form]);
 
+  // InstantPay remitterRegistration needs a referenceKey obtained from
+  // remitter/check. Prefetch it on load so the "Register" click only calls
+  // remitter/register.
+  useEffect(() => {
+    const mobile = (params?.get("mobile") ?? "").replace(/\D/g, "");
+    if (!mobile || referenceKey) return;
+    let active = true;
+    checkMutation
+      .mutateAsync(mobile)
+      .then((result) => {
+        if (!active) return;
+        if (result.referenceKey) {
+          setReferenceKey(result.referenceKey);
+          setSenderReferenceKey(result.referenceKey);
+        }
+      })
+      .catch(() => {
+        /* silent: submit will surface any error */
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
+
   const onSubmit = async (values: FormValues) => {
     setError(null);
     try {
+      setActiveSenderMobile(values.mobile);
+
+      let refKey = referenceKey || getSenderReferenceKey() || "";
+
+      if (!refKey) {
+        const checkResult = await checkMutation.mutateAsync(values.mobile);
+        refKey = checkResult.referenceKey || "";
+        if (refKey) {
+          setReferenceKey(refKey);
+          setSenderReferenceKey(refKey);
+        }
+      }
+
+      if (!refKey) {
+        throw Object.assign(
+          new Error("Unable to start registration. Please search remitter again."),
+          { code: "VALIDATION_ERROR" }
+        );
+      }
+
       const registered = await registerMutation.mutateAsync({
         mobile: values.mobile,
         aadhaar: values.aadhaar,
         firstName: values.name.trim(),
+        referenceKey: refKey,
       });
-      setActiveSenderMobile(values.mobile);
       const otpResult = await sendOtpMutation.mutateAsync(values.mobile);
-      toast.success("OTP sent to sender mobile");
-      const referenceKey = otpResult.referenceKey || registered.referenceKey || "";
-      const query = new URLSearchParams({ mobile: values.mobile });
-      if (referenceKey) query.set("referenceKey", referenceKey);
+      toast.success("OTP sent to remitter mobile");
+      const nextReferenceKey =
+        otpResult.referenceKey || registered.referenceKey || refKey;
+      if (nextReferenceKey) setSenderReferenceKey(nextReferenceKey);
+      const query = new URLSearchParams({ mobile: values.mobile, flow: "remitter" });
+      if (nextReferenceKey) query.set("referenceKey", nextReferenceKey);
       router.push(`/rt/retailer/dmt/sender/verify?${query.toString()}`);
     } catch (err) {
       const mapped = err as DmtApiError;
@@ -69,7 +127,10 @@ function RegisterSenderForm() {
     }
   };
 
-  const loading = registerMutation.isPending || sendOtpMutation.isPending;
+  const loading =
+    registerMutation.isPending ||
+    sendOtpMutation.isPending ||
+    checkMutation.isPending;
 
   return (
     <div className="mx-auto max-w-xl space-y-6">

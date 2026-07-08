@@ -9,14 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DmtPageHeader from "@/src/components/dmt/DmtPageHeader";
 import DmtStatusBadge from "@/src/components/dmt/DmtStatusBadge";
 import DmtErrorState from "@/src/components/dmt/DmtErrorState";
-import { useSenderByMobile } from "@/src/hooks/useDmt";
+import { useRemitterByMobile } from "@/src/hooks/useDmt";
 import { setActiveSenderMobile } from "@/src/lib/dmtSession";
 import { formatCurrency } from "@/lib/utils";
 
 function SenderProfileContent() {
   const params = useSearchParams();
   const mobile = params?.get("mobile") ?? "";
-  const { data, isLoading, isError, error, refetch } = useSenderByMobile(
+  const { data, isLoading, isError, error, refetch } = useRemitterByMobile(
     mobile,
     Boolean(mobile)
   );

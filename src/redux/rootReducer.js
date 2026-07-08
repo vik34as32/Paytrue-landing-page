@@ -9,6 +9,13 @@ import transactionReducer from "@/src/redux/slices/transactionSlice";
 import walletReducer from "@/src/redux/slices/walletSlice";
 import aepsReducer from "@/src/redux/slices/aepsSlice";
 import merchantReducer from "@/src/redux/slices/merchantSlice";
+import {
+  dmtApi,
+  senderReducer,
+  beneficiaryReducer,
+  transactionReducer as dmtTransactionReducer,
+  workflowReducer,
+} from "@/src/modules/dmt/redux";
 
 const rootReducer = combineReducers({
   auth: authReducer,
@@ -21,6 +28,11 @@ const rootReducer = combineReducers({
   wallet: walletReducer,
   aeps: aepsReducer,
   merchant: merchantReducer,
+  dmtSender: senderReducer,
+  dmtBeneficiary: beneficiaryReducer,
+  dmtTransaction: dmtTransactionReducer,
+  dmtWorkflow: workflowReducer,
+  [dmtApi.reducerPath]: dmtApi.reducer,
 });
 
 export default rootReducer;

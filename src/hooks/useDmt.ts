@@ -12,6 +12,7 @@ import {
   fetchBeneficiaries,
   fetchDmtBanks,
   fetchReceipt,
+  fetchRemitterByMobile,
   fetchSenderByMobile,
   fetchTransactionById,
   fetchTransactions,
@@ -19,15 +20,18 @@ import {
   generateTransactionOtp,
   initiateTransfer,
   refundTransfer,
+  registerRemitter,
   registerSender,
   remitterEkyc,
   resendSenderOtp,
   searchSender,
+  sendRemitterOtp,
   sendSenderOtp,
   transferImps,
   transferNeft,
   verifyBeneficiary,
   verifyBeneficiaryDelete,
+  verifyRemitterOtp,
   verifySenderOtp,
   verifyTransactionOtp,
 } from "@/src/services/dmtService";
@@ -75,6 +79,37 @@ export function useCheckSender() {
 export function useCheckRemitter() {
   return useMutation({
     mutationFn: (mobile: string) => checkRemitter(mobile),
+  });
+}
+
+export function useRemitterByMobile(mobile: string, enabled = true) {
+  return useQuery({
+    queryKey: DMT_KEYS.sender(mobile),
+    queryFn: () => fetchRemitterByMobile(mobile),
+    enabled: enabled && Boolean(mobile),
+    staleTime: 30_000,
+  });
+}
+
+export function useRegisterRemitter() {
+  return useMutation({
+    mutationFn: (payload: RegisterSenderPayload) => registerRemitter(payload),
+  });
+}
+
+export function useSendRemitterOtp() {
+  return useMutation({
+    mutationFn: (mobile: string) => sendRemitterOtp(mobile),
+  });
+}
+
+export function useVerifyRemitterOtp() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: VerifyOtpPayload) => verifyRemitterOtp(payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: DMT_KEYS.sender(variables.mobile) });
+    },
   });
 }
 

@@ -130,9 +130,18 @@ export function normalizeCheckSenderResponse(payload: unknown): CheckSenderRespo
       senderRaw?.mobile
   );
 
+  const referenceKeyRaw =
+    data?.referenceKey ??
+    data?.reference_key ??
+    data?.requestId ??
+    data?.request_id ??
+    senderRaw?.referenceKey ??
+    senderRaw?.reference_key;
+
   return {
     exists,
     sender: senderRaw ? normalizeSender(senderRaw) : null,
+    referenceKey: referenceKeyRaw != null ? String(referenceKeyRaw) : undefined,
   };
 }
 

@@ -13,6 +13,25 @@ export function getActiveSenderMobile(): string {
   return sessionStorage.getItem(DMT_SENDER_MOBILE_KEY) || "";
 }
 
+const DMT_SENDER_REF_KEY = "dmt_sender_reference_key";
+
+export function setSenderReferenceKey(referenceKey: string): void {
+  if (typeof window === "undefined") return;
+  if (referenceKey) {
+    sessionStorage.setItem(DMT_SENDER_REF_KEY, referenceKey);
+  }
+}
+
+export function getSenderReferenceKey(): string {
+  if (typeof window === "undefined") return "";
+  return sessionStorage.getItem(DMT_SENDER_REF_KEY) || "";
+}
+
+export function clearSenderReferenceKey(): void {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(DMT_SENDER_REF_KEY);
+}
+
 export function getBeneficiaryReferenceKey(beneficiaryId: string): string {
   if (typeof window === "undefined") return "";
   return sessionStorage.getItem(`dmt_beneficiary_ref_${beneficiaryId}`) || "";

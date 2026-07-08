@@ -10,8 +10,11 @@ import DmtPageHeader from "@/src/components/dmt/DmtPageHeader";
 import DmtErrorState from "@/src/components/dmt/DmtErrorState";
 import OtpInput from "@/src/components/dmt/OtpInput";
 import {
+  useCheckRemitter,
   useResendSenderOtp,
   useSearchSender,
+  useSendRemitterOtp,
+  useVerifyRemitterOtp,
   useVerifySenderOtp,
 } from "@/src/hooks/useDmt";
 import { setActiveSenderMobile } from "@/src/lib/dmtSession";
@@ -24,9 +27,23 @@ function VerifySenderOtpForm() {
   const params = useSearchParams();
   const mobile = params?.get("mobile") ?? "";
   const referenceKey = params?.get("referenceKey") ?? "";
-  const verifyMutation = useVerifySenderOtp();
+  const isRemitterFlow = (params?.get("flow") ?? "") === "remitter";
+
+  const verifySenderMutation = useVerifySenderOtp();
+  const verifyRemitterMutation = useVerifyRemitterOtp();
   const searchMutation = useSearchSender();
-  const resendMutation = useResendSenderOtp();
+  const checkRemitterMutation = useCheckRemitter();
+  const resendSenderMutation = useResendSenderOtp();
+  const resendRemitterMutation = useSendRemitterOtp();
+
+  const verifyMutation = isRemitterFlow
+    ? verifyRemitterMutation
+    : verifySenderMutation;
+  const refetchMutation = isRemitterFlow ? checkRemitterMutation : searchMutation;
+  const resendMutation = isRemitterFlow
+    ? resendRemitterMutation
+    : resendSenderMutation;
+
   const [otp, setOtp] = useState("");
   const [timer, setTimer] = useState(RESEND_SECONDS);
   const [error, setError] = useState<DmtApiError | null>(null);
@@ -50,8 +67,10 @@ function VerifySenderOtpForm() {
         referenceKey: referenceKey || undefined,
       });
       setActiveSenderMobile(mobile);
-      await searchMutation.mutateAsync(mobile);
-      toast.success("Sender verified successfully");
+      await refetchMutation.mutateAsync(mobile);
+      toast.success(
+        isRemitterFlow ? "Remitter verified successfully" : "Sender verified successfully"
+      );
       router.push(
         `/rt/retailer/dmt/sender/profile?mobile=${encodeURIComponent(mobile)}`
       );
@@ -88,10 +107,10 @@ function VerifySenderOtpForm() {
           <OtpInput value={otp} onChange={setOtp} disabled={verifyMutation.isPending} />
           <Button
             className="w-full bg-gradient-to-r from-[#0A84FF] to-[#0057D9]"
-            disabled={verifyMutation.isPending || searchMutation.isPending}
+            disabled={verifyMutation.isPending || refetchMutation.isPending}
             onClick={handleVerify}
           >
-            {(verifyMutation.isPending || searchMutation.isPending) && (
+            {(verifyMutation.isPending || refetchMutation.isPending) && (
               <Loader2 className="h-4 w-4 animate-spin" />
             )}
             Verify OTP

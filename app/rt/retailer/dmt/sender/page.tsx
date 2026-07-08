@@ -13,8 +13,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DmtPageHeader from "@/src/components/dmt/DmtPageHeader";
 import DmtErrorState from "@/src/components/dmt/DmtErrorState";
-import { useCheckSender } from "@/src/hooks/useDmt";
-import { setActiveSenderMobile } from "@/src/lib/dmtSession";
+import { useCheckRemitter } from "@/src/hooks/useDmt";
+import {
+  setActiveSenderMobile,
+  setSenderReferenceKey,
+} from "@/src/lib/dmtSession";
 import type { DmtApiError } from "@/src/types/dmt";
 
 const schema = z.object({
@@ -25,7 +28,7 @@ type FormValues = z.infer<typeof schema>;
 
 export default function SenderSearchPage() {
   const router = useRouter();
-  const checkMutation = useCheckSender();
+  const checkMutation = useCheckRemitter();
   const [error, setError] = useState<DmtApiError | null>(null);
 
   const form = useForm<FormValues>({
@@ -38,6 +41,9 @@ export default function SenderSearchPage() {
     try {
       const result = await checkMutation.mutateAsync(values.mobile);
       setActiveSenderMobile(values.mobile);
+      if (result.referenceKey) {
+        setSenderReferenceKey(result.referenceKey);
+      }
       if (result.exists) {
         toast.success("Sender found");
         router.push(
@@ -45,9 +51,9 @@ export default function SenderSearchPage() {
         );
       } else {
         toast.info("Sender not registered. Please register sender.");
-        router.push(
-          `/rt/retailer/dmt/sender/register?mobile=${encodeURIComponent(values.mobile)}`
-        );
+        const query = new URLSearchParams({ mobile: values.mobile });
+        if (result.referenceKey) query.set("referenceKey", result.referenceKey);
+        router.push(`/rt/retailer/dmt/sender/register?${query.toString()}`);
       }
     } catch (err) {
       const mapped = err as DmtApiError;

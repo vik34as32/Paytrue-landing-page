@@ -56,6 +56,8 @@ export interface DmtBeneficiary {
   ifscCode: string;
   isVerified?: boolean;
   status?: string;
+  referenceKey?: string;
+  externalRef?: string;
 }
 
 export interface DmtTransaction {
@@ -110,6 +112,7 @@ export interface AddBeneficiaryRequest {
   confirmAccountNumber?: string;
   ifscCode: string;
   bankId?: string;
+  instantPayBankId?: string | number;
   beneficiaryMobileNumber?: string;
 }
 
@@ -122,8 +125,11 @@ export interface VerifyBeneficiaryOtpRequest {
 
 export interface DeleteBeneficiaryRequest {
   beneficiaryId: string;
-  senderMobile: string;
-  otp?: string;
+}
+
+export interface VerifyDeleteBeneficiaryRequest {
+  beneficiaryId: string;
+  otp: string;
   referenceKey?: string;
 }
 
@@ -159,4 +165,8 @@ export interface TransferRequest {
 export interface DmtBank {
   id: string;
   name: string;
+  code?: string;
+  ifsc?: string;
+  ifscPrefix?: string;
+  instantPayBankId?: string | number;
 }

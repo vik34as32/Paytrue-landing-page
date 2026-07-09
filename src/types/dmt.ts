@@ -27,6 +27,8 @@ export interface DmtBeneficiary {
   status: DmtVerificationStatus;
   isVerified: boolean;
   createdAt: string;
+  referenceKey?: string;
+  externalRef?: string;
 }
 
 export interface DmtTransaction {

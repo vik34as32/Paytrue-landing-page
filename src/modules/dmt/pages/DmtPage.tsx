@@ -41,14 +41,19 @@ export default function DmtPage() {
     workflow,
     beneficiaries,
     beneficiariesLoading,
+    beneficiariesError,
     searchSender,
     registerSender,
     verifySenderOtp,
     bioAuth,
     addBeneficiary,
     verifyBeneficiaryOtp,
+    openVerifyBeneficiary,
     deleteBeneficiary,
     verifyBeneficiaryDelete,
+    startTransfer,
+    cancelTransfer,
+    initiateTransfer,
     generateTransactionOtp,
     verifyTransactionOtpAndTransfer,
     resetAll,
@@ -81,11 +86,7 @@ export default function DmtPage() {
     if (showBioAuth) setBioModalOpen(true);
   }, [showBioAuth]);
 
-  const showTransfer =
-    Boolean(beneficiary.selected) &&
-    ["SELECT_BENEFICIARY", "GENERATE_TRANSACTION_OTP", "TRANSFER"].includes(
-      workflow.nextAction ?? ""
-    );
+  const showTransfer = Boolean(beneficiary.selected?.isVerified && sender.mobile);
   const showReceipt = workflow.nextAction === "SUCCESS" || workflow.nextAction === "FAILED";
 
   const loading = workflow.loadingCount > 0;
@@ -159,19 +160,20 @@ export default function DmtPage() {
 
               {showBeneficiarySection ? (
                 <>
-                  <SenderInfoCard sender={sender.profile} mobile={sender.mobile} />
+                  <SenderInfoCard
+                    sender={sender.profile}
+                    mobile={sender.mobile}
+                    beneficiaryCount={beneficiaries.length}
+                  />
                   <BeneficiaryList
                     beneficiaries={beneficiaries}
                     loading={beneficiariesLoading}
-                    error={workflow.error}
+                    error={beneficiariesError}
+                    actionError={workflow.error}
                     onAdd={openAddBeneficiary}
-                    onTransfer={(item: DmtBeneficiary) => {
-                      setSelectedBeneficiary(item);
-                    }}
-                    onDelete={async (item) => {
-                      setSelectedBeneficiary(item);
-                      await deleteBeneficiary(item.id);
-                    }}
+                    onVerify={(item) => openVerifyBeneficiary(item)}
+                    onTransfer={(item: DmtBeneficiary) => startTransfer(item)}
+                    onDelete={(item) => deleteBeneficiary(item)}
                   />
                 </>
               ) : null}
@@ -180,10 +182,8 @@ export default function DmtPage() {
                 <TransferCard
                   beneficiary={beneficiary.selected}
                   loading={loading}
-                  onContinue={async (values) => {
-                    setTransactionDraft(values);
-                    await generateTransactionOtp();
-                  }}
+                  onCancel={cancelTransfer}
+                  onContinue={initiateTransfer}
                 />
               ) : null}
             </Box>
@@ -245,7 +245,7 @@ export default function DmtPage() {
         onSubmit={(values) =>
           addBeneficiary({
             name: values.name,
-            bankId: values.bankId,
+            instantPayBankId: values.bankId,
             accountNumber: values.accountNumber,
             ifscCode: values.ifscCode,
             beneficiaryMobileNumber: values.beneficiaryMobileNumber,
@@ -256,7 +256,7 @@ export default function DmtPage() {
       <OtpDialog
         open={workflow.activeDialog === "beneficiaryOtp"}
         title="Verify Beneficiary OTP"
-        description="Enter OTP to verify beneficiary."
+        description={`Enter OTP sent for ${beneficiary.selected?.name || "beneficiary"}.`}
         submitting={loading}
         onClose={closeDialog}
         onSubmit={verifyBeneficiaryOtp}
@@ -265,14 +265,15 @@ export default function DmtPage() {
       <DeleteBeneficiaryDialog
         open={workflow.activeDialog === "deleteBeneficiary"}
         loading={loading}
+        beneficiaryName={beneficiary.selected?.name}
         onClose={closeDialog}
         onSubmit={verifyBeneficiaryDelete}
       />
 
       <OtpDialog
         open={workflow.activeDialog === "transactionOtp"}
-        title="Transaction OTP"
-        description="Enter OTP to authorize transfer."
+        title="Confirm Transfer"
+        description={`Enter OTP to transfer ₹${Number(transaction.draft.amount || 0).toLocaleString("en-IN")} via ${transaction.draft.transferMode} to ${beneficiary.selected?.name || "beneficiary"}.`}
         submitting={loading}
         onClose={closeDialog}
         onSubmit={verifyTransactionOtpAndTransfer}

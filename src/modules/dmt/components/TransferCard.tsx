@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useForm, Controller, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -8,58 +9,158 @@ import {
   CardContent,
   Typography,
   TextField,
-  MenuItem,
   Button,
   Box,
   Divider,
   CircularProgress,
+  Chip,
+  Alert,
+  ToggleButton,
+  ToggleButtonGroup,
+  Paper,
 } from "@mui/material";
+import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
+import MyLocationIcon from "@mui/icons-material/MyLocation";
+import SendIcon from "@mui/icons-material/Send";
+import CloseIcon from "@mui/icons-material/Close";
+import { maskAccountNumber } from "@/src/lib/dmtUtils";
+import { getCurrentLocation } from "@/src/lib/rdService";
 import type { DmtBeneficiary, DmtTransferMode } from "../types";
+
+const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000];
 
 const schema = z.object({
   amount: z.coerce.number().min(1, "Enter amount").max(200000, "Amount too large"),
   transferMode: z.enum(["IMPS", "NEFT"]),
-  remarks: z.string().max(50).optional().or(z.literal("")),
+  remarks: z.string().max(255).optional().or(z.literal("")),
 });
 
 type FormValues = z.infer<typeof schema>;
 
+export interface TransferFormValues {
+  amount: number;
+  transferMode: DmtTransferMode;
+  remarks?: string;
+}
+
 interface TransferCardProps {
   beneficiary: DmtBeneficiary | null;
   loading?: boolean;
-  onContinue: (values: { amount: number; transferMode: DmtTransferMode; remarks?: string }) => void;
+  onContinue: (values: TransferFormValues) => void;
+  onCancel?: () => void;
 }
 
 export default function TransferCard({
   beneficiary,
   loading = false,
   onContinue,
+  onCancel,
 }: TransferCardProps) {
+  const [locationStatus, setLocationStatus] = useState<"pending" | "ready" | "unavailable">(
+    "pending"
+  );
+
   const form = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: { amount: undefined as unknown as number, transferMode: "IMPS", remarks: "" },
   });
 
+  const transferMode = form.watch("transferMode");
+  const amount = form.watch("amount");
+
+  useEffect(() => {
+    let active = true;
+    setLocationStatus("pending");
+    getCurrentLocation()
+      .then(() => {
+        if (active) setLocationStatus("ready");
+      })
+      .catch(() => {
+        if (active) setLocationStatus("unavailable");
+      });
+    return () => {
+      active = false;
+    };
+  }, [beneficiary?.id]);
+
   if (!beneficiary) {
     return (
       <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
         <CardContent>
-          <Typography variant="body1">Select a beneficiary to transfer.</Typography>
+          <Typography variant="body1">Select a verified beneficiary to transfer.</Typography>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
-      <CardContent sx={{ p: 3 }}>
-        <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-          Transfer Money
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {beneficiary.name} • {beneficiary.bankName} • {beneficiary.ifscCode}
-        </Typography>
-        <Divider sx={{ my: 2 }} />
+    <Card
+      elevation={0}
+      sx={{
+        border: "2px solid",
+        borderColor: "primary.main",
+        bgcolor: "background.paper",
+      }}
+    >
+      <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2, mb: 2 }}>
+          <Box>
+            <Typography variant="overline" color="primary" sx={{ fontWeight: 800, letterSpacing: 1 }}>
+              Money Transfer
+            </Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>
+              Send to {beneficiary.name}
+            </Typography>
+          </Box>
+          {onCancel ? (
+            <Button size="small" color="inherit" startIcon={<CloseIcon />} onClick={onCancel}>
+              Cancel
+            </Button>
+          ) : null}
+        </Box>
+
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2,
+            mb: 3,
+            display: "flex",
+            gap: 2,
+            alignItems: "center",
+            bgcolor: (theme) => `${theme.palette.primary.main}0d`,
+            borderColor: (theme) => `${theme.palette.primary.main}33`,
+          }}
+        >
+          <Box
+            sx={{
+              width: 48,
+              height: 48,
+              borderRadius: 2,
+              bgcolor: "primary.main",
+              color: "#fff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <AccountBalanceIcon />
+          </Box>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+              {beneficiary.bankName}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              A/C {maskAccountNumber(beneficiary.accountNumber)} • IFSC {beneficiary.ifscCode}
+            </Typography>
+            {beneficiary.mobile ? (
+              <Typography variant="body2" color="text.secondary">
+                Mobile {beneficiary.mobile}
+              </Typography>
+            ) : null}
+          </Box>
+          <Chip label="VERIFIED" color="success" size="small" sx={{ ml: "auto" }} />
+        </Paper>
 
         <Box
           component="form"
@@ -70,8 +171,34 @@ export default function TransferCard({
               remarks: values.remarks || undefined,
             })
           )}
-          sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}
         >
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+            Transfer mode
+          </Typography>
+          <Controller
+            name="transferMode"
+            control={form.control}
+            render={({ field }) => (
+              <ToggleButtonGroup
+                exclusive
+                fullWidth
+                value={field.value}
+                onChange={(_, value) => value && field.onChange(value)}
+                sx={{ mb: 2 }}
+              >
+                <ToggleButton value="IMPS" sx={{ py: 1.25, fontWeight: 700 }}>
+                  IMPS — Instant
+                </ToggleButton>
+                <ToggleButton value="NEFT" sx={{ py: 1.25, fontWeight: 700 }}>
+                  NEFT
+                </ToggleButton>
+              </ToggleButtonGroup>
+            )}
+          />
+
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+            Amount
+          </Typography>
           <Controller
             name="amount"
             control={form.control}
@@ -79,40 +206,77 @@ export default function TransferCard({
               <TextField
                 {...field}
                 value={field.value ?? ""}
-                label="Amount (₹)"
+                label="Enter amount (₹)"
                 type="number"
                 fullWidth
                 error={!!fieldState.error}
-                helperText={fieldState.error?.message}
+                helperText={fieldState.error?.message || "Min ₹1 • Max ₹2,00,000"}
+                sx={{ mb: 1.5 }}
               />
             )}
           />
+
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
+            {QUICK_AMOUNTS.map((value) => (
+              <Chip
+                key={value}
+                label={`₹${value.toLocaleString("en-IN")}`}
+                clickable
+                color={Number(amount) === value ? "primary" : "default"}
+                variant={Number(amount) === value ? "filled" : "outlined"}
+                onClick={() => form.setValue("amount", value, { shouldValidate: true })}
+              />
+            ))}
+          </Box>
+
           <Controller
-            name="transferMode"
+            name="remarks"
             control={form.control}
-            render={({ field }) => (
-              <TextField {...field} select label="Transfer Mode" fullWidth>
-                <MenuItem value="IMPS">IMPS</MenuItem>
-                <MenuItem value="NEFT">NEFT</MenuItem>
-              </TextField>
+            render={({ field, fieldState }) => (
+              <TextField
+                {...field}
+                label="Remarks (optional)"
+                fullWidth
+                multiline
+                minRows={2}
+                error={!!fieldState.error}
+                helperText={fieldState.error?.message || "Max 255 characters"}
+                sx={{ mb: 2 }}
+              />
             )}
           />
-          <Box sx={{ gridColumn: { xs: "auto", sm: "1 / -1" } }}>
-            <Controller
-              name="remarks"
-              control={form.control}
-              render={({ field }) => <TextField {...field} label="Remarks (optional)" fullWidth />}
-            />
-          </Box>
-          <Box sx={{ gridColumn: { xs: "auto", sm: "1 / -1" } }}>
+
+          <Alert
+            severity={locationStatus === "ready" ? "success" : locationStatus === "pending" ? "info" : "warning"}
+            icon={<MyLocationIcon fontSize="small" />}
+            sx={{ mb: 2 }}
+          >
+            {locationStatus === "pending"
+              ? "Fetching your location for compliance (not shown on screen)..."
+              : locationStatus === "ready"
+                ? "Location ready. Coordinates will be sent securely with the transfer."
+                : "Location unavailable. Transfer will use a fallback location if permitted."}
+          </Alert>
+
+          <Divider sx={{ mb: 2 }} />
+
+          <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+            {onCancel ? (
+              <Button variant="outlined" color="inherit" onClick={onCancel} disabled={loading}>
+                Back
+              </Button>
+            ) : null}
             <Button
               type="submit"
               variant="contained"
               size="large"
               disabled={loading}
-              startIcon={loading ? <CircularProgress size={18} color="inherit" /> : undefined}
+              startIcon={
+                loading ? <CircularProgress size={18} color="inherit" /> : <SendIcon />
+              }
+              sx={{ flex: 1, minWidth: 200 }}
             >
-              Continue
+              Generate OTP & Transfer {transferMode}
             </Button>
           </Box>
         </Box>

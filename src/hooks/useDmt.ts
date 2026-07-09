@@ -206,13 +206,8 @@ export function useVerifyBeneficiary() {
 
 export function useDeleteBeneficiary() {
   return useMutation({
-    mutationFn: ({
-      beneficiaryId,
-      senderMobile,
-    }: {
-      beneficiaryId: string;
-      senderMobile?: string;
-    }) => deleteBeneficiary(beneficiaryId, senderMobile),
+    mutationFn: ({ beneficiaryId }: { beneficiaryId: string; senderMobile?: string }) =>
+      deleteBeneficiary(beneficiaryId),
   });
 }
 

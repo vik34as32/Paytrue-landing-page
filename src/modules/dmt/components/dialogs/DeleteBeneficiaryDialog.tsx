@@ -5,6 +5,7 @@ import OtpDialog from "./OtpDialog";
 interface DeleteBeneficiaryDialogProps {
   open: boolean;
   loading?: boolean;
+  beneficiaryName?: string;
   onClose: () => void;
   onSubmit: (otp: string) => void;
 }
@@ -12,6 +13,7 @@ interface DeleteBeneficiaryDialogProps {
 export default function DeleteBeneficiaryDialog({
   open,
   loading = false,
+  beneficiaryName,
   onClose,
   onSubmit,
 }: DeleteBeneficiaryDialogProps) {
@@ -19,7 +21,7 @@ export default function DeleteBeneficiaryDialog({
     <OtpDialog
       open={open}
       title="Confirm Beneficiary Deletion"
-      description="Enter OTP sent to confirm beneficiary deletion."
+      description={`Enter OTP sent to delete ${beneficiaryName || "this beneficiary"}.`}
       submitting={loading}
       onClose={onClose}
       onSubmit={onSubmit}

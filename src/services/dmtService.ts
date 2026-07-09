@@ -1,4 +1,4 @@
-import api from "@/src/lib/axios";
+import { normalizeDmtBankList } from "@/src/modules/dmt/services/normalizers";
 import { DMT_ENDPOINTS } from "@/src/constants/dmtApi";
 import { logDmtApiCall, apiNameFromEndpoint } from "@/src/lib/dmtApiLogger";
 import { buildAepsLoginApiBody } from "@/src/lib/aepsUtils";
@@ -11,6 +11,8 @@ import {
   normalizeSender,
   normalizeTransaction,
   normalizeTransactionList,
+  resolveBeneficiaryBankFields,
+  resolveBeneficiaryMobileNumber,
   unwrapApiData,
 } from "@/src/lib/dmtUtils";
 import type {
@@ -335,19 +337,7 @@ export async function remitterEkyc(payload: RemitterEkycPayload): Promise<DmtSen
 export async function fetchDmtBanks(): Promise<DmtBank[]> {
   return request(async () => {
     const response = await api.get(DMT_ENDPOINTS.banks);
-    const data = unwrapApiData<unknown>(response.data);
-    const rows = Array.isArray(data)
-      ? data
-      : (data as { banks?: unknown[] })?.banks ??
-        (data as { items?: unknown[] })?.items ??
-        [];
-
-    return (rows as Record<string, unknown>[]).map((item) => ({
-      id: String(item.id ?? item.bankId ?? item.code ?? item.name ?? ""),
-      name: String(item.name ?? item.bankName ?? "Unknown Bank"),
-      code: item.code ? String(item.code) : undefined,
-      ifsc: item.ifsc ? String(item.ifsc) : undefined,
-    }));
+    return normalizeDmtBankList(response.data);
   });
 }
 
@@ -391,15 +381,20 @@ export async function addBeneficiary(
       ifscCode: payload.ifscCode.toUpperCase(),
     };
 
-    const beneficiaryMobile =
-      payload.beneficiaryMobileNumber?.trim() || payload.mobile?.trim();
+    const beneficiaryMobile = resolveBeneficiaryMobileNumber(
+      senderMobile,
+      payload.beneficiaryMobileNumber ?? payload.mobile
+    );
     if (beneficiaryMobile) {
       body.beneficiaryMobileNumber = beneficiaryMobile;
     }
-    if (payload.bankId) body.bankId = payload.bankId;
-    if (payload.instantPayBankId != null) {
-      body.instantPayBankId = payload.instantPayBankId;
-    }
+    Object.assign(
+      body,
+      resolveBeneficiaryBankFields({
+        bankId: payload.bankId,
+        instantPayBankId: payload.instantPayBankId,
+      })
+    );
 
     const response = await api.post(DMT_ENDPOINTS.beneficiaries, body);
     const data = unwrapApiData<Record<string, unknown>>(response.data);
@@ -439,14 +434,10 @@ export async function verifyBeneficiary(
 }
 
 export async function deleteBeneficiary(
-  beneficiaryId: string,
-  senderMobile?: string
+  beneficiaryId: string
 ): Promise<DeleteBeneficiaryResponse> {
   return request(async () => {
-    const params = senderMobile?.trim() ? { senderMobile: senderMobile.trim() } : undefined;
-    const response = await api.delete(DMT_ENDPOINTS.beneficiaryDelete(beneficiaryId), {
-      params,
-    });
+    const response = await api.delete(DMT_ENDPOINTS.beneficiaryDelete(beneficiaryId));
     return normalizeDeleteBeneficiaryResponse(response.data);
   });
 }

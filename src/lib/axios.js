@@ -23,11 +23,23 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
+    const method = (config.method || "get").toLowerCase();
+    const hasBody =
+      config.data !== undefined && config.data !== null && config.data !== "";
+
     // Let the browser set multipart boundary — never force Content-Type on FormData
     if (config.data instanceof FormData) {
       delete config.headers["Content-Type"];
-    } else if (!config.headers["Content-Type"]) {
-      config.headers["Content-Type"] = "application/json";
+    } else if (["post", "put", "patch"].includes(method) && hasBody) {
+      if (!config.headers["Content-Type"]) {
+        config.headers["Content-Type"] = "application/json";
+      }
+    } else {
+      // DELETE/GET/HEAD without a body must not send Content-Type or an empty JSON body.
+      delete config.headers["Content-Type"];
+      if (!hasBody) {
+        delete config.data;
+      }
     }
 
     return config;

@@ -87,7 +87,6 @@ function AddBeneficiaryForm() {
         accountNumber: values.accountNumber,
         ifscCode: values.ifscCode.toUpperCase(),
         senderMobile,
-        bankId: values.bankId,
         instantPayBankId: values.bankId,
       });
       if (created.referenceKey) {

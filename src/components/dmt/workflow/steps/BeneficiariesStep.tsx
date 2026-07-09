@@ -33,7 +33,7 @@ import {
   useDeleteBeneficiary,
   useVerifyBeneficiaryDelete,
 } from "@/src/hooks/useDmt";
-import { maskAccountNumber } from "@/src/lib/dmtUtils";
+import { maskAccountNumber, normalizeIndianMobile } from "@/src/lib/dmtUtils";
 import { useDmtWorkflow, STEP } from "../DmtWorkflowContext";
 import OtpDialog from "../OtpDialog";
 import type { DmtApiError, DmtBeneficiary } from "@/src/types/dmt";
@@ -85,10 +85,12 @@ export default function BeneficiariesStep() {
       const created = await addMutation.mutateAsync({
         senderMobile: mobile,
         name: values.name,
-        beneficiaryMobileNumber: values.mobile || undefined,
+        beneficiaryMobileNumber:
+          normalizeIndianMobile(values.mobile) ||
+          normalizeIndianMobile(mobile) ||
+          undefined,
         accountNumber: values.accountNumber,
         ifscCode: values.ifscCode.toUpperCase(),
-        bankId: values.bankId,
         instantPayBankId: values.bankId,
       });
       toast.success("Beneficiary added");

@@ -7,34 +7,38 @@ import {
   Button,
   Chip,
   Box,
-  IconButton,
   Divider,
 } from "@mui/material";
-import SendIcon from "@mui/icons-material/Send";
+import VerifiedUserIcon from "@mui/icons-material/CheckCircle";
 import DeleteIcon from "@mui/icons-material/Delete";
+import SendIcon from "@mui/icons-material/Send";
 import type { DmtBeneficiary } from "../types";
 
 function maskAccount(value: string) {
   if (!value || value.length < 4) return value;
-  return value.slice(-4).padStart(value.length, "•");
+  return `•••• ${value.slice(-4)}`;
 }
 
 interface BeneficiaryCardProps {
   beneficiary: DmtBeneficiary;
-  onTransfer: (beneficiary: DmtBeneficiary) => void;
+  onVerify: (beneficiary: DmtBeneficiary) => void;
   onDelete: (beneficiary: DmtBeneficiary) => void;
+  onTransfer?: (beneficiary: DmtBeneficiary) => void;
 }
 
 export default function BeneficiaryCard({
   beneficiary,
-  onTransfer,
+  onVerify,
   onDelete,
+  onTransfer,
 }: BeneficiaryCardProps) {
+  const verified = Boolean(beneficiary.isVerified);
+
   return (
     <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
       <CardContent>
-        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1 }}>
-          <Box>
+        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, alignItems: "flex-start" }}>
+          <Box sx={{ minWidth: 0 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
               {beneficiary.name}
             </Typography>
@@ -42,29 +46,54 @@ export default function BeneficiaryCard({
               {beneficiary.bankName}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              A/C {maskAccount(beneficiary.accountNumber)} • {beneficiary.ifscCode}
+              A/C {maskAccount(beneficiary.accountNumber)}
             </Typography>
+            <Typography variant="body2" color="text.secondary">
+              IFSC {beneficiary.ifscCode}
+            </Typography>
+            {beneficiary.mobile ? (
+              <Typography variant="body2" color="text.secondary">
+                Mobile {beneficiary.mobile}
+              </Typography>
+            ) : null}
           </Box>
           <Chip
-            label={beneficiary.isVerified ? "VERIFIED" : "UNVERIFIED"}
-            color={beneficiary.isVerified ? "success" : "warning"}
+            label={verified ? "VERIFIED" : "UNVERIFIED"}
+            color={verified ? "success" : "warning"}
             size="small"
           />
         </Box>
         <Divider sx={{ my: 1.5 }} />
-        <Box sx={{ display: "flex", gap: 1 }}>
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+          {!verified ? (
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<VerifiedUserIcon />}
+              onClick={() => onVerify(beneficiary)}
+            >
+              Verify
+            </Button>
+          ) : null}
           <Button
             size="small"
-            variant="contained"
-            startIcon={<SendIcon />}
-            onClick={() => onTransfer(beneficiary)}
-            disabled={!beneficiary.isVerified}
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => onDelete(beneficiary)}
           >
-            Transfer
+            Delete
           </Button>
-          <IconButton size="small" color="error" onClick={() => onDelete(beneficiary)}>
-            <DeleteIcon fontSize="small" />
-          </IconButton>
+          {verified && onTransfer ? (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<SendIcon />}
+              onClick={() => onTransfer(beneficiary)}
+            >
+              Transfer
+            </Button>
+          ) : null}
         </Box>
       </CardContent>
     </Card>

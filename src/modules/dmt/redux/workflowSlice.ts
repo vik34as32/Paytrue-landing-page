@@ -40,7 +40,7 @@ function dialogForAction(action: DmtNextAction): DmtDialog {
     case "VERIFY_OTP":
       return "otp";
     case "ADD_BENEFICIARY":
-      return "addBeneficiary";
+      return "none";
     case "BENEFICIARY_OTP":
       return "beneficiaryOtp";
     case "GENERATE_TRANSACTION_OTP":

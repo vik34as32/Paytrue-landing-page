@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "@/src/redux/types";
 import {
   applyWorkflowResponse,
@@ -34,6 +34,7 @@ import {
   setActiveSenderMobile,
   setSenderReferenceKey as persistSenderReferenceKey,
 } from "@/src/lib/dmtSession";
+import { getCurrentLocation } from "@/src/lib/rdService";
 import { codeToNextAction } from "../services/normalizers";
 import {
   useAddBeneficiaryMutation,
@@ -52,6 +53,8 @@ import {
 import type {
   AddBeneficiaryRequest,
   BioAuthRequest,
+  DmtBeneficiary,
+  DmtTransferMode,
   DmtWorkflowResponse,
   RegisterSenderRequest,
   TransferRequest,
@@ -84,13 +87,25 @@ export function useDmtOrchestrator() {
   const [verifyTransactionOtpMutation] = useVerifyTransactionOtpMutation();
   const [transferMutation] = useTransferMutation();
 
+  const verifyContextRef = useRef<{ id: string; referenceKey: string } | null>(null);
+  const deleteContextRef = useRef<{ id: string; referenceKey: string; name?: string } | null>(
+    null
+  );
+  const transferContextRef = useRef<{
+    beneficiaryId: string;
+    amount: number;
+    transferMode: DmtTransferMode;
+    remarks?: string;
+    referenceKey: string;
+  } | null>(null);
+
   const beneficiariesQuery = useFetchBeneficiariesQuery(
     { senderMobile: sender.mobile },
-    { skip: !sender.mobile }
+    { skip: !sender.mobile, refetchOnMountOrArgChange: true }
   );
 
   useEffect(() => {
-    if (beneficiariesQuery.data?.beneficiaries?.length) {
+    if (beneficiariesQuery.data?.beneficiaries) {
       dispatch(setBeneficiaries(beneficiariesQuery.data.beneficiaries));
     }
   }, [beneficiariesQuery.data?.beneficiaries, dispatch]);
@@ -231,8 +246,10 @@ export function useDmtOrchestrator() {
   );
 
   const addBeneficiary = useCallback(
-    async (payload: Omit<AddBeneficiaryRequest, "senderMobile">) =>
-      run(async () => {
+    async (payload: Omit<AddBeneficiaryRequest, "senderMobile">) => {
+      dispatch(startLoading());
+      dispatch(setWorkflowError(null));
+      try {
         const response = await addBeneficiaryMutation({
           ...payload,
           senderMobile: sender.mobile,
@@ -242,34 +259,111 @@ export function useDmtOrchestrator() {
           dispatch(
             setPendingBeneficiary({
               id: applied.beneficiary.id,
-              referenceKey: applied.referenceKey,
+              referenceKey: applied.referenceKey ?? applied.beneficiary.referenceKey,
             })
           );
         }
-        await beneficiariesQuery.refetch();
         return applied;
-      }),
-    [addBeneficiaryMutation, applyResponse, beneficiariesQuery, dispatch, run, sender.mobile]
+      } catch (error) {
+        const message = getErrorMessage(error);
+        if (/already exists/i.test(message)) {
+          dispatch(closeDialog());
+          dispatch(setWorkflowError(null));
+          dispatch(
+            showSnackbar({
+              message: "Beneficiary already exists. Verify or delete from the list below.",
+              severity: "info",
+            })
+          );
+        } else {
+          dispatch(setWorkflowError(message));
+        }
+        return null;
+      } finally {
+        dispatch(stopLoading());
+        await beneficiariesQuery.refetch();
+      }
+    },
+    [addBeneficiaryMutation, applyResponse, beneficiariesQuery, dispatch, sender.mobile]
+  );
+
+  const openVerifyBeneficiary = useCallback(
+    (item: DmtBeneficiary) => {
+      const referenceKey = (item.referenceKey || sender.referenceKey || "").trim();
+      if (!item.id?.trim()) {
+        dispatch(
+          showSnackbar({ message: "Beneficiary ID is missing.", severity: "error" })
+        );
+        return;
+      }
+      if (!referenceKey) {
+        dispatch(
+          showSnackbar({
+            message: "Reference key missing. Search sender again or re-add beneficiary.",
+            severity: "error",
+          })
+        );
+        return;
+      }
+
+      verifyContextRef.current = { id: item.id, referenceKey };
+      dispatch(setSelectedBeneficiary(item));
+      dispatch(
+        setPendingBeneficiary({
+          id: item.id,
+          referenceKey,
+        })
+      );
+      dispatch(openDialog("beneficiaryOtp"));
+    },
+    [dispatch, sender.referenceKey]
   );
 
   const verifyBeneficiaryOtp = useCallback(
     async (otp: string) =>
       run(async () => {
+        const ctx = verifyContextRef.current;
+        const beneficiaryId =
+          ctx?.id || beneficiary.pendingBeneficiaryId || beneficiary.selected?.id || "";
+        const referenceKey = (
+          ctx?.referenceKey ||
+          beneficiary.pendingReferenceKey ||
+          beneficiary.selected?.referenceKey ||
+          sender.referenceKey ||
+          ""
+        ).trim();
+
+        if (!beneficiaryId) {
+          throw new Error("Beneficiary not selected for verification.");
+        }
+        if (!referenceKey) {
+          throw new Error("Reference key is required to verify beneficiary.");
+        }
+
         const response = await verifyBeneficiaryOtpMutation({
-          beneficiaryId: beneficiary.pendingBeneficiaryId,
-          otp,
-          referenceKey: beneficiary.pendingReferenceKey || sender.referenceKey,
+          beneficiaryId,
+          otp: otp.trim(),
+          referenceKey,
           senderMobile: sender.mobile,
-        } as VerifyBeneficiaryOtpRequest).unwrap();
+        }).unwrap();
         const applied = applyResponse(response);
+        verifyContextRef.current = null;
         dispatch(closeDialog());
         await beneficiariesQuery.refetch();
+        dispatch(
+          showSnackbar({
+            message: applied?.message || "Beneficiary verified successfully.",
+            severity: "success",
+          })
+        );
         return applied;
       }),
     [
       applyResponse,
       beneficiary.pendingBeneficiaryId,
       beneficiary.pendingReferenceKey,
+      beneficiary.selected?.id,
+      beneficiary.selected?.referenceKey,
       beneficiariesQuery,
       dispatch,
       run,
@@ -280,129 +374,263 @@ export function useDmtOrchestrator() {
   );
 
   const deleteBeneficiary = useCallback(
-    async (beneficiaryId: string) =>
+    async (item: DmtBeneficiary) =>
       run(async () => {
-        const response = await deleteBeneficiaryMutation({
-          beneficiaryId,
-          senderMobile: sender.mobile,
-        }).unwrap();
-        const applied = applyResponse(response);
+        const beneficiaryId = item.id?.trim();
+        if (!beneficiaryId) {
+          throw new Error("Beneficiary ID is missing.");
+        }
+
+        const response = await deleteBeneficiaryMutation({ beneficiaryId }).unwrap();
+        const referenceKey = (
+          response.referenceKey ||
+          item.referenceKey ||
+          sender.referenceKey ||
+          ""
+        ).trim();
+
+        deleteContextRef.current = {
+          id: beneficiaryId,
+          referenceKey,
+          name: item.name,
+        };
+        dispatch(setSelectedBeneficiary(item));
         dispatch(
           setPendingBeneficiary({
             id: beneficiaryId,
-            referenceKey: applied?.referenceKey,
+            referenceKey,
           })
         );
         dispatch(openDialog("deleteBeneficiary"));
-        return applied;
+        dispatch(
+          showSnackbar({
+            message: response.message || "OTP sent to confirm beneficiary deletion.",
+            severity: "success",
+          })
+        );
+        return response;
       }),
-    [applyResponse, deleteBeneficiaryMutation, dispatch, run, sender.mobile]
+    [deleteBeneficiaryMutation, dispatch, run, sender.referenceKey]
   );
 
   const verifyBeneficiaryDelete = useCallback(
     async (otp: string) =>
       run(async () => {
+        const ctx = deleteContextRef.current;
+        const beneficiaryId =
+          ctx?.id || beneficiary.pendingBeneficiaryId || beneficiary.selected?.id || "";
+        const referenceKey = (
+          ctx?.referenceKey ||
+          beneficiary.pendingReferenceKey ||
+          beneficiary.selected?.referenceKey ||
+          sender.referenceKey ||
+          ""
+        ).trim();
+
+        if (!beneficiaryId) {
+          throw new Error("Beneficiary not selected for deletion.");
+        }
+
         const response = await verifyBeneficiaryDeleteMutation({
-          beneficiaryId: beneficiary.pendingBeneficiaryId,
-          senderMobile: sender.mobile,
-          otp,
-          referenceKey: beneficiary.pendingReferenceKey || sender.referenceKey,
+          beneficiaryId,
+          otp: otp.trim(),
+          ...(referenceKey ? { referenceKey } : {}),
         }).unwrap();
-        const applied = applyResponse(response);
+
+        deleteContextRef.current = null;
         dispatch(closeDialog());
+        dispatch(setSelectedBeneficiary(null));
+        dispatch(setPendingBeneficiary({ id: "", referenceKey: "" }));
         await beneficiariesQuery.refetch();
-        return applied;
+        dispatch(
+          showSnackbar({
+            message: response.message || "Beneficiary deleted successfully.",
+            severity: "success",
+          })
+        );
+        return response;
       }),
     [
-      applyResponse,
       beneficiary.pendingBeneficiaryId,
       beneficiary.pendingReferenceKey,
+      beneficiary.selected?.id,
+      beneficiary.selected?.referenceKey,
       beneficiariesQuery,
       dispatch,
       run,
-      sender.mobile,
       sender.referenceKey,
       verifyBeneficiaryDeleteMutation,
     ]
   );
 
-  const generateTransactionOtp = useCallback(
-    async () =>
+  const startTransfer = useCallback(
+    (item: DmtBeneficiary) => {
+      if (!item.isVerified) {
+        dispatch(
+          showSnackbar({
+            message: "Please verify beneficiary before transfer.",
+            severity: "error",
+          })
+        );
+        return;
+      }
+      transferContextRef.current = null;
+      dispatch(
+        setTransactionDraft({
+          amount: 0,
+          transferMode: "IMPS",
+          remarks: "",
+          otp: "",
+          referenceKey: "",
+        })
+      );
+      dispatch(setSelectedBeneficiary(item));
+    },
+    [dispatch]
+  );
+
+  const cancelTransfer = useCallback(() => {
+    transferContextRef.current = null;
+    dispatch(setSelectedBeneficiary(null));
+  }, [dispatch]);
+
+  const initiateTransfer = useCallback(
+    async (values: { amount: number; transferMode: DmtTransferMode; remarks?: string }) =>
       run(async () => {
         if (!beneficiary.selected) throw new Error("Select a beneficiary first.");
+        if (!sender.referenceKey?.trim()) {
+          throw new Error("Reference key missing. Search sender again.");
+        }
+
+        transferContextRef.current = {
+          beneficiaryId: beneficiary.selected.id,
+          amount: values.amount,
+          transferMode: values.transferMode,
+          remarks: values.remarks,
+          referenceKey: sender.referenceKey,
+        };
+        dispatch(setTransactionDraft(values));
+
         const response = await generateTransactionOtpMutation({
           senderMobile: sender.mobile,
-          amount: transaction.draft.amount,
+          amount: values.amount,
           beneficiaryId: beneficiary.selected.id,
-          transferMode: transaction.draft.transferMode,
+          transferMode: values.transferMode,
           referenceKey: sender.referenceKey,
         }).unwrap();
-        if (response.referenceKey) {
-          dispatch(setTransactionDraft({ referenceKey: response.referenceKey }));
+
+        const referenceKey = response.referenceKey || sender.referenceKey;
+        if (referenceKey) {
+          transferContextRef.current = {
+            ...transferContextRef.current!,
+            referenceKey,
+          };
+          dispatch(setTransactionDraft({ referenceKey }));
         }
-        return applyResponse(response);
+
+        dispatch(openDialog("transactionOtp"));
+        dispatch(
+          showSnackbar({
+            message: response.message || "Transaction OTP sent.",
+            severity: "success",
+          })
+        );
+        return response;
       }),
     [
-      applyResponse,
       beneficiary.selected,
       dispatch,
       generateTransactionOtpMutation,
       run,
       sender.mobile,
       sender.referenceKey,
-      transaction.draft.amount,
-      transaction.draft.transferMode,
     ]
   );
+
+  const generateTransactionOtp = initiateTransfer;
 
   const verifyTransactionOtpAndTransfer = useCallback(
     async (otp: string) =>
       run(async () => {
-        if (!beneficiary.selected) throw new Error("Select a beneficiary first.");
+        const ctx = transferContextRef.current;
+        const beneficiaryId =
+          ctx?.beneficiaryId || beneficiary.selected?.id || "";
+        const amount = ctx?.amount || transaction.draft.amount;
+        const transferMode = ctx?.transferMode || transaction.draft.transferMode;
+        const remarks = ctx?.remarks ?? transaction.draft.remarks;
+        const referenceKey = (
+          ctx?.referenceKey ||
+          transaction.draft.referenceKey ||
+          sender.referenceKey ||
+          ""
+        ).trim();
+
+        if (!beneficiaryId) throw new Error("Select a beneficiary first.");
+        if (!amount || amount < 1) throw new Error("Enter a valid transfer amount.");
+        if (!referenceKey) throw new Error("Reference key missing. Search sender again.");
 
         const verifyPayload: VerifyTransactionOtpRequest = {
           senderMobile: sender.mobile,
-          otp,
-          referenceKey: transaction.draft.referenceKey || sender.referenceKey,
-          amount: transaction.draft.amount,
-          beneficiaryId: beneficiary.selected.id,
-          transferMode: transaction.draft.transferMode,
+          otp: otp.trim(),
+          referenceKey,
+          amount,
+          beneficiaryId,
+          transferMode,
         };
 
-        const verifyResponse = await verifyTransactionOtpMutation(verifyPayload).unwrap();
-        const appliedVerify = applyResponse(verifyResponse);
-        dispatch(setTransactionDraft({ otp }));
+        await verifyTransactionOtpMutation(verifyPayload).unwrap();
+        dispatch(setTransactionDraft({ otp: otp.trim() }));
 
-        if (appliedVerify?.nextAction !== "TRANSFER") {
-          return appliedVerify;
+        let latitude = "28.6139";
+        let longitude = "77.2090";
+        try {
+          const coords = await getCurrentLocation();
+          latitude = coords.latitude;
+          longitude = coords.longitude;
+        } catch {
+          dispatch(
+            showSnackbar({
+              message: "Using fallback location for transfer.",
+              severity: "info",
+            })
+          );
         }
 
         const transferPayload: TransferRequest = {
           senderMobile: sender.mobile,
-          beneficiaryId: beneficiary.selected.id,
-          amount: transaction.draft.amount,
-          transferMode: transaction.draft.transferMode,
-          otp,
-          referenceKey:
-            transaction.draft.referenceKey ||
-            appliedVerify.referenceKey ||
-            sender.referenceKey,
-          latitude: "28.6139",
-          longitude: "77.2090",
-          remarks: transaction.draft.remarks,
+          beneficiaryId,
+          amount,
+          transferMode,
+          otp: otp.trim(),
+          referenceKey,
+          latitude,
+          longitude,
+          remarks: remarks || undefined,
         };
 
         const transferResponse = await transferMutation(transferPayload).unwrap();
-        return applyResponse(transferResponse);
+        transferContextRef.current = null;
+        const applied = applyResponse(transferResponse);
+        dispatch(closeDialog());
+        dispatch(
+          showSnackbar({
+            message: applied?.message || "Transfer initiated successfully.",
+            severity: "success",
+          })
+        );
+        return applied;
       }),
     [
       applyResponse,
-      beneficiary.selected,
+      beneficiary.selected?.id,
       dispatch,
       run,
       sender.mobile,
       sender.referenceKey,
-      transaction.draft,
+      transaction.draft.amount,
+      transaction.draft.referenceKey,
+      transaction.draft.remarks,
+      transaction.draft.transferMode,
       transferMutation,
       verifyTransactionOtpMutation,
     ]
@@ -423,14 +651,21 @@ export function useDmtOrchestrator() {
     workflow,
     beneficiaries: beneficiariesQuery.data?.beneficiaries ?? beneficiary.list,
     beneficiariesLoading: beneficiariesQuery.isLoading || beneficiariesQuery.isFetching,
+    beneficiariesError: beneficiariesQuery.isError
+      ? getErrorMessage(beneficiariesQuery.error)
+      : null,
     searchSender,
     registerSender,
     verifySenderOtp,
     bioAuth,
     addBeneficiary,
     verifyBeneficiaryOtp,
+    openVerifyBeneficiary,
     deleteBeneficiary,
     verifyBeneficiaryDelete,
+    startTransfer,
+    cancelTransfer,
+    initiateTransfer,
     generateTransactionOtp,
     verifyTransactionOtpAndTransfer,
     resetAll,

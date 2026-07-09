@@ -1,4 +1,5 @@
 import type {
+  DmtBank,
   DmtBeneficiary,
   DmtNextAction,
   DmtSender,
@@ -112,27 +113,74 @@ export function normalizeSender(raw: Record<string, unknown> = {}): DmtSender {
 }
 
 export function normalizeBeneficiary(raw: Record<string, unknown> = {}): DmtBeneficiary {
+  const metadata = asRecord(raw.metadata);
+  const instantPay = asRecord(metadata.instantPay);
+  const bankObj = asRecord(raw.bank);
+  const ifscCode = (pickString(raw.ifscCode, raw.ifsc) ?? "").toUpperCase();
+  const bankName =
+    pickString(bankObj.name, bankObj.bankName, raw.bankName) ||
+    (ifscCode ? `${ifscCode.slice(0, 4)} Bank` : "Bank");
+
   return {
     id: pickString(raw.id, raw.beneficiaryId, raw._id) ?? "",
     name: pickString(raw.name, raw.beneficiaryName) ?? "Beneficiary",
-    mobile: pickString(raw.mobile, raw.beneficiaryMobileNumber),
-    bankName: pickString(raw.bankName, raw.bank) ?? "",
+    mobile: pickString(raw.mobile, raw.beneficiaryMobileNumber, raw.mobileNumber),
+    bankName,
     accountNumber: pickString(raw.accountNumber, raw.accountNo, raw.account) ?? "",
-    ifscCode: pickString(raw.ifscCode, raw.ifsc) ?? "",
-    isVerified: Boolean(raw.isVerified ?? raw.verified),
+    ifscCode,
+    isVerified: Boolean(raw.isVerified ?? raw.verified ?? raw.status === "verified"),
     status: pickString(raw.status, raw.verificationStatus),
+    referenceKey: pickString(
+      raw.referenceKey,
+      metadata.referenceKey,
+      instantPay.referenceKey
+    ),
+    externalRef: pickString(raw.externalRef, instantPay.beneficiaryId),
   };
 }
 
-export function normalizeBeneficiaryList(payload: unknown): DmtBeneficiary[] {
-  const data = unwrapPayload(payload);
-  const rows =
-    (Array.isArray(data.beneficiaries) && data.beneficiaries) ||
-    (Array.isArray(data.items) && data.items) ||
-    (Array.isArray(data) && data) ||
-    [];
+/** Extract beneficiary rows from GET /dmt/beneficiaries (local + provider buckets). */
+export function extractDmtBeneficiaryRows(payload: unknown): Record<string, unknown>[] {
+  const root = asRecord(payload);
+  const level1 = unwrapPayload(payload);
 
-  return (rows as Record<string, unknown>[]).map(normalizeBeneficiary);
+  const local = Array.isArray(level1.local)
+    ? (level1.local as Record<string, unknown>[])
+    : [];
+  const provider = Array.isArray(level1.provider)
+    ? (level1.provider as Record<string, unknown>[])
+    : [];
+  if (local.length || provider.length) {
+    return [...local, ...provider];
+  }
+
+  const level2 = asRecord(level1.data);
+
+  const candidates = [
+    level1.beneficiaries,
+    level2.beneficiaries,
+    level2.data,
+    level1.data,
+    level1.items,
+    level2.items,
+    level1.list,
+    level2.list,
+    root.beneficiaries,
+    root.items,
+    payload,
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate as Record<string, unknown>[];
+    }
+  }
+
+  return [];
+}
+
+export function normalizeBeneficiaryList(payload: unknown): DmtBeneficiary[] {
+  return extractDmtBeneficiaryRows(payload).map(normalizeBeneficiary);
 }
 
 export function normalizeTransaction(raw: Record<string, unknown> = {}): DmtTransaction {
@@ -228,4 +276,61 @@ export function nextActionToStep(action: DmtNextAction | null): number {
     default:
       return 0;
   }
+}
+
+/** Extract bank rows from InstantPay /dmt/banks response (supports nested data.data). */
+export function extractDmtBankRows(payload: unknown): Record<string, unknown>[] {
+  const root = asRecord(payload);
+  const level1 = unwrapPayload(payload);
+  const level2 = asRecord(level1.data);
+
+  const candidates = [
+    level2.data,
+    level1.data,
+    level1.banks,
+    level1.items,
+    level1.bankList,
+    root.banks,
+    root.items,
+    root.data,
+    payload,
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate as Record<string, unknown>[];
+    }
+  }
+
+  return [];
+}
+
+export function normalizeDmtBankList(payload: unknown): DmtBank[] {
+  return extractDmtBankRows(payload).map((item) => {
+    const ifscAlias = String(item.ifscAlias ?? item.ifscPrefix ?? "").trim().toUpperCase();
+    const ifscGlobal = String(item.ifscGlobal ?? item.ifsc ?? item.ifscCode ?? "").trim();
+    const ifscPrefix = ifscAlias || (ifscGlobal ? ifscGlobal.slice(0, 4).toUpperCase() : "");
+    const code = String(item.code ?? item.bankCode ?? item.operatorCode ?? "").trim();
+    const rawInstantPayId = item.bankId ?? item.instantPayBankId;
+    const instantPayBankId =
+      rawInstantPayId != null && String(rawInstantPayId).trim()
+        ? String(rawInstantPayId).trim()
+        : undefined;
+    const internalId = item.id != null && isUuid(String(item.id)) ? String(item.id) : undefined;
+
+    return {
+      id: instantPayBankId ?? internalId ?? "",
+      name: String(item.name ?? item.bankName ?? "Unknown Bank"),
+      code: code || undefined,
+      ifsc: ifscGlobal || ifscPrefix || undefined,
+      ifscPrefix: ifscPrefix || undefined,
+      instantPayBankId,
+    };
+  });
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value.trim()
+  );
 }

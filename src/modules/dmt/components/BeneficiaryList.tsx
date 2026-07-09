@@ -9,7 +9,9 @@ interface BeneficiaryListProps {
   beneficiaries: DmtBeneficiary[];
   loading?: boolean;
   error?: string | null;
+  actionError?: string | null;
   onAdd: () => void;
+  onVerify: (beneficiary: DmtBeneficiary) => void;
   onTransfer: (beneficiary: DmtBeneficiary) => void;
   onDelete: (beneficiary: DmtBeneficiary) => void;
 }
@@ -18,7 +20,9 @@ export default function BeneficiaryList({
   beneficiaries,
   loading = false,
   error,
+  actionError,
   onAdd,
+  onVerify,
   onTransfer,
   onDelete,
 }: BeneficiaryListProps) {
@@ -35,6 +39,11 @@ export default function BeneficiaryList({
 
       {loading ? <Skeleton variant="rounded" height={180} /> : null}
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+      {actionError && !error ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {actionError}
+        </Alert>
+      ) : null}
 
       {!loading && beneficiaries.length === 0 ? (
         <Box
@@ -64,6 +73,7 @@ export default function BeneficiaryList({
             <BeneficiaryCard
               key={item.id}
               beneficiary={item}
+              onVerify={onVerify}
               onTransfer={onTransfer}
               onDelete={onDelete}
             />

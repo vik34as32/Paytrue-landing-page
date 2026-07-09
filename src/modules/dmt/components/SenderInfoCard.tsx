@@ -13,10 +13,17 @@ import type { DmtSender } from "../types";
 interface SenderInfoCardProps {
   sender: DmtSender | null;
   mobile: string;
+  beneficiaryCount?: number;
 }
 
-export default function SenderInfoCard({ sender, mobile }: SenderInfoCardProps) {
+export default function SenderInfoCard({
+  sender,
+  mobile,
+  beneficiaryCount,
+}: SenderInfoCardProps) {
   const profile = sender ?? { mobile, name: "Sender" };
+  const count =
+    beneficiaryCount ?? profile.beneficiaryCount ?? 0;
 
   return (
     <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", mb: 3 }}>
@@ -41,7 +48,7 @@ export default function SenderInfoCard({ sender, mobile }: SenderInfoCardProps) 
           <Info label="City" value={profile.city || "-"} />
           <Info label="State" value={profile.state || "-"} />
           <Info label="Pincode" value={profile.pincode || "-"} />
-          <Info label="Beneficiaries" value={String(profile.beneficiaryCount ?? 0)} />
+          <Info label="Beneficiaries" value={String(count)} />
         </Box>
       </CardContent>
     </Card>

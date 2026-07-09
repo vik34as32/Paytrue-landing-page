@@ -18,6 +18,54 @@ export function unwrapApiData<T>(payload: unknown): T {
   return payload as T;
 }
 
+export function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value.trim()
+  );
+}
+
+/** Map UI bank selection to API fields (bankId = internal UUID, instantPayBankId = InstantPay numeric id). */
+export function resolveBeneficiaryBankFields(input: {
+  bankId?: string;
+  instantPayBankId?: string | number;
+}): { bankId?: string; instantPayBankId?: string | number } {
+  const rawBankId = input.bankId?.trim();
+  const uuidBankId = rawBankId && isUuid(rawBankId) ? rawBankId : undefined;
+  const instantPayBankId =
+    input.instantPayBankId ??
+    (rawBankId && !isUuid(rawBankId) ? rawBankId : undefined);
+
+  const result: { bankId?: string; instantPayBankId?: string | number } = {};
+  if (uuidBankId) result.bankId = uuidBankId;
+  if (instantPayBankId != null && String(instantPayBankId).trim()) {
+    result.instantPayBankId = instantPayBankId;
+  }
+  return result;
+}
+
+/** Normalize to 10-digit Indian mobile (6–9 prefix). Returns undefined if invalid. */
+export function normalizeIndianMobile(value?: string | null): string | undefined {
+  if (value == null) return undefined;
+  const trimmed = String(value).trim();
+  if (!trimmed) return undefined;
+
+  let digits = trimmed.replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) digits = digits.slice(2);
+  else if (digits.length === 11 && digits.startsWith("0")) digits = digits.slice(1);
+
+  return /^[6-9]\d{9}$/.test(digits) ? digits : undefined;
+}
+
+/** Beneficiary mobile, falling back to remitter mobile when omitted. */
+export function resolveBeneficiaryMobileNumber(
+  senderMobile?: string,
+  beneficiaryMobileNumber?: string
+): string | undefined {
+  return (
+    normalizeIndianMobile(beneficiaryMobileNumber) ?? normalizeIndianMobile(senderMobile)
+  );
+}
+
 function toNumber(value: unknown, fallback = 0): number {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
@@ -68,16 +116,35 @@ export function normalizeSender(raw: Record<string, unknown> = {}): DmtSender {
 
 export function normalizeBeneficiary(raw: Record<string, unknown> = {}): DmtBeneficiary {
   const status = normalizeStatus(raw.status ?? raw.verificationStatus);
+  const metadata =
+    raw.metadata && typeof raw.metadata === "object"
+      ? (raw.metadata as Record<string, unknown>)
+      : {};
+  const instantPay =
+    metadata.instantPay && typeof metadata.instantPay === "object"
+      ? (metadata.instantPay as Record<string, unknown>)
+      : {};
+  const bankObj =
+    raw.bank && typeof raw.bank === "object" ? (raw.bank as Record<string, unknown>) : {};
+  const ifscCode = String(raw.ifscCode ?? raw.ifsc ?? "").toUpperCase();
+  const bankName =
+    String(bankObj.name ?? bankObj.bankName ?? raw.bankName ?? raw.bank ?? "").trim() ||
+    (ifscCode ? `${ifscCode.slice(0, 4)} Bank` : "");
+
   return {
     id: String(raw.id ?? raw.beneficiaryId ?? raw._id ?? ""),
     name: String(raw.name ?? raw.beneficiaryName ?? ""),
     mobile: String(raw.mobile ?? raw.mobileNumber ?? ""),
-    bankName: String(raw.bankName ?? raw.bank ?? ""),
+    bankName,
     accountNumber: String(raw.accountNumber ?? raw.accountNo ?? ""),
-    ifscCode: String(raw.ifscCode ?? raw.ifsc ?? "").toUpperCase(),
+    ifscCode,
     status,
     isVerified: Boolean(raw.isVerified ?? status === "verified"),
     createdAt: String(raw.createdAt ?? raw.created_at ?? new Date().toISOString()),
+    referenceKey: String(
+      raw.referenceKey ?? metadata.referenceKey ?? instantPay.referenceKey ?? ""
+    ) || undefined,
+    externalRef: String(raw.externalRef ?? instantPay.beneficiaryId ?? "") || undefined,
   };
 }
 
@@ -146,13 +213,40 @@ export function normalizeCheckSenderResponse(payload: unknown): CheckSenderRespo
 }
 
 export function normalizeBeneficiaryList(payload: unknown): DmtBeneficiary[] {
-  const data = unwrapApiData<unknown>(payload);
-  const rows = Array.isArray(data)
-    ? data
-    : (data as { beneficiaries?: unknown[] })?.beneficiaries ??
-      (data as { items?: unknown[] })?.items ??
-      (data as { data?: unknown[] })?.data ??
-      [];
+  const root = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+  const level1 =
+    root.data && typeof root.data === "object"
+      ? (root.data as Record<string, unknown>)
+      : root;
+
+  const local = Array.isArray(level1.local) ? level1.local : [];
+  const provider = Array.isArray(level1.provider) ? level1.provider : [];
+  if (local.length || provider.length) {
+    return [...local, ...provider].map((row) =>
+      normalizeBeneficiary(row as Record<string, unknown>)
+    );
+  }
+
+  const level2 =
+    level1.data && typeof level1.data === "object" && !Array.isArray(level1.data)
+      ? (level1.data as Record<string, unknown>)
+      : {};
+
+  const candidates = [
+    level1.beneficiaries,
+    level2.beneficiaries,
+    level2.data,
+    level1.data,
+    level1.items,
+    level2.items,
+    level1.list,
+    level2.list,
+    root.beneficiaries,
+    root.items,
+    payload,
+  ];
+
+  const rows = candidates.find((candidate) => Array.isArray(candidate)) ?? [];
 
   return (rows as Record<string, unknown>[]).map(normalizeBeneficiary);
 }

@@ -2,14 +2,16 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { API_BASE_URL } from "@/src/constants/api";
 import { getAccessToken } from "@/src/lib/cookies";
 import { buildAepsLoginApiBody } from "@/src/lib/aepsUtils";
+import { resolveBeneficiaryBankFields, resolveBeneficiaryMobileNumber } from "@/src/lib/dmtUtils";
 import { DMT_MODULE_ENDPOINTS } from "../services/endpoints";
-import { normalizeBeneficiaryList, normalizeWorkflowResponse } from "../services/normalizers";
+import { normalizeBeneficiaryList, normalizeDmtBankList, normalizeWorkflowResponse } from "../services/normalizers";
 import type {
   AddBeneficiaryRequest,
   BioAuthRequest,
   DmtBank,
   DmtWorkflowResponse,
   DeleteBeneficiaryRequest,
+  VerifyDeleteBeneficiaryRequest,
   GenerateTransactionOtpRequest,
   RegisterSenderRequest,
   SearchSenderRequest,
@@ -43,7 +45,6 @@ export const dmtApi = createApi({
     prepareHeaders: (headers) => {
       const token = getAccessToken();
       if (token) headers.set("Authorization", `Bearer ${token}`);
-      if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
       return headers;
     },
   }),
@@ -150,68 +151,92 @@ export const dmtApi = createApi({
 
     fetchBanks: builder.query<DmtBank[], void>({
       query: () => DMT_MODULE_ENDPOINTS.banks,
-      transformResponse: (response: unknown) => {
-        const data = (response as { data?: unknown })?.data ?? response;
-        const rows = Array.isArray(data)
-          ? data
-          : (data as { banks?: unknown[]; items?: unknown[] })?.banks ||
-            (data as { items?: unknown[] })?.items ||
-            [];
-        return (rows as Record<string, unknown>[]).map((item) => ({
-          id: String(item.id ?? item.bankId ?? item.code ?? item.name ?? ""),
-          name: String(item.name ?? item.bankName ?? "Unknown Bank"),
-        }));
-      },
+      transformResponse: (response: unknown) => normalizeDmtBankList(response),
     }),
 
     addBeneficiary: builder.mutation<DmtWorkflowResponse, AddBeneficiaryRequest>({
-      query: (body) => ({
-        url: DMT_MODULE_ENDPOINTS.addBeneficiary,
-        method: "POST",
-        body: {
-          senderMobile: body.senderMobile,
-          name: body.name,
-          accountNumber: body.accountNumber,
-          ifscCode: body.ifscCode.toUpperCase(),
-          bankId: body.bankId,
-          beneficiaryMobileNumber: body.beneficiaryMobileNumber,
-        },
-      }),
+      query: (body) => {
+        const beneficiaryMobileNumber = resolveBeneficiaryMobileNumber(
+          body.senderMobile,
+          body.beneficiaryMobileNumber
+        );
+
+        return {
+          url: DMT_MODULE_ENDPOINTS.addBeneficiary,
+          method: "POST",
+          body: {
+            senderMobile: body.senderMobile,
+            name: body.name,
+            accountNumber: body.accountNumber,
+            ifscCode: body.ifscCode.toUpperCase(),
+            ...(beneficiaryMobileNumber ? { beneficiaryMobileNumber } : {}),
+            ...resolveBeneficiaryBankFields({
+              bankId: body.bankId,
+              instantPayBankId: body.instantPayBankId,
+            }),
+          },
+        };
+      },
       transformResponse: (response: unknown) => normalizeWorkflowResponse(response),
       transformErrorResponse: mapApiError,
       invalidatesTags: ["Beneficiaries"],
     }),
 
     verifyBeneficiaryOtp: builder.mutation<DmtWorkflowResponse, VerifyBeneficiaryOtpRequest>({
-      query: ({ beneficiaryId, otp, referenceKey }) => ({
-        url: DMT_MODULE_ENDPOINTS.verifyBeneficiaryOtp(beneficiaryId),
-        method: "POST",
-        body: { otp, referenceKey },
-      }),
+      query: ({ beneficiaryId, otp, referenceKey }) => {
+        const id = String(beneficiaryId || "").trim();
+        const key = String(referenceKey || "").trim();
+        const code = String(otp || "").trim();
+
+        if (!id) throw new Error("Beneficiary ID is required.");
+        if (!key) throw new Error("Reference key is required.");
+        if (!code) throw new Error("OTP is required.");
+
+        return {
+          url: DMT_MODULE_ENDPOINTS.verifyBeneficiaryOtp(id),
+          method: "POST",
+          body: { otp: code, referenceKey: key },
+        };
+      },
       transformResponse: (response: unknown) => normalizeWorkflowResponse(response),
       transformErrorResponse: mapApiError,
       invalidatesTags: ["Beneficiaries"],
     }),
 
     deleteBeneficiary: builder.mutation<DmtWorkflowResponse, DeleteBeneficiaryRequest>({
-      query: ({ beneficiaryId, senderMobile }) => ({
-        url: DMT_MODULE_ENDPOINTS.deleteBeneficiary(beneficiaryId),
-        method: "DELETE",
-        params: { senderMobile },
-      }),
+      query: ({ beneficiaryId }) => {
+        const id = String(beneficiaryId || "").trim();
+        if (!id) throw new Error("Beneficiary ID is required.");
+
+        return {
+          url: DMT_MODULE_ENDPOINTS.deleteBeneficiary(id),
+          method: "DELETE",
+        };
+      },
       transformResponse: (response: unknown) => normalizeWorkflowResponse(response),
       transformErrorResponse: mapApiError,
     }),
 
     verifyBeneficiaryDelete: builder.mutation<
       DmtWorkflowResponse,
-      DeleteBeneficiaryRequest
+      VerifyDeleteBeneficiaryRequest
     >({
-      query: ({ beneficiaryId, otp, referenceKey }) => ({
-        url: DMT_MODULE_ENDPOINTS.deleteBeneficiaryVerify(beneficiaryId),
-        method: "POST",
-        body: { otp, referenceKey },
-      }),
+      query: ({ beneficiaryId, otp, referenceKey }) => {
+        const id = String(beneficiaryId || "").trim();
+        const code = String(otp || "").trim();
+        if (!id) throw new Error("Beneficiary ID is required.");
+        if (!code) throw new Error("OTP is required.");
+
+        const body: { otp: string; referenceKey?: string } = { otp: code };
+        const key = String(referenceKey || "").trim();
+        if (key) body.referenceKey = key;
+
+        return {
+          url: DMT_MODULE_ENDPOINTS.deleteBeneficiaryVerify(id),
+          method: "POST",
+          body,
+        };
+      },
       transformResponse: (response: unknown) => normalizeWorkflowResponse(response),
       transformErrorResponse: mapApiError,
       invalidatesTags: ["Beneficiaries"],
@@ -248,24 +273,41 @@ export const dmtApi = createApi({
     }),
 
     transfer: builder.mutation<DmtWorkflowResponse, TransferRequest>({
-      query: (body) => ({
-        url:
-          body.transferMode === "NEFT"
-            ? DMT_MODULE_ENDPOINTS.transferNeft
-            : DMT_MODULE_ENDPOINTS.transferImps,
-        method: "POST",
-        body: {
-          senderMobile: body.senderMobile,
-          beneficiaryId: body.beneficiaryId,
+      query: (body) => {
+        const beneficiaryId = String(body.beneficiaryId || "").trim();
+        const senderMobile = String(body.senderMobile || "").trim();
+        const referenceKey = String(body.referenceKey || "").trim();
+        const otp = String(body.otp || "").trim();
+        const latitude = String(body.latitude || "").trim();
+        const longitude = String(body.longitude || "").trim();
+
+        if (!beneficiaryId) throw new Error("Beneficiary ID is required.");
+        if (!senderMobile) throw new Error("Sender mobile is required.");
+        if (!referenceKey) throw new Error("Reference key is required.");
+        if (!otp) throw new Error("OTP is required.");
+        if (!latitude || !longitude) throw new Error("Location is required for transfer.");
+
+        const payload: Record<string, unknown> = {
+          senderMobile,
+          beneficiaryId,
           amount: body.amount,
           transferMode: body.transferMode,
-          otp: body.otp,
-          referenceKey: body.referenceKey,
-          latitude: body.latitude,
-          longitude: body.longitude,
-          remarks: body.remarks,
-        },
-      }),
+          otp,
+          referenceKey,
+          latitude,
+          longitude,
+        };
+        if (body.remarks?.trim()) payload.remarks = body.remarks.trim();
+
+        return {
+          url:
+            body.transferMode === "NEFT"
+              ? DMT_MODULE_ENDPOINTS.transferNeft
+              : DMT_MODULE_ENDPOINTS.transferImps,
+          method: "POST",
+          body: payload,
+        };
+      },
       transformResponse: (response: unknown) => normalizeWorkflowResponse(response),
       transformErrorResponse: mapApiError,
       invalidatesTags: ["Transaction"],

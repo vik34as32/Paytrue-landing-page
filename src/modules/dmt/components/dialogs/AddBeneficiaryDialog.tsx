@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useForm, Controller, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,11 +11,11 @@ import {
   DialogActions,
   Button,
   TextField,
-  MenuItem,
   Box,
   CircularProgress,
 } from "@mui/material";
 import { useFetchBanksQuery } from "../../redux/dmtApi";
+import DmtBankSelect from "../DmtBankSelect";
 
 const schema = z
   .object({
@@ -23,7 +24,11 @@ const schema = z
     accountNumber: z.string().regex(/^\d{9,18}$/, "Enter valid account number"),
     confirmAccountNumber: z.string(),
     ifscCode: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Enter valid IFSC"),
-    beneficiaryMobileNumber: z.string().optional().or(z.literal("")),
+    beneficiaryMobileNumber: z
+      .string()
+      .regex(/^[6-9]\d{9}$/, "Enter valid 10-digit mobile")
+      .optional()
+      .or(z.literal("")),
   })
   .refine((data) => data.accountNumber === data.confirmAccountNumber, {
     message: "Account numbers do not match",
@@ -45,7 +50,9 @@ export default function AddBeneficiaryDialog({
   onClose,
   onSubmit,
 }: AddBeneficiaryDialogProps) {
-  const { data: banks = [], isLoading: banksLoading } = useFetchBanksQuery();
+  const { data: banks = [], isLoading: banksLoading } = useFetchBanksQuery(undefined, {
+    skip: !open,
+  });
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
@@ -59,6 +66,12 @@ export default function AddBeneficiaryDialog({
     },
   });
 
+  useEffect(() => {
+    if (!open) {
+      form.reset();
+    }
+  }, [open, form]);
+
   return (
     <Dialog open={open} onClose={loading ? undefined : onClose} fullWidth maxWidth="sm">
       <DialogTitle sx={{ fontWeight: 700 }}>Add Beneficiary</DialogTitle>
@@ -69,34 +82,79 @@ export default function AddBeneficiaryDialog({
               name="name"
               control={form.control}
               render={({ field, fieldState }) => (
-                <TextField {...field} label="Beneficiary Name" fullWidth error={!!fieldState.error} helperText={fieldState.error?.message} />
+                <TextField
+                  {...field}
+                  label="Beneficiary Name"
+                  fullWidth
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
+                />
               )}
             />
+
+            <Controller
+              name="beneficiaryMobileNumber"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <TextField
+                  {...field}
+                  label="Beneficiary Mobile (optional)"
+                  fullWidth
+                  inputMode="numeric"
+                  placeholder="10-digit mobile — uses remitter mobile if blank"
+                  onChange={(e) => field.onChange(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
+                />
+              )}
+            />
+
             <Controller
               name="bankId"
               control={form.control}
               render={({ field, fieldState }) => (
-                <TextField {...field} select label="Bank" fullWidth disabled={banksLoading} error={!!fieldState.error} helperText={fieldState.error?.message}>
-                  {banks.map((bank) => (
-                    <MenuItem key={bank.id} value={bank.id}>{bank.name}</MenuItem>
-                  ))}
-                </TextField>
+                <DmtBankSelect
+                  banks={banks}
+                  value={field.value}
+                  onChange={field.onChange}
+                  loading={banksLoading}
+                  disabled={loading}
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
+                />
               )}
             />
+
             <Controller
               name="accountNumber"
               control={form.control}
               render={({ field, fieldState }) => (
-                <TextField {...field} label="Account Number" fullWidth error={!!fieldState.error} helperText={fieldState.error?.message} />
+                <TextField
+                  {...field}
+                  label="Account Number"
+                  fullWidth
+                  inputMode="numeric"
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
+                />
               )}
             />
+
             <Controller
               name="confirmAccountNumber"
               control={form.control}
               render={({ field, fieldState }) => (
-                <TextField {...field} label="Confirm Account" fullWidth error={!!fieldState.error} helperText={fieldState.error?.message} />
+                <TextField
+                  {...field}
+                  label="Confirm Account"
+                  fullWidth
+                  inputMode="numeric"
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
+                />
               )}
             />
+
             <Controller
               name="ifscCode"
               control={form.control}
@@ -114,8 +172,15 @@ export default function AddBeneficiaryDialog({
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={onClose} disabled={loading} color="inherit">Cancel</Button>
-          <Button type="submit" variant="contained" disabled={loading} startIcon={loading ? <CircularProgress size={16} color="inherit" /> : undefined}>
+          <Button onClick={onClose} disabled={loading} color="inherit">
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loading || banksLoading}
+            startIcon={loading ? <CircularProgress size={16} color="inherit" /> : undefined}
+          >
             Submit
           </Button>
         </DialogActions>

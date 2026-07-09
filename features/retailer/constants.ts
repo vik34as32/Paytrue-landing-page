@@ -181,6 +181,14 @@ export const TICKET_PRIORITIES = ["Low", "Medium", "High", "Urgent"] as const;
 
 export const POPULAR_SERVICES: ServiceItem[] = [
   {
+    id: "upi_cash_point",
+    title: "UPI Cash Point",
+    href: "/rt/retailer/upi-cash-point",
+    icon: "QrCode",
+    color: "from-violet-500 to-indigo-700",
+    category: "payment",
+  },
+  {
     id: "dmt",
     title: "DMT",
     href: "/rt/retailer/dmt",

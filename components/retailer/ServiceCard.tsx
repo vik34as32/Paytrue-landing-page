@@ -22,6 +22,7 @@ import {
   Building2,
   Heart,
   Monitor,
+  QrCode,
   type LucideIcon,
 } from "lucide-react";
 import type { ServiceItem } from "@/types/retailer";
@@ -48,6 +49,7 @@ const iconMap: Record<string, LucideIcon> = {
   Building2,
   Heart,
   Monitor,
+  QrCode,
 };
 
 const iconBgMap: Record<string, string> = {

@@ -11,6 +11,7 @@ export interface BankApiInput {
   name: string;
   shortName?: string;
   ifscPrefix?: string;
+  ifsc?: string;
   logo?: string;
   operatorCode?: string;
   bankName?: string;

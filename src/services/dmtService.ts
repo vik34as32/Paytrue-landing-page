@@ -1,5 +1,6 @@
 import { normalizeDmtBankList } from "@/src/modules/dmt/services/normalizers";
 import { DMT_ENDPOINTS } from "@/src/constants/dmtApi";
+import api from "@/src/lib/axios";
 import { logDmtApiCall, apiNameFromEndpoint } from "@/src/lib/dmtApiLogger";
 import { buildAepsLoginApiBody } from "@/src/lib/aepsUtils";
 import { formatGeoLocation } from "@/src/lib/geoUtils";

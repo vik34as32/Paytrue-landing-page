@@ -1,7 +1,55 @@
 import type { BankApiInput, BankOption } from "@/types/bank";
 
-/** Bank logos live in public/assets/banks */
-const BANK_ASSETS_BASE = "/assets/banks";
+/** Primary bank logos in public/indian-bank */
+const INDIAN_BANK_BASE = "/indian-bank";
+
+/** Fallback logos for banks not present in indian-bank */
+const ASSETS_BANK_BASE = "/assets/banks";
+
+const INDIAN_BANK_FILES = new Set([
+  "apb",
+  "ausfb",
+  "axis",
+  "bandhan",
+  "bob",
+  "boi",
+  "bom",
+  "canara",
+  "cbi",
+  "city",
+  "csb",
+  "cub",
+  "dcb",
+  "dhanlaxmi",
+  "esaf",
+  "federal",
+  "fino",
+  "hdfc",
+  "icici",
+  "idbi",
+  "idfc",
+  "indian",
+  "indiapost",
+  "indus",
+  "iob",
+  "jio",
+  "jnk",
+  "karnataka",
+  "kotak",
+  "kvb",
+  "ntb",
+  "paytm",
+  "pnb",
+  "psb",
+  "rbl",
+  "sbi",
+  "sib",
+  "tmb",
+  "ubi",
+  "uco",
+  "ujjivan",
+  "yes",
+]);
 
 /** Normalize bank names/codes into lookup keys. */
 export function normalizeBankKey(value: string): string {
@@ -13,148 +61,176 @@ export function normalizeBankKey(value: string): string {
     .replace(/^_+|_+$/g, "");
 }
 
-function bankLogo(fileName: string): string {
-  return `${BANK_ASSETS_BASE}/${fileName}`;
+function indianBank(fileName: string): string {
+  return `${INDIAN_BANK_BASE}/${fileName}`;
 }
 
-const BANK_LOGO_ALIASES: Record<string, string> = {
-  sbi: bankLogo("sbi.svg"),
-  state_bank_of_india: bankLogo("sbi.svg"),
-  hdfc: bankLogo("hdfc.svg"),
-  hdfc_bank: bankLogo("hdfc.svg"),
-  icici: bankLogo("icici.svg"),
-  icici_bank: bankLogo("icici.svg"),
-  axis: bankLogo("axis.svg"),
-  axis_bank: bankLogo("axis.svg"),
-  pnb: bankLogo("pnb.svg"),
-  punjab_national_bank: bankLogo("pnb.svg"),
-  bob: bankLogo("bob.svg"),
-  bank_of_baroda: bankLogo("bob.svg"),
-  canara: bankLogo("canara.svg"),
-  canara_bank: bankLogo("canara.svg"),
-  union: bankLogo("union.svg"),
-  union_bank: bankLogo("union.svg"),
-  union_bank_of_india: bankLogo("union.svg"),
-  ubi: bankLogo("union.svg"),
-  indian: bankLogo("indian_bank.svg"),
-  indian_bank: bankLogo("indian_bank.svg"),
-  uco: bankLogo("uco.svg"),
-  uco_bank: bankLogo("uco.svg"),
-  boi: bankLogo("boi.svg"),
-  bank_of_india: bankLogo("boi.svg"),
-  cbi: bankLogo("central_bank.svg"),
-  central_bank: bankLogo("central_bank.svg"),
-  central_bank_of_india: bankLogo("central_bank.svg"),
-  psb: bankLogo("psb.svg"),
-  punjab_and_sind_bank: bankLogo("psb.svg"),
-  idbi: bankLogo("idbi.svg"),
-  idbi_bank: bankLogo("idbi.svg"),
-  iob: bankLogo("iob.svg"),
-  indian_overseas_bank: bankLogo("iob.svg"),
-  bom: bankLogo("bom.svg"),
-  bank_of_maharashtra: bankLogo("bom.svg"),
-  kotak: bankLogo("kotak.svg"),
-  kotak_mahindra_bank: bankLogo("kotak.svg"),
-  indus: bankLogo("indusind.svg"),
-  indusind: bankLogo("indusind.svg"),
-  indusind_bank: bankLogo("indusind.svg"),
-  yes: bankLogo("yes.svg"),
-  yes_bank: bankLogo("yes.svg"),
-  rbl: bankLogo("rbl.svg"),
-  rbl_bank: bankLogo("rbl.svg"),
-  federal: bankLogo("federal.svg"),
-  federal_bank: bankLogo("federal.svg"),
-  sib: bankLogo("sib.svg"),
-  south_indian_bank: bankLogo("sib.svg"),
-  bandhan: bankLogo("bandhan.svg"),
-  bandhan_bank: bankLogo("bandhan.svg"),
-  au: bankLogo("au.svg"),
-  ausfb: bankLogo("au.svg"),
-  au_small_finance_bank: bankLogo("au.svg"),
-  ujjivan: bankLogo("ujjivan.svg"),
-  ujjivan_small_finance_bank: bankLogo("ujjivan.svg"),
-  esaf: bankLogo("esaf.svg"),
-  esaf_small_finance_bank: bankLogo("esaf.svg"),
-  equitas: bankLogo("equitas.svg"),
-  equitas_small_finance_bank: bankLogo("equitas.svg"),
-  jana: bankLogo("jana.svg"),
-  jana_small_finance_bank: bankLogo("jana.svg"),
-  suryoday: bankLogo("suryoday.svg"),
-  suryoday_small_finance_bank: bankLogo("suryoday.svg"),
-  karnataka: bankLogo("karnataka.svg"),
-  karnataka_bank: bankLogo("karnataka.svg"),
-  kvb: bankLogo("kvb.svg"),
-  karur_vysya_bank: bankLogo("kvb.svg"),
-  tmb: bankLogo("tmb.svg"),
-  tamilnad_mercantile_bank: bankLogo("tmb.svg"),
-  cub: bankLogo("cub.svg"),
-  city_union_bank: bankLogo("cub.svg"),
-  dcb: bankLogo("dcb.svg"),
-  dcb_bank: bankLogo("dcb.svg"),
-  csb: bankLogo("csb.svg"),
-  csb_bank: bankLogo("csb.svg"),
-  idfc: bankLogo("idfc.svg"),
-  idfc_first_bank: bankLogo("idfc.svg"),
-  city: bankLogo("citi.svg"),
-  citi: bankLogo("citi.svg"),
-  citi_bank: bankLogo("citi.svg"),
-  dbs: bankLogo("dbs.svg"),
-  dbs_bank: bankLogo("dbs.svg"),
-  hsbc: bankLogo("hsbc.svg"),
-  hsbc_bank: bankLogo("hsbc.svg"),
-  deutsche: bankLogo("deutsche.svg"),
-  deutsche_bank: bankLogo("deutsche.svg"),
-  scb: bankLogo("scb.svg"),
-  standard_chartered: bankLogo("scb.svg"),
-  standard_chartered_bank: bankLogo("scb.svg"),
+function assetsBank(fileName: string): string {
+  return `${ASSETS_BANK_BASE}/${fileName}`;
+}
+
+const INDIAN_BANK_ALIASES: Record<string, string> = {
+  sbi: indianBank("sbi.svg"),
+  state_bank_of_india: indianBank("sbi.svg"),
+  hdfc: indianBank("hdfc.svg"),
+  hdfc_bank: indianBank("hdfc.svg"),
+  icici: indianBank("icici.svg"),
+  icici_bank: indianBank("icici.svg"),
+  axis: indianBank("axis.svg"),
+  axis_bank: indianBank("axis.svg"),
+  pnb: indianBank("pnb.svg"),
+  punjab_national_bank: indianBank("pnb.svg"),
+  bob: indianBank("bob.svg"),
+  bank_of_baroda: indianBank("bob.svg"),
+  canara: indianBank("canara.svg"),
+  canara_bank: indianBank("canara.svg"),
+  union: indianBank("ubi.svg"),
+  union_bank: indianBank("ubi.svg"),
+  union_bank_of_india: indianBank("ubi.svg"),
+  ubi: indianBank("ubi.svg"),
+  indian: indianBank("indian.svg"),
+  indian_bank: indianBank("indian.svg"),
+  uco: indianBank("uco.svg"),
+  uco_bank: indianBank("uco.svg"),
+  boi: indianBank("boi.svg"),
+  bank_of_india: indianBank("boi.svg"),
+  cbi: indianBank("cbi.svg"),
+  central_bank: indianBank("cbi.svg"),
+  central_bank_of_india: indianBank("cbi.svg"),
+  psb: indianBank("psb.svg"),
+  punjab_and_sind_bank: indianBank("psb.svg"),
+  idbi: indianBank("idbi.svg"),
+  idbi_bank: indianBank("idbi.svg"),
+  iob: indianBank("iob.svg"),
+  indian_overseas_bank: indianBank("iob.svg"),
+  bom: indianBank("bom.svg"),
+  bank_of_maharashtra: indianBank("bom.svg"),
+  kotak: indianBank("kotak.svg"),
+  kotak_mahindra_bank: indianBank("kotak.svg"),
+  indus: indianBank("indus.svg"),
+  indusind: indianBank("indus.svg"),
+  indusind_bank: indianBank("indus.svg"),
+  yes: indianBank("yes.svg"),
+  yes_bank: indianBank("yes.svg"),
+  rbl: indianBank("rbl.svg"),
+  rbl_bank: indianBank("rbl.svg"),
+  federal: indianBank("federal.svg"),
+  federal_bank: indianBank("federal.svg"),
+  sib: indianBank("sib.svg"),
+  south_indian_bank: indianBank("sib.svg"),
+  bandhan: indianBank("bandhan.svg"),
+  bandhan_bank: indianBank("bandhan.svg"),
+  au: indianBank("ausfb.svg"),
+  ausfb: indianBank("ausfb.svg"),
+  au_small_finance_bank: indianBank("ausfb.svg"),
+  ujjivan: indianBank("ujjivan.svg"),
+  ujjivan_small_finance_bank: indianBank("ujjivan.svg"),
+  esaf: indianBank("esaf.svg"),
+  esaf_small_finance_bank: indianBank("esaf.svg"),
+  karnataka: indianBank("karnataka.svg"),
+  karnataka_bank: indianBank("karnataka.svg"),
+  kvb: indianBank("kvb.svg"),
+  karur_vysya_bank: indianBank("kvb.svg"),
+  tmb: indianBank("tmb.svg"),
+  tamilnad_mercantile_bank: indianBank("tmb.svg"),
+  cub: indianBank("cub.svg"),
+  city_union_bank: indianBank("cub.svg"),
+  dcb: indianBank("dcb.svg"),
+  dcb_bank: indianBank("dcb.svg"),
+  csb: indianBank("csb.svg"),
+  csb_bank: indianBank("csb.svg"),
+  idfc: indianBank("idfc.svg"),
+  idfc_first_bank: indianBank("idfc.svg"),
+  city: indianBank("city.svg"),
+  citi: indianBank("city.svg"),
+  citi_bank: indianBank("city.svg"),
+  fino: indianBank("fino.svg"),
+  fino_payments_bank: indianBank("fino.svg"),
+  dhanlaxmi: indianBank("dhanlaxmi.svg"),
+  dhanlaxmi_bank: indianBank("dhanlaxmi.svg"),
+  indiapost: indianBank("indiapost.svg"),
+  india_post_payments_bank: indianBank("indiapost.svg"),
+  jio: indianBank("jio.svg"),
+  jio_payments_bank: indianBank("jio.svg"),
+  paytm: indianBank("paytm.svg"),
+  paytm_payments_bank: indianBank("paytm.svg"),
+  apb: indianBank("apb.svg"),
+  airtel_payments_bank: indianBank("apb.svg"),
+  jnk: indianBank("jnk.svg"),
+  jammu_and_kashmir_bank: indianBank("jnk.svg"),
+  ntb: indianBank("ntb.svg"),
+  nainital_bank: indianBank("ntb.svg"),
   // InstantPay IFSC aliases (ifscAlias from /dmt/banks API)
-  sbin: bankLogo("sbi.svg"),
-  barb: bankLogo("bob.svg"),
-  punb: bankLogo("pnb.svg"),
-  ubin: bankLogo("union.svg"),
-  idib: bankLogo("indian_bank.svg"),
-  bkid: bankLogo("boi.svg"),
-  kkkb: bankLogo("kotak.svg"),
-  kkbk: bankLogo("kotak.svg"),
-  utib: bankLogo("axis.svg"),
-  indb: bankLogo("indusind.svg"),
-  icic: bankLogo("icici.svg"),
-  cbin: bankLogo("central_bank.svg"),
-  cnrb: bankLogo("canara.svg"),
-  yesb: bankLogo("yes.svg"),
-  ratn: bankLogo("rbl.svg"),
-  fdrl: bankLogo("federal.svg"),
-  sibl: bankLogo("sib.svg"),
-  bdbl: bankLogo("bandhan.svg"),
-  aubl: bankLogo("au.svg"),
-  ujvn: bankLogo("ujjivan.svg"),
-  esmf: bankLogo("esaf.svg"),
-  esfb: bankLogo("equitas.svg"),
-  sury: bankLogo("suryoday.svg"),
-  karb: bankLogo("karnataka.svg"),
-  kvbl: bankLogo("kvb.svg"),
-  tmbl: bankLogo("tmb.svg"),
-  ciub: bankLogo("cub.svg"),
-  dcbl: bankLogo("dcb.svg"),
-  csbk: bankLogo("csb.svg"),
-  dbss: bankLogo("dbs.svg"),
-  scbl: bankLogo("scb.svg"),
-  hsbc: bankLogo("hsbc.svg"),
-  deut: bankLogo("deutsche.svg"),
-  idfb: bankLogo("idfc.svg"),
-  jsfb: bankLogo("jana.svg"),
-  ibkl: bankLogo("idbi.svg"),
-  mahb: bankLogo("bom.svg"),
-  ucba: bankLogo("uco.svg"),
-  psib: bankLogo("psb.svg"),
+  sbin: indianBank("sbi.svg"),
+  barb: indianBank("bob.svg"),
+  punb: indianBank("pnb.svg"),
+  ubin: indianBank("ubi.svg"),
+  idib: indianBank("indian.svg"),
+  bkid: indianBank("boi.svg"),
+  kkkb: indianBank("kotak.svg"),
+  kkbk: indianBank("kotak.svg"),
+  utib: indianBank("axis.svg"),
+  indb: indianBank("indus.svg"),
+  icic: indianBank("icici.svg"),
+  cbin: indianBank("cbi.svg"),
+  cnrb: indianBank("canara.svg"),
+  yesb: indianBank("yes.svg"),
+  ratn: indianBank("rbl.svg"),
+  fdrl: indianBank("federal.svg"),
+  sibl: indianBank("sib.svg"),
+  bdbl: indianBank("bandhan.svg"),
+  aubl: indianBank("ausfb.svg"),
+  ujvn: indianBank("ujjivan.svg"),
+  esmf: indianBank("esaf.svg"),
+  karb: indianBank("karnataka.svg"),
+  kvbl: indianBank("kvb.svg"),
+  tmbl: indianBank("tmb.svg"),
+  ciub: indianBank("cub.svg"),
+  dcbl: indianBank("dcb.svg"),
+  csbk: indianBank("csb.svg"),
+  idfb: indianBank("idfc.svg"),
+  ibkl: indianBank("idbi.svg"),
+  mahb: indianBank("bom.svg"),
+  ucba: indianBank("uco.svg"),
+  psib: indianBank("psb.svg"),
+  jiop: indianBank("jio.svg"),
+  pytm: indianBank("paytm.svg"),
 };
 
-export function resolveBankLogoPath(bank: BankApiInput | BankOption): string {
-  if (bank.logo?.trim()) return bank.logo.trim();
+/** Banks only available under public/assets/banks */
+const ASSETS_BANK_ALIASES: Record<string, string> = {
+  equitas: assetsBank("equitas.svg"),
+  equitas_small_finance_bank: assetsBank("equitas.svg"),
+  esfb: assetsBank("equitas.svg"),
+  jana: assetsBank("jana.svg"),
+  jana_small_finance_bank: assetsBank("jana.svg"),
+  jsfb: assetsBank("jana.svg"),
+  suryoday: assetsBank("suryoday.svg"),
+  suryoday_small_finance_bank: assetsBank("suryoday.svg"),
+  sury: assetsBank("suryoday.svg"),
+  dbs: assetsBank("dbs.svg"),
+  dbs_bank: assetsBank("dbs.svg"),
+  dbss: assetsBank("dbs.svg"),
+  hsbc: assetsBank("hsbc.svg"),
+  hsbc_bank: assetsBank("hsbc.svg"),
+  deutsche: assetsBank("deutsche.svg"),
+  deutsche_bank: assetsBank("deutsche.svg"),
+  deut: assetsBank("deutsche.svg"),
+  scb: assetsBank("scb.svg"),
+  standard_chartered: assetsBank("scb.svg"),
+  standard_chartered_bank: assetsBank("scb.svg"),
+  scbl: assetsBank("scb.svg"),
+};
 
+function collectLookupKeys(bank: BankApiInput | BankOption): string[] {
   const apiBank = bank as BankApiInput;
+  const ifscRaw = (bank.ifscPrefix || apiBank.ifsc || "").trim().toUpperCase();
+  const ifscPrefix = ifscRaw.length >= 4 ? ifscRaw.slice(0, 4) : ifscRaw;
+
   const keys = [
     bank.id,
+    ifscPrefix,
+    ifscRaw,
     bank.ifscPrefix,
     bank.shortName,
     bank.name,
@@ -164,14 +240,44 @@ export function resolveBankLogoPath(bank: BankApiInput | BankOption): string {
     .filter((value): value is string => Boolean(value?.trim()))
     .map(normalizeBankKey);
 
+  return [...new Set(keys)];
+}
+
+function resolveFromAliases(keys: string[]): string {
   for (const key of keys) {
-    if (BANK_LOGO_ALIASES[key]) return BANK_LOGO_ALIASES[key];
+    if (INDIAN_BANK_ALIASES[key]) return INDIAN_BANK_ALIASES[key];
   }
+  for (const key of keys) {
+    if (INDIAN_BANK_FILES.has(key)) return indianBank(`${key}.svg`);
+  }
+  for (const key of keys) {
+    if (ASSETS_BANK_ALIASES[key]) return ASSETS_BANK_ALIASES[key];
+  }
+  return "";
+}
+
+export function resolveBankLogoPath(bank: BankApiInput | BankOption): string {
+  if (bank.logo?.trim()) return bank.logo.trim();
+
+  const keys = collectLookupKeys(bank);
+  const resolved = resolveFromAliases(keys);
+  if (resolved) return resolved;
 
   const primaryKey = keys[0];
-  if (primaryKey) return bankLogo(`${primaryKey}.svg`);
+  if (primaryKey) {
+    if (INDIAN_BANK_FILES.has(primaryKey)) return indianBank(`${primaryKey}.svg`);
+    return assetsBank(`${primaryKey}.svg`);
+  }
 
   return "";
+}
+
+export function resolveBankLogoFromIfsc(bankName: string, ifscCode?: string): string {
+  return resolveBankLogoPath({
+    name: bankName,
+    shortName: bankName,
+    ifscPrefix: ifscCode?.trim().slice(0, 4) || "",
+  });
 }
 
 export function normalizeBankOption(bank: BankApiInput | string): BankOption {

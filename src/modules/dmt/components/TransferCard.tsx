@@ -19,10 +19,10 @@ import {
   ToggleButtonGroup,
   Paper,
 } from "@mui/material";
-import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import MyLocationIcon from "@mui/icons-material/MyLocation";
 import SendIcon from "@mui/icons-material/Send";
 import CloseIcon from "@mui/icons-material/Close";
+import { BankLogo } from "@/components/retailer/BankLogo";
 import { maskAccountNumber } from "@/src/lib/dmtUtils";
 import { getCurrentLocation } from "@/src/lib/rdService";
 import type { DmtBeneficiary, DmtTransferMode } from "../types";
@@ -136,15 +136,21 @@ export default function TransferCard({
               width: 48,
               height: 48,
               borderRadius: 2,
-              bgcolor: "primary.main",
-              color: "#fff",
+              bgcolor: "background.paper",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
+              overflow: "hidden",
             }}
           >
-            <AccountBalanceIcon />
+            <BankLogo
+              bank={{
+                name: beneficiary.bankName,
+                ifscPrefix: beneficiary.ifscCode?.slice(0, 4) || "",
+              }}
+              size={40}
+            />
           </Box>
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>

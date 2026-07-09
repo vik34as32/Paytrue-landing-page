@@ -224,7 +224,7 @@ const ASSETS_BANK_ALIASES: Record<string, string> = {
 
 function collectLookupKeys(bank: BankApiInput | BankOption): string[] {
   const apiBank = bank as BankApiInput;
-  const ifscRaw = (bank.ifscPrefix || apiBank.ifsc || "").trim().toUpperCase();
+  const ifscRaw = String(bank.ifscPrefix || "").trim().toUpperCase();
   const ifscPrefix = ifscRaw.length >= 4 ? ifscRaw.slice(0, 4) : ifscRaw;
 
   const keys = [

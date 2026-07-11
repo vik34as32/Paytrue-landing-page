@@ -3,10 +3,10 @@ import api from "@/src/lib/axios";
 import { API_ENDPOINTS } from "@/src/constants/api";
 import {
   persistAuthSession,
-  clearAuthCookies,
   getAccessToken,
   getUserCookie,
 } from "@/src/lib/cookies";
+import { clearClientSession } from "@/src/lib/sessionCleanup";
 import { extractAuthPayload, normalizeUser } from "@/src/lib/authUtils";
 
 export const loginUser = createAsyncThunk(
@@ -51,6 +51,6 @@ export const hydrateAuth = createAsyncThunk(
 );
 
 export const logoutUser = createAsyncThunk("auth/logout", async () => {
-  clearAuthCookies();
+  clearClientSession({ resetStore: true });
   return null;
 });

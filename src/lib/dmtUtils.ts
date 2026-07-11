@@ -1,3 +1,4 @@
+import { dedupeBeneficiariesByAccount } from "@/src/modules/dmt/services/normalizers";
 import type {
   CheckSenderResponse,
   DmtApiError,
@@ -222,9 +223,10 @@ export function normalizeBeneficiaryList(payload: unknown): DmtBeneficiary[] {
   const local = Array.isArray(level1.local) ? level1.local : [];
   const provider = Array.isArray(level1.provider) ? level1.provider : [];
   if (local.length || provider.length) {
-    return [...local, ...provider].map((row) =>
+    const beneficiaries = [...local, ...provider].map((row) =>
       normalizeBeneficiary(row as Record<string, unknown>)
     );
+    return dedupeBeneficiariesByAccount(beneficiaries);
   }
 
   const level2 =
@@ -248,7 +250,8 @@ export function normalizeBeneficiaryList(payload: unknown): DmtBeneficiary[] {
 
   const rows = candidates.find((candidate) => Array.isArray(candidate)) ?? [];
 
-  return (rows as Record<string, unknown>[]).map(normalizeBeneficiary);
+  const beneficiaries = (rows as Record<string, unknown>[]).map(normalizeBeneficiary);
+  return dedupeBeneficiariesByAccount(beneficiaries);
 }
 
 export function normalizeTransactionList(

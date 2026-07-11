@@ -63,6 +63,23 @@ export const personalStepSchema = yup.object({
     .string()
     .matches(mobileRegex, "Enter valid 10-digit mobile number")
     .required("Mobile is required"),
+  mobileVerified: yup.boolean().when("$isEdit", {
+    is: true,
+    then: (schema) =>
+      schema.test("mobile-verified-edit", "Verify mobile before continuing", function verified(value) {
+        const { originalMobile = "" } = this.options.context || {};
+        const currentMobile = String(this.parent.mobile || "").trim();
+        const initialMobile = String(originalMobile || "").trim();
+        if (!currentMobile || !initialMobile || currentMobile === initialMobile) {
+          return true;
+        }
+        return value === true;
+      }),
+    otherwise: (schema) =>
+      schema
+        .oneOf([true], "Please verify your mobile number before continuing")
+        .required("Please verify your mobile number before continuing"),
+  }),
   alternateMobileNumber: yup
     .string()
     .transform((v) => v || "")

@@ -61,11 +61,16 @@ export function setRememberLogin(remember) {
 }
 
 export function clearAuthCookies() {
-  const paths = ["/", undefined];
+  const removeOptions = {
+    path: "/",
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+  };
+
   Object.values(COOKIE_KEYS).forEach((key) => {
-    paths.forEach((path) => {
-      Cookies.remove(key, path ? { path } : undefined);
-    });
+    Cookies.remove(key, removeOptions);
+    Cookies.remove(key);
+    Cookies.remove(key, { path: "/" });
   });
 }
 

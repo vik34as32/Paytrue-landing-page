@@ -160,7 +160,7 @@ function WalletTransferForm({
           onChange={(e) => setDescription(e.target.value)}
           disabled={transfer.loading}
           rows={3}
-          className="flex min-h-[80px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-[#1565d8] focus:ring-1 focus:ring-[#1565d8] disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"
+          className="flex min-h-[80px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-black shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#1565d8] focus:ring-1 focus:ring-[#1565d8] disabled:cursor-not-allowed disabled:opacity-50"
         />
         {errors.description && (
           <p className="text-xs text-red-500">{errors.description}</p>

@@ -397,7 +397,14 @@ export function normalizeAepsTransactionResult(
     bankAccountBalance,
     openingBalance,
     closingBalance,
-    bankName: providerData.bankName ? String(providerData.bankName) : undefined,
+    bankName: String(
+      providerData.bankName ??
+        raw.bankName ??
+        transaction.bankName ??
+        (raw.bank as Record<string, unknown> | undefined)?.name ??
+        (providerData.bank as Record<string, unknown> | undefined)?.name ??
+        ""
+    ).trim() || undefined,
     accountNumber: accountNumber || undefined,
     aadhaarNumber: transaction.aadhaarMasked
       ? String(transaction.aadhaarMasked)
@@ -406,6 +413,13 @@ export function normalizeAepsTransactionResult(
         : undefined,
     mobileNumber: raw.mobileNumber ? String(raw.mobileNumber) : undefined,
     customerName: raw.customerName ? String(raw.customerName) : undefined,
+    ifscCode: String(
+      raw.ifscCode ??
+        raw.ifsc ??
+        providerData.ifscCode ??
+        providerData.ifsc ??
+        ""
+    ).trim() || undefined,
     rrn,
     stan: raw.stan ? String(raw.stan) : undefined,
     miniStatement,

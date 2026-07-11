@@ -3,8 +3,11 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
+import { toast } from "sonner";
 import { setUnauthorizedHandler } from "@/src/lib/axios";
-import { hydrateAuth, logoutUser } from "@/src/redux/thunks/authThunk";
+import { getRedirectPathForUserType } from "@/src/lib/authUtils";
+import { performLogoutRedirect } from "@/src/lib/sessionCleanup";
+import { hydrateAuth } from "@/src/redux/thunks/authThunk";
 import {
   selectAuthHydrated,
   selectIsAuthenticated,
@@ -19,16 +22,15 @@ const ROLE_PREFIX_MAP = {
 
 export function useAuthInit() {
   const dispatch = useDispatch();
-  const router = useRouter();
   const hydrated = useSelector(selectAuthHydrated);
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
-      dispatch(logoutUser());
-      router.replace("/auth/login");
+      toast.error("Your session has expired. Please login again.");
+      performLogoutRedirect("/auth/login");
     });
     dispatch(hydrateAuth());
-  }, [dispatch, router]);
+  }, [dispatch]);
 
   return hydrated;
 }
@@ -43,12 +45,16 @@ export function useRequireAuth(allowedTypes = []) {
     if (!hydrated) return;
 
     if (!isAuthenticated) {
-      router.replace("/auth/login");
+      window.location.replace("/auth/login");
       return;
     }
 
-    if (allowedTypes.length && user?.userType && !allowedTypes.includes(user.userType)) {
-      router.replace("/unauthorized");
+    if (
+      allowedTypes.length &&
+      user?.userType &&
+      !allowedTypes.includes(user.userType)
+    ) {
+      router.replace(getRedirectPathForUserType(user.userType) || "/unauthorized");
     }
   }, [hydrated, isAuthenticated, user, allowedTypes, router]);
 

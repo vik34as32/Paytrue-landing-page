@@ -205,10 +205,19 @@ export function normalizeCompanyBankAccount(raw: Record<string, unknown>): Compa
   };
 }
 
+function formatRequesterName(requester: unknown): string | undefined {
+  if (!requester || typeof requester !== "object") return undefined;
+  const user = requester as Record<string, unknown>;
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+  return fullName || (user.name ? String(user.name) : undefined);
+}
+
 export function normalizeFundRequest(raw: Record<string, unknown>): FundRequest {
   const companyBank =
     (raw.companyBank as Record<string, unknown> | undefined) ||
-    (raw.bankAccount as Record<string, unknown> | undefined);
+    (raw.companyAccount as Record<string, unknown> | undefined) ||
+    (raw.bankAccount as Record<string, unknown> | undefined) ||
+    (raw.linkedBankAccount as Record<string, unknown> | undefined);
 
   return {
     id: String(raw.id ?? raw._id ?? ""),
@@ -220,11 +229,21 @@ export function normalizeFundRequest(raw: Record<string, unknown>): FundRequest 
     ),
     amount: Number(raw.amount ?? 0),
     paymentMode: normalizePaymentMode(raw.paymentMode ?? raw.mode),
-    utrNumber: String(raw.utrNumber ?? raw.utr ?? raw.referenceNumber ?? ""),
-    paymentDate: String(raw.paymentDate ?? raw.transferDate ?? raw.date ?? ""),
+    utrNumber: String(
+      raw.utrNumber ?? raw.utr ?? raw.referenceNumber ?? raw.reference ?? ""
+    ),
+    paymentDate: String(
+      raw.paymentDate ?? raw.depositDate ?? raw.transferDate ?? raw.date ?? ""
+    ),
     remark: String(raw.remark ?? raw.remarks ?? raw.description ?? ""),
     status: normalizeStatus(raw.status),
-    createdBy: String(raw.createdBy ?? raw.requestedBy ?? raw.userName ?? ""),
+    createdBy: String(
+      raw.createdBy ??
+        raw.requestedBy ??
+        raw.userName ??
+        formatRequesterName(raw.requester) ??
+        ""
+    ),
     approvedBy: String(raw.approvedBy ?? raw.approvedByName ?? ""),
     approvedDate: String(raw.approvedDate ?? raw.approvedAt ?? ""),
     adminRemark: String(
@@ -237,16 +256,23 @@ export function normalizeFundRequest(raw: Record<string, unknown>): FundRequest 
     createdAt: String(raw.createdAt ?? raw.requestedDate ?? new Date().toISOString()),
     updatedAt: String(raw.updatedAt ?? raw.createdAt ?? new Date().toISOString()),
     companyBankId: String(
-      raw.companyBankAccountId ?? raw.companyBankId ?? companyBank?.id ?? ""
+      raw.companyBankAccountId ??
+        raw.linkedBankAccountId ??
+        raw.companyBankId ??
+        companyBank?.id ??
+        ""
     ),
     companyBankName: String(
       raw.companyBankName ??
         companyBank?.bankName ??
+        (raw.companyAccount as Record<string, unknown> | undefined)?.bankName ??
         raw.depositBankName ??
         ""
     ),
     bankName: String(raw.bankName ?? raw.senderBankName ?? ""),
-    receiptUrl: String(raw.receiptUrl ?? raw.receipt ?? raw.proofUrl ?? "") || undefined,
+    receiptUrl:
+      String(raw.receiptUrl ?? raw.imageUrl ?? raw.receipt ?? raw.proofUrl ?? "") ||
+      undefined,
   };
 }
 
@@ -277,7 +303,9 @@ export function extractFundRequestPagination(
   const pagination =
     data.pagination && typeof data.pagination === "object"
       ? (data.pagination as Record<string, unknown>)
-      : undefined;
+      : data.meta && typeof data.meta === "object"
+        ? (data.meta as Record<string, unknown>)
+        : undefined;
 
   const list = extractFundRequestList(payload);
 
@@ -300,15 +328,11 @@ export function mapFundRequestStatusFilterToApi(
 ): string | undefined {
   switch (filter) {
     case "Pending":
-      return "pending";
-    case "Processing":
-      return "processing";
+      return "PENDING";
     case "Approved":
-      return "approved";
+      return "APPROVED";
     case "Declined":
-      return "rejected";
-    case "Cancelled":
-      return "cancelled";
+      return "REJECTED";
     default:
       return undefined;
   }
@@ -332,6 +356,8 @@ export function buildFundRequestListQuery(
 }
 
 export function extractCompanyBankAccounts(payload: unknown): Record<string, unknown>[] {
+  if (Array.isArray(payload)) return payload as Record<string, unknown>[];
+
   if (payload && typeof payload === "object") {
     const data = payload as Record<string, unknown>;
     const list =
@@ -339,9 +365,26 @@ export function extractCompanyBankAccounts(payload: unknown): Record<string, unk
       data.companyBanks ??
       data.bankAccounts ??
       data.depositAccounts ??
-      data.accounts;
+      data.accounts ??
+      data.data;
+
     if (Array.isArray(list)) return list as Record<string, unknown>[];
+
+    const values = Object.values(data);
+    if (
+      values.length > 0 &&
+      values.every((value) => value && typeof value === "object" && !Array.isArray(value))
+    ) {
+      const looksLikeBankAccount = values.some((value) => {
+        const row = value as Record<string, unknown>;
+        return Boolean(row.bankName || row.accountNumber || row.ifscCode);
+      });
+      if (looksLikeBankAccount) {
+        return values as Record<string, unknown>[];
+      }
+    }
   }
+
   return [];
 }
 

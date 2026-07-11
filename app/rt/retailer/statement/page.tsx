@@ -3,6 +3,7 @@
 import {
   forwardRef,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -20,8 +21,10 @@ import {
   Eye,
   FileSpreadsheet,
   FileText,
+  Loader2,
   MoreHorizontal,
   Printer,
+  RefreshCw,
   Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -52,58 +55,39 @@ import {
   downloadStatementReceiptPdf,
   formatTransactionId as formatReceiptTransactionId,
 } from "@/src/lib/statementReceiptUtils";
+import { enrichStatementWithIfsc } from "@/src/services/ifscService";
 import TransactionReceipt from "@/src/components/statement/TransactionReceipt";
 import ReceiptActions from "@/src/components/statement/ReceiptActions";
 import ReceiptPageLayout from "@/src/components/statement/receipt/ReceiptPageLayout";
 import { RETAILER_USER } from "@/features/retailer/constants";
-import type { ReceiptCustomerInfo } from "@/types/statementReceipt";
+import type {
+  ReceiptCustomerInfo,
+  StatementTransaction,
+  TransactionStatus,
+  TransactionType,
+} from "@/types/statementReceipt";
+import { useRetailerStatement } from "@/src/hooks/useRetailerStatement";
+import ReferenceCopyCell from "@/src/components/statement/ReferenceCopyCell";
+import { BankLogo } from "@/components/retailer/BankLogo";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
-type TransactionType = "debit" | "credit";
-type TransactionStatus = "success" | "pending" | "failed";
+type ServiceFilter = "All" | "Money Transfer" | "UPI ATM" | "AEPS";
 
-type StatementService =
-  | "Recharge"
-  | "Money Transfer"
-  | "AEPS"
-  | "Aadhaar Pay"
-  | "BBPS"
-  | "Electricity"
-  | "Water Bill"
-  | "Gas Bill"
-  | "FASTag"
-  | "LIC"
-  | "Insurance"
-  | "DTH"
-  | "Credit Card"
-  | "Broadband";
-
-interface StatementTransaction {
-  id: string;
-  referenceNumber: string;
-  createdAt: string;
-  service: StatementService;
-  description: string;
-  type: TransactionType;
-  status: TransactionStatus;
-  amount: number;
-  openingBalance: number;
-  balanceAfter: number;
-  senderName: string;
-  receiverName: string;
-  mobile: string;
-  remark: string;
-}
-
-type ServiceFilter =
+type AepsSubFilter =
   | "All"
-  | "Recharge"
-  | "Money Transfer"
-  | "AEPS"
-  | "BBPS"
-  | "Insurance"
-  | "Bill Payment";
+  | "BALANCE_ENQUIRY"
+  | "CASH_WITHDRAWAL"
+  | "MINI_STATEMENT"
+  | "CASH_DEPOSIT";
+
+const AEPS_SUB_FILTERS: { label: string; value: AepsSubFilter }[] = [
+  { label: "All AEPS", value: "All" },
+  { label: "Balance Enquiry", value: "BALANCE_ENQUIRY" },
+  { label: "Cash Withdrawal", value: "CASH_WITHDRAWAL" },
+  { label: "Mini Statement", value: "MINI_STATEMENT" },
+  { label: "Cash Deposit", value: "CASH_DEPOSIT" },
+];
 
 interface ExportRow {
   "Transaction ID": string;
@@ -114,10 +98,8 @@ interface ExportRow {
   Type: string;
   Status: string;
   Amount: number;
-  "Opening Balance": number;
-  "Closing Balance": number;
-  "Sender Name": string;
-  "Receiver Name": string;
+  "Bank Name": string;
+  "Account Number": string;
   Mobile: string;
   Remark: string;
 }
@@ -128,30 +110,30 @@ type JsPdfWithAutoTable = jsPDF & {
 
 const SERVICE_FILTERS: ServiceFilter[] = [
   "All",
-  "Recharge",
   "Money Transfer",
+  "UPI ATM",
   "AEPS",
-  "BBPS",
-  "Insurance",
-  "Bill Payment",
-];
-
-const BILL_PAYMENT_SERVICES: StatementService[] = [
-  "Electricity",
-  "Water Bill",
-  "Gas Bill",
-  "FASTag",
-  "DTH",
-  "Credit Card",
-  "Broadband",
-  "BBPS",
 ];
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 30];
 const RETAILER_NAME = "Amit Kumar";
 
+const STATEMENT_TABLE_MIN_WIDTH = "1480px";
+const STATEMENT_TABLE_SCROLL_HEIGHT = "520px";
+
 const tableCustomStyles = {
-  table: { style: { backgroundColor: "transparent" } },
+  table: {
+    style: {
+      backgroundColor: "transparent",
+      minWidth: STATEMENT_TABLE_MIN_WIDTH,
+    },
+  },
+  tableWrapper: {
+    style: {
+      display: "block",
+      overflow: "visible",
+    },
+  },
   headRow: {
     style: {
       backgroundColor: "#f1f5f9",
@@ -178,7 +160,13 @@ const tableCustomStyles = {
     },
     stripedStyle: { backgroundColor: "#fafbfc" },
   },
-  cells: { style: { fontSize: "13px", color: "#0b1f3a" } },
+  cells: {
+    style: {
+      fontSize: "13px",
+      color: "#0b1f3a",
+      overflow: "visible",
+    },
+  },
   pagination: {
     style: {
       borderTop: "1px solid #e2e8f0",
@@ -228,8 +216,12 @@ const RECEIPT_PRINT_PAGE_STYLE = `
   }
 `;
 
-function generateReferenceNumber(index: number): string {
-  return `PTX${String(100000 + index * 7919).slice(-8)}RT`;
+function matchesServiceFilter(
+  service: string,
+  filter: ServiceFilter
+): boolean {
+  if (filter === "All") return true;
+  return service === filter;
 }
 
 function formatStatementDate(value: string): string {
@@ -246,6 +238,14 @@ function formatAmountDisplay(type: TransactionType, amount: number): string {
   return `${type === "debit" ? "-" : "+"}${formatCurrency(amount)}`;
 }
 
+function matchesAepsSubFilter(
+  txn: StatementTransaction,
+  filter: AepsSubFilter
+): boolean {
+  if (filter === "All") return true;
+  return txn.aepsTransactionType === filter;
+}
+
 function mapToExportRow(txn: StatementTransaction): ExportRow {
   return {
     "Transaction ID": formatTransactionId(txn.id),
@@ -256,10 +256,8 @@ function mapToExportRow(txn: StatementTransaction): ExportRow {
     Type: txn.type,
     Status: txn.status,
     Amount: txn.amount,
-    "Opening Balance": txn.openingBalance,
-    "Closing Balance": txn.balanceAfter,
-    "Sender Name": txn.senderName,
-    "Receiver Name": txn.receiverName,
+    "Bank Name": txn.bankName ?? txn.receiverName ?? "",
+    "Account Number": txn.accountNumber ?? "",
     Mobile: txn.mobile,
     Remark: txn.remark,
   };
@@ -296,7 +294,9 @@ function exportStatementPdf(rows: StatementTransaction[]) {
     txn.type,
     txn.status,
     formatAmountDisplay(txn.type, txn.amount),
-    formatCurrency(txn.balanceAfter),
+    txn.bankName ?? txn.receiverName ?? "",
+    txn.accountNumber ?? "",
+    txn.mobile,
   ]);
 
   autoTable(doc, {
@@ -313,7 +313,9 @@ function exportStatementPdf(rows: StatementTransaction[]) {
         "Type",
         "Status",
         "Amount",
-        "Closing Bal.",
+        "Bank",
+        "Account",
+        "Mobile",
       ],
     ],
     body: exportRows,
@@ -341,401 +343,17 @@ function exportStatementCsv(rows: StatementTransaction[]) {
   );
 }
 
-function generateFakeTransactions(): StatementTransaction[] {
-  type SeedItem = Omit<
-    StatementTransaction,
-    | "id"
-    | "referenceNumber"
-    | "createdAt"
-    | "openingBalance"
-    | "balanceAfter"
-  >;
-
-  const seed: SeedItem[] = [
-    {
-      service: "Recharge",
-      description: "Jio prepaid recharge · 9876543210",
-      type: "debit",
-      amount: 299,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "Jio Prepaid",
-      mobile: "9876543210",
-      remark: "Mobile recharge completed successfully",
-    },
-    {
-      service: "Money Transfer",
-      description: "DMT to Rahul Sharma · SBI",
-      type: "debit",
-      amount: 5000,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "Rahul Sharma",
-      mobile: "9876543210",
-      remark: "Domestic money transfer",
-    },
-    {
-      service: "AEPS",
-      description: "Cash withdrawal AEPS · ICICI",
-      type: "credit",
-      amount: 1200,
-      status: "success",
-      senderName: "ICICI Bank AEPS",
-      receiverName: RETAILER_NAME,
-      mobile: "9123456789",
-      remark: "AEPS commission credit",
-    },
-    {
-      service: "Electricity",
-      description: "BSES Rajdhani · Consumer 7845123690",
-      type: "debit",
-      amount: 1850,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "BSES Rajdhani",
-      mobile: "9876501234",
-      remark: "Electricity bill payment",
-    },
-    {
-      service: "Recharge",
-      description: "Airtel DTH recharge · 1122334455",
-      type: "debit",
-      amount: 350,
-      status: "pending",
-      senderName: RETAILER_NAME,
-      receiverName: "Airtel DTH",
-      mobile: "1122334455",
-      remark: "Awaiting operator confirmation",
-    },
-    {
-      service: "BBPS",
-      description: "BBPS bill payment · Municipal tax",
-      type: "debit",
-      amount: 2200,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "Municipal Corporation",
-      mobile: "9988776655",
-      remark: "BBPS municipal tax payment",
-    },
-    {
-      service: "Money Transfer",
-      description: "DMT to Priya Patel · HDFC",
-      type: "debit",
-      amount: 3500,
-      status: "failed",
-      senderName: RETAILER_NAME,
-      receiverName: "Priya Patel",
-      mobile: "9123456780",
-      remark: "Beneficiary bank timeout",
-    },
-    {
-      service: "Aadhaar Pay",
-      description: "Aadhaar Pay collection · Merchant",
-      type: "credit",
-      amount: 750,
-      status: "success",
-      senderName: "Walk-in Customer",
-      receiverName: RETAILER_NAME,
-      mobile: "9012345678",
-      remark: "Aadhaar Pay settlement",
-    },
-    {
-      service: "Water Bill",
-      description: "Delhi Jal Board · KNO 5566778899",
-      type: "debit",
-      amount: 640,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "Delhi Jal Board",
-      mobile: "9876512345",
-      remark: "Water utility bill",
-    },
-    {
-      service: "FASTag",
-      description: "FASTag recharge · HR26AB1234",
-      type: "debit",
-      amount: 500,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "NHAI FASTag",
-      mobile: "9876509876",
-      remark: "Vehicle FASTag top-up",
-    },
-    {
-      service: "Insurance",
-      description: "Health insurance premium · Policy 889900",
-      type: "debit",
-      amount: 4200,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "Star Health Insurance",
-      mobile: "9123409876",
-      remark: "Insurance premium payment",
-    },
-    {
-      service: "Recharge",
-      description: "Vi mobile recharge · 9988776655",
-      type: "debit",
-      amount: 179,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "Vi Prepaid",
-      mobile: "9988776655",
-      remark: "Prepaid recharge",
-    },
-    {
-      service: "AEPS",
-      description: "Mini statement enquiry commission",
-      type: "credit",
-      amount: 15,
-      status: "success",
-      senderName: "PayTrue Commission",
-      receiverName: RETAILER_NAME,
-      mobile: "9876543210",
-      remark: "AEPS enquiry commission",
-    },
-    {
-      service: "Gas Bill",
-      description: "Indane Gas · LPG ID 4455667788",
-      type: "debit",
-      amount: 920,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "Indane Gas",
-      mobile: "9123456701",
-      remark: "LPG cylinder booking payment",
-    },
-    {
-      service: "Money Transfer",
-      description: "DMT to Amit Singh · Axis Bank",
-      type: "debit",
-      amount: 10000,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "Amit Singh",
-      mobile: "9876001234",
-      remark: "IMPS transfer to savings account",
-    },
-    {
-      service: "LIC",
-      description: "LIC premium payment · Policy 5544332211",
-      type: "debit",
-      amount: 3100,
-      status: "pending",
-      senderName: RETAILER_NAME,
-      receiverName: "LIC of India",
-      mobile: "9123456789",
-      remark: "Premium processing",
-    },
-    {
-      service: "DTH",
-      description: "Tata Play recharge · Subscriber 6677889900",
-      type: "debit",
-      amount: 450,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "Tata Play",
-      mobile: "6677889900",
-      remark: "DTH monthly recharge",
-    },
-    {
-      service: "Credit Card",
-      description: "HDFC Credit Card bill · XXXX 4521",
-      type: "debit",
-      amount: 8500,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "HDFC Bank",
-      mobile: "9876543201",
-      remark: "Credit card bill payment",
-    },
-    {
-      service: "Broadband",
-      description: "Jio Fiber bill · Account BF998877",
-      type: "debit",
-      amount: 799,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "Jio Fiber",
-      mobile: "9988771122",
-      remark: "Broadband monthly bill",
-    },
-    {
-      service: "Recharge",
-      description: "BSNL mobile recharge · 9123456780",
-      type: "debit",
-      amount: 107,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "BSNL Prepaid",
-      mobile: "9123456780",
-      remark: "Top-up recharge",
-    },
-    {
-      service: "BBPS",
-      description: "BBPS education fee · Student ID ST2026",
-      type: "debit",
-      amount: 15000,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "Delhi Public School",
-      mobile: "9876123450",
-      remark: "School fee via BBPS",
-    },
-    {
-      service: "AEPS",
-      description: "AEPS balance enquiry · Commission",
-      type: "credit",
-      amount: 8,
-      status: "success",
-      senderName: "PayTrue Commission",
-      receiverName: RETAILER_NAME,
-      mobile: "9876543210",
-      remark: "Micro commission credit",
-    },
-    {
-      service: "Electricity",
-      description: "MSEDCL Maharashtra · Consumer 3344556677",
-      type: "debit",
-      amount: 2340,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "MSEDCL",
-      mobile: "9123401234",
-      remark: "Maharashtra electricity bill",
-    },
-    {
-      service: "Money Transfer",
-      description: "Refund · Failed DMT reversal",
-      type: "credit",
-      amount: 3500,
-      status: "success",
-      senderName: "PayTrue Settlement",
-      receiverName: RETAILER_NAME,
-      mobile: "9876543210",
-      remark: "Auto reversal for failed transfer",
-    },
-    {
-      service: "Insurance",
-      description: "Motor insurance renewal · Policy MOT8822",
-      type: "debit",
-      amount: 5600,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "ICICI Lombard",
-      mobile: "9123456098",
-      remark: "Vehicle insurance renewal",
-    },
-    {
-      service: "Aadhaar Pay",
-      description: "Aadhaar Pay settlement credit",
-      type: "credit",
-      amount: 2400,
-      status: "success",
-      senderName: "NPCI Settlement",
-      receiverName: RETAILER_NAME,
-      mobile: "9876543210",
-      remark: "Daily Aadhaar Pay settlement",
-    },
-    {
-      service: "Water Bill",
-      description: "Bangalore Water Board · RR 7788990011",
-      type: "debit",
-      amount: 480,
-      status: "failed",
-      senderName: RETAILER_NAME,
-      receiverName: "BWSSB",
-      mobile: "9123456712",
-      remark: "Biller service unavailable",
-    },
-    {
-      service: "Recharge",
-      description: "Jio recharge · 9876501234",
-      type: "debit",
-      amount: 666,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "Jio Prepaid",
-      mobile: "9876501234",
-      remark: "Combo plan recharge",
-    },
-    {
-      service: "FASTag",
-      description: "NHAI FASTag top-up · DL01CD5678",
-      type: "debit",
-      amount: 1000,
-      status: "success",
-      senderName: RETAILER_NAME,
-      receiverName: "NHAI FASTag",
-      mobile: "9876005678",
-      remark: "Highway toll wallet recharge",
-    },
-    {
-      service: "Money Transfer",
-      description: "Admin wallet credit · Settlement",
-      type: "credit",
-      amount: 20000,
-      status: "success",
-      senderName: "PayTrue Admin",
-      receiverName: RETAILER_NAME,
-      mobile: "9876543210",
-      remark: "Weekly settlement credit",
-    },
-  ];
-
-  let runningBalance = 85000;
-  const now = Date.now();
-  const chronological = [...seed].reverse();
-
-  const built = chronological.map((item, index) => {
-    const openingBalance = runningBalance;
-    if (item.type === "debit") {
-      runningBalance -= item.amount;
-    } else {
-      runningBalance += item.amount;
-    }
-
-    const seq = seed.length - index;
-    const createdAt = new Date(
-      now - index * 36 * 60 * 60 * 1000 - (index % 5) * 15 * 60 * 1000
-    ).toISOString();
-
-    return {
-      id: `stmt_${String(seq).padStart(3, "0")}`,
-      referenceNumber: generateReferenceNumber(seq),
-      createdAt,
-      openingBalance,
-      balanceAfter: runningBalance,
-      ...item,
-    };
-  });
-
-  return built.reverse();
-}
-
-const ALL_TRANSACTIONS = generateFakeTransactions();
-
-function matchesServiceFilter(
-  service: StatementService,
-  filter: ServiceFilter
-): boolean {
-  if (filter === "All") return true;
-  if (filter === "Recharge") return service === "Recharge";
-  if (filter === "Money Transfer") return service === "Money Transfer";
-  if (filter === "AEPS")
-    return service === "AEPS" || service === "Aadhaar Pay";
-  if (filter === "BBPS") return service === "BBPS";
-  if (filter === "Insurance")
-    return service === "Insurance" || service === "LIC";
-  if (filter === "Bill Payment") return BILL_PAYMENT_SERVICES.includes(service);
-  return true;
-}
-
 function StatusBadge({ status }: { status: TransactionStatus }) {
-  if (status === "success") return <Badge variant="success">Success</Badge>;
-  if (status === "pending") return <Badge variant="warning">Pending</Badge>;
-  return <Badge variant="destructive">Failed</Badge>;
+  const badge =
+    status === "success" ? (
+      <Badge variant="success">Success</Badge>
+    ) : status === "pending" ? (
+      <Badge variant="warning">Pending</Badge>
+    ) : (
+      <Badge variant="destructive">Failed</Badge>
+    );
+
+  return <span className="inline-flex shrink-0 whitespace-nowrap">{badge}</span>;
 }
 
 interface ReceiptContentProps {
@@ -752,6 +370,7 @@ const ReceiptContent = forwardRef<HTMLDivElement, ReceiptContentProps>(
 export default function StatementPage() {
   const [search, setSearch] = useState("");
   const [serviceFilter, setServiceFilter] = useState<ServiceFilter>("All");
+  const [aepsSubFilter, setAepsSubFilter] = useState<AepsSubFilter>("All");
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [sortState, setSortState] = useState<StatementSortState>({
     field: "createdAt",
@@ -766,6 +385,26 @@ export default function StatementPage() {
   const [printTxn, setPrintTxn] = useState<StatementTransaction | null>(null);
 
   const user = useSelector(selectUser);
+  const {
+    data: statementData,
+    isLoading,
+    isError,
+    isFetching,
+    refetch,
+  } = useRetailerStatement();
+
+  const allTransactions = useMemo(
+    () => statementData?.transactions ?? [],
+    [statementData]
+  );
+  const fetchErrors = statementData?.errors ?? [];
+
+  useEffect(() => {
+    if (serviceFilter !== "AEPS") {
+      setAepsSubFilter("All");
+    }
+  }, [serviceFilter]);
+
   const receiptCustomer = useMemo(
     () => buildReceiptCustomerInfo(user),
     [user]
@@ -805,14 +444,20 @@ export default function StatementPage() {
   const openReceipt = useCallback((txn: StatementTransaction) => {
     setSelectedTxn(txn);
     setReceiptOpen(true);
+    void enrichStatementWithIfsc(txn).then((enriched) => {
+      setSelectedTxn((current) =>
+        current?.id === enriched.id ? enriched : current
+      );
+    });
   }, []);
 
   const printReceipt = useCallback(
-    (txn: StatementTransaction) => {
-      setPrintTxn(txn);
+    async (txn: StatementTransaction) => {
+      const enriched = await enrichStatementWithIfsc(txn);
+      setPrintTxn(enriched);
       window.setTimeout(() => {
         handleHiddenPrint();
-      }, 150);
+      }, 600);
     },
     [handleHiddenPrint]
   );
@@ -820,8 +465,11 @@ export default function StatementPage() {
   const filteredTransactions = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    return ALL_TRANSACTIONS.filter((txn) => {
+    return allTransactions.filter((txn) => {
       if (!matchesServiceFilter(txn.service, serviceFilter)) return false;
+      if (serviceFilter === "AEPS" && !matchesAepsSubFilter(txn, aepsSubFilter)) {
+        return false;
+      }
       if (!query) return true;
 
       return (
@@ -829,10 +477,13 @@ export default function StatementPage() {
         formatTransactionId(txn.id).toLowerCase().includes(query) ||
         txn.referenceNumber.toLowerCase().includes(query) ||
         txn.description.toLowerCase().includes(query) ||
-        txn.service.toLowerCase().includes(query)
+        txn.service.toLowerCase().includes(query) ||
+        (txn.bankName ?? "").toLowerCase().includes(query) ||
+        (txn.accountNumber ?? "").toLowerCase().includes(query) ||
+        txn.mobile.toLowerCase().includes(query)
       );
     });
-  }, [search, serviceFilter]);
+  }, [search, serviceFilter, aepsSubFilter, allTransactions]);
 
   const handleExportExcel = useCallback(async () => {
     setExportingExcel(true);
@@ -865,19 +516,19 @@ export default function StatementPage() {
         name: "Reference No.",
         selector: (row) => row.referenceNumber,
         sortable: true,
-        minWidth: "130px",
-        cell: (row) => (
-          <span className="font-mono text-xs font-medium text-[#1565d8]">
-            {row.referenceNumber}
-          </span>
-        ),
+        minWidth: "220px",
+        grow: 1,
+        cell: (row) => <ReferenceCopyCell value={row.referenceNumber} />,
       },
       {
         id: "service",
         name: "Service",
         selector: (row) => row.service,
         sortable: true,
-        minWidth: "130px",
+        minWidth: "150px",
+        cell: (row) => (
+          <span className="whitespace-nowrap text-slate-700">{row.service}</span>
+        ),
       },
       {
         id: "description",
@@ -885,8 +536,55 @@ export default function StatementPage() {
         selector: (row) => row.description,
         sortable: true,
         grow: 2,
-        minWidth: "200px",
+        minWidth: "180px",
         wrap: true,
+      },
+      {
+        id: "bankName",
+        name: "Bank",
+        selector: (row) => row.bankName ?? row.receiverName,
+        sortable: true,
+        minWidth: "140px",
+        wrap: true,
+        cell: (row) => (
+          <div className="flex min-w-0 items-center gap-2">
+            {(row.bankName || row.ifscCode) && (
+              <BankLogo
+                bank={{
+                  name: row.bankName || row.receiverName,
+                  shortName: row.bankName || row.receiverName,
+                  ifscPrefix: row.ifscCode?.slice(0, 4) || "",
+                }}
+                size={24}
+              />
+            )}
+            <span className="truncate text-slate-700">
+              {row.bankName || row.receiverName || "—"}
+            </span>
+          </div>
+        ),
+      },
+      {
+        id: "accountNumber",
+        name: "Account",
+        selector: (row) => row.accountNumber ?? "",
+        sortable: true,
+        minWidth: "130px",
+        cell: (row) => (
+          <span className="font-mono text-xs text-slate-700">
+            {row.accountNumber || "—"}
+          </span>
+        ),
+      },
+      {
+        id: "mobile",
+        name: "Mobile",
+        selector: (row) => row.mobile,
+        sortable: true,
+        minWidth: "120px",
+        cell: (row) => (
+          <span className="tabular-nums text-slate-700">{row.mobile || "—"}</span>
+        ),
       },
       {
         id: "type",
@@ -897,7 +595,7 @@ export default function StatementPage() {
         cell: (row) => (
           <Badge
             variant={row.type === "debit" ? "destructive" : "success"}
-            className="capitalize"
+            className="shrink-0 whitespace-nowrap capitalize"
           >
             {row.type}
           </Badge>
@@ -908,7 +606,7 @@ export default function StatementPage() {
         name: "Status",
         selector: (row) => row.status,
         sortable: true,
-        minWidth: "100px",
+        minWidth: "108px",
         cell: (row) => <StatusBadge status={row.status} />,
       },
       {
@@ -926,19 +624,6 @@ export default function StatementPage() {
             )}
           >
             {formatAmountDisplay(row.type, row.amount)}
-          </span>
-        ),
-      },
-      {
-        id: "balanceAfter",
-        name: "Closing Balance",
-        selector: (row) => row.balanceAfter,
-        sortable: true,
-        right: true,
-        minWidth: "130px",
-        cell: (row) => (
-          <span className="font-semibold tabular-nums text-slate-800">
-            {formatCurrency(row.balanceAfter)}
           </span>
         ),
       },
@@ -963,7 +648,7 @@ export default function StatementPage() {
                 <Download className="h-4 w-4" />
                 Download PDF
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => printReceipt(row)}>
+              <DropdownMenuItem onClick={() => void printReceipt(row)}>
                 <Printer className="h-4 w-4" />
                 Print Receipt
               </DropdownMenuItem>
@@ -1024,11 +709,24 @@ export default function StatementPage() {
                 <div>
                   <CardTitle>Transaction Statement</CardTitle>
                   <CardDescription>
-                    {filteredTransactions.length} of {ALL_TRANSACTIONS.length}{" "}
+                    {filteredTransactions.length} of {allTransactions.length}{" "}
                     transactions
                   </CardDescription>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={isFetching}
+                    onClick={() => void refetch()}
+                  >
+                    <RefreshCw
+                      className={cn("h-4 w-4", isFetching && "animate-spin")}
+                    />
+                    Refresh
+                  </Button>
                   <Button
                     type="button"
                     variant="outline"
@@ -1063,6 +761,18 @@ export default function StatementPage() {
                 </div>
               </div>
 
+              {fetchErrors.length > 0 ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  Some services could not be loaded: {fetchErrors.join(" · ")}
+                </div>
+              ) : null}
+
+              {isError && allTransactions.length === 0 ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                  Failed to load statement. Please try again.
+                </div>
+              ) : null}
+
               <div className="relative w-full lg:max-w-sm">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
@@ -1090,51 +800,88 @@ export default function StatementPage() {
                   </button>
                 ))}
               </div>
+
+              {serviceFilter === "AEPS" ? (
+                <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                  {AEPS_SUB_FILTERS.map(({ label, value }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setAepsSubFilter(value)}
+                      className={cn(
+                        "rounded-full px-3 py-1 text-xs font-semibold transition-all",
+                        aepsSubFilter === value
+                          ? "bg-emerald-600 text-white shadow-sm"
+                          : "border border-emerald-200 bg-emerald-50/50 text-emerald-800 hover:bg-emerald-50"
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </CardHeader>
 
             <CardContent className="px-0 pb-0 pt-4 sm:px-0">
-              <div className="overflow-x-auto px-4 sm:px-6">
-                <DataTable
-                  columns={columns}
-                  data={filteredTransactions}
-                  pagination
-                  paginationPerPage={rowsPerPage}
-                  paginationRowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
-                  onChangeRowsPerPage={(newRowsPerPage) =>
-                    setRowsPerPage(newRowsPerPage)
-                  }
-                  paginationComponentOptions={{
-                    rowsPerPageText: "Rows per page:",
-                    rangeSeparatorText: "of",
-                  }}
-                  sortIcon={<span className="ml-1 text-slate-400">↕</span>}
-                  defaultSortFieldId="createdAt"
-                  defaultSortAsc={false}
-                  onSort={(column, direction) => {
-                    setSortState({
-                      field: String(column.id ?? column.name ?? "createdAt"),
-                      direction: direction === "asc" ? "asc" : "desc",
-                    });
-                  }}
-                  highlightOnHover
-                  striped
-                  responsive
-                  fixedHeader
-                  fixedHeaderScrollHeight="520px"
-                  persistTableHead
-                  customStyles={tableCustomStyles}
-                  noDataComponent={
-                    <div className="py-16 text-center">
-                      <p className="text-sm font-medium text-slate-600">
-                        No transactions found
-                      </p>
-                      <p className="mt-1 text-xs text-slate-400">
-                        Try adjusting your search or filter
-                      </p>
-                    </div>
-                  }
-                />
-              </div>
+              {isLoading ? (
+                <div className="flex items-center justify-center gap-2 py-20 text-slate-500">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Loading transactions...
+                </div>
+              ) : (
+                <div className="space-y-2 px-4 pb-4 sm:px-6">
+                  <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
+                      ↔ Horizontal scroll
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
+                      ↕ Vertical scroll
+                    </span>
+                    <span>Drag or use scrollbars to view all columns and rows.</span>
+                  </p>
+                  <div className="statement-datatable rounded-xl border border-slate-200 bg-white">
+                    <DataTable
+                      columns={columns}
+                      data={filteredTransactions}
+                      pagination
+                      paginationPerPage={rowsPerPage}
+                      paginationRowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
+                      onChangeRowsPerPage={(newRowsPerPage) =>
+                        setRowsPerPage(newRowsPerPage)
+                      }
+                      paginationComponentOptions={{
+                        rowsPerPageText: "Rows per page:",
+                        rangeSeparatorText: "of",
+                      }}
+                      sortIcon={<span className="ml-1 text-slate-400">↕</span>}
+                      defaultSortFieldId="createdAt"
+                      defaultSortAsc={false}
+                      onSort={(column, direction) => {
+                        setSortState({
+                          field: String(column.id ?? column.name ?? "createdAt"),
+                          direction: direction === "asc" ? "asc" : "desc",
+                        });
+                      }}
+                      highlightOnHover
+                      striped
+                      fixedHeader
+                      fixedHeaderScrollHeight={STATEMENT_TABLE_SCROLL_HEIGHT}
+                      persistTableHead
+                      customStyles={tableCustomStyles}
+                      noDataComponent={
+                        <div className="py-16 text-center">
+                          <p className="text-sm font-medium text-slate-600">
+                            No transactions found
+                          </p>
+                          <p className="mt-1 text-xs text-slate-400">
+                            Try adjusting your search or filter
+                          </p>
+                        </div>
+                      }
+                    />
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

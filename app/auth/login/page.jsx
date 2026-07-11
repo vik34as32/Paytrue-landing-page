@@ -28,7 +28,7 @@ import {
   selectAuthError,
   clearAuthError,
 } from "@/src/redux/slices/authSlice";
-import { getRedirectPathForUserType } from "@/src/lib/authUtils";
+import { resolvePostLoginRedirect } from "@/src/lib/authUtils";
 
 function LoginForm() {
   const router = useRouter();
@@ -72,9 +72,10 @@ function LoginForm() {
     if (loginUser.fulfilled.match(action)) {
       await dispatch(fetchProfile());
       setLoginSuccess("Login successful. Redirecting to your dashboard...");
-      const redirect =
-        searchParams.get("redirect") ||
-        getRedirectPathForUserType(action.payload.user?.userType);
+      const redirect = resolvePostLoginRedirect(
+        searchParams.get("redirect"),
+        action.payload.user?.userType
+      );
       router.replace(redirect);
       return;
     }

@@ -1,33 +1,15 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "@/src/lib/axios";
 import { API_ENDPOINTS } from "@/src/constants/api";
-
-function normalizeRetailer(user) {
-  const firstName = user.firstName || "";
-  const lastName = user.lastName || "";
-  return {
-    id: user.id || user._id,
-    retailerId: user.id || user.userId,
-    name: `${firstName} ${lastName}`.trim() || user.email,
-    firstName,
-    lastName,
-    email: user.email,
-    mobile: user.mobile,
-    shopName: user.outlet?.outletName || user.shopName || "",
-    city: user.outlet?.city || user.city || "",
-    state: user.outlet?.state || user.state || "",
-    profileImage: user.profileImage,
-    walletBalance: user.walletBalance || user.wallet?.balance || 0,
-    status: String(user.status || (user.isActive === false ? "inactive" : "active")).toLowerCase(),
-    createdAt: user.createdAt,
-    raw: user,
-  };
-}
+import {
+  mapApiUserShape,
+  normalizeRetailer,
+} from "@/src/lib/retailerListUtils";
 
 export const fetchRetailers = createAsyncThunk(
   "retailer/fetchAll",
   async (
-    { page = 1, limit = 10, search = "", sortBy = "createdAt", sortOrder = "desc" } = {},
+    { page = 1, limit = 100, search = "", sortBy = "createdAt", sortOrder = "desc" } = {},
     { rejectWithValue }
   ) => {
     try {
@@ -48,11 +30,12 @@ export const fetchRetailers = createAsyncThunk(
       const total =
         payload?.total ||
         payload?.totalCount ||
+        payload?.meta?.total ||
         payload?.pagination?.total ||
         rows.length;
 
       return {
-        list: rows.map(normalizeRetailer),
+        list: rows.map((row) => normalizeRetailer(mapApiUserShape(row))),
         total,
         page,
         limit,
@@ -63,13 +46,26 @@ export const fetchRetailers = createAsyncThunk(
   }
 );
 
+export const fetchRetailerById = createAsyncThunk(
+  "retailer/fetchById",
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await api.get(`${API_ENDPOINTS.users}/${id}`);
+      const data = response.data?.data || response.data;
+      return normalizeRetailer(mapApiUserShape(data));
+    } catch (error) {
+      return rejectWithValue(error.message || "Failed to fetch retailer");
+    }
+  }
+);
+
 export const createRetailer = createAsyncThunk(
   "retailer/create",
   async (formData, { rejectWithValue }) => {
     try {
       const response = await api.post(API_ENDPOINTS.users, formData);
       const data = response.data?.data || response.data;
-      return normalizeRetailer(data);
+      return normalizeRetailer(mapApiUserShape(data));
     } catch (error) {
       return rejectWithValue(error.message || "Failed to create retailer");
     }
@@ -82,7 +78,7 @@ export const updateRetailer = createAsyncThunk(
     try {
       const response = await api.put(`${API_ENDPOINTS.users}/${id}`, formData);
       const result = response.data?.data || response.data;
-      return normalizeRetailer(result);
+      return normalizeRetailer(mapApiUserShape(result));
     } catch (error) {
       return rejectWithValue(error.message || "Failed to update retailer");
     }
@@ -98,7 +94,9 @@ export const toggleRetailerStatus = createAsyncThunk(
         isActive: status === "active",
       });
       const result = response.data?.data || response.data;
-      return normalizeRetailer(result || { id, status });
+      return normalizeRetailer(
+        mapApiUserShape(result || { id, status })
+      );
     } catch (error) {
       return rejectWithValue(error.message || "Failed to update status");
     }

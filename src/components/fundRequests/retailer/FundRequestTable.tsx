@@ -47,6 +47,7 @@ import EmptyState from "./EmptyState";
 import {
   cyanDataTableStyles,
   CyanDataTableSortIcon,
+  FUND_REQUEST_TABLE_MIN_WIDTH,
 } from "@/src/components/common/cyanDataTableStyles";
 
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
@@ -378,13 +379,22 @@ export default function FundRequestTable({
         name: <StackedHeader lines={["Request", "Date"]} />,
         selector: (row) => row.createdAt,
         sortable: true,
-        minWidth: "108px",
+        minWidth: "118px",
         center: true,
         cell: (row) => (
           <span className="whitespace-nowrap text-center text-slate-600">
             {formatFundRequestDateOnly(row.createdAt)}
           </span>
         ),
+      },
+      {
+        id: "status",
+        name: "Status",
+        selector: (row) => row.status,
+        sortable: true,
+        minWidth: "118px",
+        center: true,
+        cell: (row) => <FundRequestStatusBadge status={row.status} />,
       },
       {
         id: "paymentDate",
@@ -419,10 +429,10 @@ export default function FundRequestTable({
         name: <StackedHeader lines={["Request", "Id"]} />,
         selector: (row) => row.requestId || row.referenceNumber || "",
         sortable: true,
-        minWidth: "110px",
+        minWidth: "200px",
         center: true,
         cell: (row) => (
-          <span className="font-semibold text-[#0057D9]">
+          <span className="whitespace-nowrap font-semibold text-[#0057D9]">
             {row.requestId || row.referenceNumber || "—"}
           </span>
         ),
@@ -432,10 +442,10 @@ export default function FundRequestTable({
         name: <StackedHeader lines={["Bank", "Ref.", "Id"]} />,
         selector: (row) => row.utrNumber,
         sortable: true,
-        minWidth: "110px",
+        minWidth: "180px",
         center: true,
         cell: (row) => (
-          <span className="text-center text-slate-600">
+          <span className="whitespace-nowrap text-center text-slate-600">
             {row.utrNumber || "—"}
           </span>
         ),
@@ -470,15 +480,6 @@ export default function FundRequestTable({
             {row.adminRemark || "—"}
           </span>
         ),
-      },
-      {
-        id: "status",
-        name: "Status",
-        selector: (row) => row.status,
-        sortable: true,
-        minWidth: "120px",
-        center: true,
-        cell: (row) => <FundRequestStatusBadge status={row.status} />,
       },
     ],
     [currentPage, rowsPerPage]
@@ -559,54 +560,66 @@ export default function FundRequestTable({
 
         {!showEmpty && (
           <>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto]">
-              <div className="relative sm:col-span-2 lg:col-span-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  placeholder="Search reference, UTR, bank, status..."
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  className="pl-9"
-                  disabled={loading}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="fund-date-from" className="text-xs text-slate-500">
-                  Start Date
+            <div className="flex flex-col gap-3 md:flex-row md:items-end">
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <Label htmlFor="fund-search" className="text-xs font-medium text-slate-500">
+                  Search
                 </Label>
-                <Input
-                  id="fund-date-from"
-                  type="date"
-                  value={dateFrom}
-                  max={dateTo || undefined}
-                  onChange={(event) => setDateFrom(event.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="fund-date-to" className="text-xs text-slate-500">
-                  End Date
-                </Label>
-                <Input
-                  id="fund-date-to"
-                  type="date"
-                  value={dateTo}
-                  min={dateFrom || undefined}
-                  onChange={(event) => setDateTo(event.target.value)}
-                />
-              </div>
-              {hasActiveFilters && (
-                <div className="flex items-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-11 w-full gap-1.5"
-                    onClick={clearFilters}
-                  >
-                    <X className="h-4 w-4" />
-                    Clear
-                  </Button>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    id="fund-search"
+                    placeholder="Search reference, UTR, bank, status..."
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    className="h-10 pl-9"
+                    disabled={loading}
+                  />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 sm:flex sm:shrink-0 sm:items-end">
+                <div className="flex min-w-[148px] flex-col gap-1.5">
+                  <Label htmlFor="fund-date-from" className="text-xs font-medium text-slate-500">
+                    Start Date
+                  </Label>
+                  <Input
+                    id="fund-date-from"
+                    type="date"
+                    value={dateFrom}
+                    max={dateTo || undefined}
+                    onChange={(event) => setDateFrom(event.target.value)}
+                    className="h-10"
+                    disabled={loading}
+                  />
+                </div>
+                <div className="flex min-w-[148px] flex-col gap-1.5">
+                  <Label htmlFor="fund-date-to" className="text-xs font-medium text-slate-500">
+                    End Date
+                  </Label>
+                  <Input
+                    id="fund-date-to"
+                    type="date"
+                    value={dateTo}
+                    min={dateFrom || undefined}
+                    onChange={(event) => setDateTo(event.target.value)}
+                    className="h-10"
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              {hasActiveFilters && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-10 shrink-0 gap-1.5 self-end"
+                  onClick={clearFilters}
+                >
+                  <X className="h-4 w-4" />
+                  Clear
+                </Button>
               )}
             </div>
 
@@ -615,7 +628,9 @@ export default function FundRequestTable({
                 <button
                   key={filter}
                   type="button"
-                  onClick={() => setStatusFilter(filter)}
+                  onClick={() =>
+                    setStatusFilter(statusFilter === filter ? "All" : filter)
+                  }
                   className={cn(
                     "rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all",
                     statusFilter === filter
@@ -642,7 +657,7 @@ export default function FundRequestTable({
           <EmptyState onCreateClick={onCreateClick} />
         ) : (
           <>
-            <div className="paytrue-cyan-datatable hidden overflow-x-auto px-4 sm:px-6 md:block">
+            <div className="fund-request-datatable paytrue-cyan-datatable hidden min-w-0 px-4 sm:px-6 md:block">
               <DataTable
                 key={`${search}-${statusFilter}-${dateFrom}-${dateTo}-${rowsPerPage}-${currentPage}`}
                 columns={columns}
@@ -666,12 +681,16 @@ export default function FundRequestTable({
                 defaultSortAsc={false}
                 highlightOnHover
                 striped
-                responsive
-                fixedHeader
-                fixedHeaderScrollHeight="480px"
+                responsive={false}
                 persistTableHead
                 customStyles={{
                   ...cyanDataTableStyles,
+                  table: {
+                    style: {
+                      ...cyanDataTableStyles.table.style,
+                      minWidth: FUND_REQUEST_TABLE_MIN_WIDTH,
+                    },
+                  },
                   rows: {
                     ...cyanDataTableStyles.rows,
                     style: {

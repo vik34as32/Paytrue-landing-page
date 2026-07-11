@@ -15,6 +15,7 @@ export interface MerchantStatusResult {
   biometricStatus: BiometricStatusValue;
   isVerified: boolean;
   isPending: boolean;
+  isPendingApproval?: boolean;
   retailerId?: string;
   outletId?: string;
   referenceKey?: string;
@@ -39,7 +40,15 @@ export interface SubmitBiometricKycResult {
   success: boolean;
   message: string;
   biometricStatus: BiometricStatusValue;
+  isVerified?: boolean;
+  isPendingApproval?: boolean;
   raw?: Record<string, unknown>;
 }
 
-export type VerificationPhase = "idle" | "scanning" | "verifying" | "success" | "error";
+export type VerificationPhase =
+  | "idle"
+  | "scanning"
+  | "verifying"
+  | "success"
+  | "pending_approval"
+  | "error";

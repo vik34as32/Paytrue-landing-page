@@ -60,6 +60,7 @@ const emptyDefaults = {
   fullName: "",
   email: "",
   emailVerified: false,
+  mobileVerified: false,
   mobile: "",
   password: "",
   alternateMobileNumber: "",
@@ -197,6 +198,7 @@ export default function UserMultiStepForm({
     isEdit,
     existingUrls,
     originalEmail: initialUser?.email || "",
+    originalMobile: initialUser?.mobile || "",
   };
 
   const goNext = async () => {
@@ -325,6 +327,7 @@ export default function UserMultiStepForm({
                   setFile={setFile}
                   values={values}
                   originalEmail={initialUser?.email || ""}
+                  originalMobile={initialUser?.mobile || ""}
                   userType={userType}
                 />
               )}
@@ -371,7 +374,7 @@ export default function UserMultiStepForm({
                           : `${values.firstName} ${values.lastName}`,
                       ],
                       ["Email", values.emailVerified ? `${values.email} (Verified)` : values.email],
-                      ["Mobile", values.mobile],
+                      ["Mobile", values.mobileVerified ? `${values.mobile} (Verified)` : values.mobile],
                       ["Gender", getGenderLabel(values.gender)],
                       ["Date of Birth", formatDateDisplay(values.dateOfBirth)],
                     ]}

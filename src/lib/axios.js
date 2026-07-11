@@ -1,11 +1,26 @@
 import axios from "axios";
 import { API_BASE_URL } from "@/src/constants/api";
-import { getAccessToken, clearAuthCookies } from "@/src/lib/cookies";
+import { getAccessToken } from "@/src/lib/cookies";
+import { isSessionClearInProgress } from "@/src/lib/sessionCleanup";
 
 let unauthorizedHandler = null;
 
+/** Pre-registration OTP endpoints must not clear an active portal session on failure. */
+const PUBLIC_AUTH_ENDPOINTS = [
+  "/auth/send-otp",
+  "/auth/verify-otp",
+  "/auth/resend-otp",
+  "/auth/send-email-verification",
+  "/auth/verify-email",
+];
+
 export function setUnauthorizedHandler(handler) {
   unauthorizedHandler = handler;
+}
+
+function isPublicAuthRequest(config) {
+  const url = String(config?.url || "");
+  return PUBLIC_AUTH_ENDPOINTS.some((path) => url.includes(path));
 }
 
 const api = axios.create({
@@ -15,6 +30,42 @@ const api = axios.create({
     Accept: "application/json",
   },
 });
+
+export function isUnauthorizedApiError(error) {
+  if (isPublicAuthRequest(error?.config) || error?.config?.skipSessionLogout) {
+    return false;
+  }
+
+  const status = error?.response?.status ?? error?.status;
+  const message = String(
+    error?.response?.data?.message ||
+      error?.response?.data?.error ||
+      error?.message ||
+      ""
+  ).toLowerCase();
+
+  if (status === 401 || status === 403) {
+    return true;
+  }
+
+  return (
+    message.includes("token expired") ||
+    message.includes("jwt expired") ||
+    message.includes("session expired") ||
+    message.includes("invalid or expired token")
+  );
+}
+
+export function formatApiErrorMessage(error, fallback = "Something went wrong") {
+  const message =
+    error?.message ||
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    error?.originalError?.message ||
+    fallback;
+  const status = error?.status || error?.response?.status;
+  return status ? `${message} (Error ${status})` : message;
+}
 
 api.interceptors.request.use(
   (config) => {
@@ -27,7 +78,6 @@ api.interceptors.request.use(
     const hasBody =
       config.data !== undefined && config.data !== null && config.data !== "";
 
-    // Let the browser set multipart boundary — never force Content-Type on FormData
     if (config.data instanceof FormData) {
       delete config.headers["Content-Type"];
     } else if (["post", "put", "patch"].includes(method) && hasBody) {
@@ -35,7 +85,6 @@ api.interceptors.request.use(
         config.headers["Content-Type"] = "application/json";
       }
     } else {
-      // DELETE/GET/HEAD without a body must not send Content-Type or an empty JSON body.
       delete config.headers["Content-Type"];
       if (!hasBody) {
         delete config.data;
@@ -50,12 +99,9 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const status = error?.response?.status;
-
-    if (status === 401) {
-      clearAuthCookies();
+    if (isUnauthorizedApiError(error) && !isSessionClearInProgress()) {
       if (typeof unauthorizedHandler === "function") {
-        unauthorizedHandler();
+        unauthorizedHandler(error);
       } else if (typeof window !== "undefined") {
         window.location.href = "/auth/login";
       }
@@ -68,7 +114,7 @@ api.interceptors.response.use(
       "Something went wrong";
 
     return Promise.reject({
-      status,
+      status: error?.response?.status,
       message,
       data: error?.response?.data,
       originalError: error,

@@ -1,0 +1,87 @@
+"use client";
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { useSelector } from "react-redux";
+import { selectUser } from "@/src/redux/slices/authSlice";
+import { selectProfileLoading } from "@/src/redux/slices/profileSlice";
+import { useDistributorDashboard } from "@/src/hooks/useDistributorDashboard";
+import DistributorStatsCards from "./DistributorStatsCards";
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good Morning";
+  if (hour < 17) return "Good Afternoon";
+  return "Good Evening";
+}
+
+function DistributorDashboardContent() {
+  const user = useSelector(selectUser);
+  const profileLoading = useSelector(selectProfileLoading);
+  const { data, isLoading, isFetching, isError, error, refetch } =
+    useDistributorDashboard();
+
+  return (
+    <div className="w-full space-y-5">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="flex flex-col gap-1"
+      >
+        <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-[#1565d8]">
+          {getGreeting()}
+        </p>
+        <h1 className="text-xl font-bold tracking-tight text-[#0b1f3a] sm:text-2xl">
+          {profileLoading && !user?.name ? (
+            <span className="inline-block h-7 w-48 animate-pulse rounded bg-slate-200" />
+          ) : (
+            user?.name
+          )}
+          <span className="ml-2 text-base font-medium text-slate-400 sm:text-lg">
+            · {user?.roleLabel || "Distributor"}
+          </span>
+        </h1>
+        <p className="mt-0.5 text-[13px] text-slate-500">
+          ID:{" "}
+          <span className="font-semibold text-slate-700">{user?.userId || "—"}</span>
+          {" · "}
+          <span className="inline-flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            All systems operational
+          </span>
+        </p>
+      </motion.div>
+
+      <DistributorStatsCards
+        metrics={data}
+        loading={isLoading}
+        isFetching={isFetching}
+        isError={isError}
+        error={error instanceof Error ? error.message : null}
+        onRetry={() => void refetch()}
+      />
+    </div>
+  );
+}
+
+export default function DistributorDashboardPage() {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            refetchOnWindowFocus: true,
+            retry: 1,
+          },
+        },
+      })
+  );
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <DistributorDashboardContent />
+    </QueryClientProvider>
+  );
+}

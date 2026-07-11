@@ -7,9 +7,24 @@ export interface TransferBalanceRequest {
   description: string;
 }
 
+export interface DeductBalanceRequest {
+  userId: string;
+  amount: number;
+  description: string;
+}
+
 export async function transferBalance(data: TransferBalanceRequest) {
   const response = await api.post(API_ENDPOINTS.walletTransfer, {
     receiverId: data.receiverId,
+    amount: data.amount,
+    description: data.description,
+  });
+  return response.data?.data ?? response.data;
+}
+
+export async function deductBalance(data: DeductBalanceRequest) {
+  const response = await api.post(API_ENDPOINTS.walletDeduct, {
+    userId: data.userId,
     amount: data.amount,
     description: data.description,
   });

@@ -45,7 +45,7 @@ export const SIDEBAR_LINKS = [
   //   href: "/rt/retailer/aeps",
   //   icon: "Fingerprint",
   // },
-  { label: "Services", href: "/rt/retailer", icon: "Grid3x3" },
+  // { label: "Services", href: "/rt/retailer", icon: "Grid3x3" },
   {
     label: "Statement",
     href: "/rt/retailer/statement",

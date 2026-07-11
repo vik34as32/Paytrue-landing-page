@@ -40,6 +40,14 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.react-datepicker-wrapper {
+  width: 100%;
+}
+
+.react-datepicker__input-container {
+  width: 100%;
+}
+
 @keyframes rt-marquee {
   0% {
     transform: translateX(0);
@@ -280,6 +288,16 @@ body {
   min-width: 1320px;
 }
 
+.fund-request-datatable .rdt_Table {
+  min-width: 1520px;
+}
+
+.fund-request-datatable .rdt_TableBody,
+.fund-request-datatable .rdt_TableHead,
+.fund-request-datatable .rdt_TableWrapper {
+  overflow-x: visible !important;
+}
+
 .paytrue-cyan-datatable .rdt_TableHeadRow {
   background-color: #00aeef !important;
   min-height: 56px !important;
@@ -312,6 +330,85 @@ body {
 
 .paytrue-cyan-datatable .rdt_TableBody,
 .paytrue-cyan-datatable .rdt_TableHead {
+  overflow: visible !important;
+}
+
+/* Statement table — horizontal + vertical scroll with visible scrollbars */
+.statement-datatable {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #64748b #f1f5f9;
+}
+
+.statement-datatable::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.statement-datatable::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 9999px;
+}
+
+.statement-datatable::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 9999px;
+  border: 2px solid #f1f5f9;
+}
+
+.statement-datatable::-webkit-scrollbar-corner {
+  background: #f1f5f9;
+}
+
+.statement-datatable .rdt_Table {
+  min-width: 1480px;
+}
+
+.statement-datatable .rdt_TableWrapper,
+.statement-datatable .rdt_TableBody,
+.statement-datatable .rdt_TableHead {
+  overflow: visible !important;
+}
+
+.statement-datatable .rdt_Table > div:has(> .rdt_TableBody) {
+  overflow: auto !important;
+  scrollbar-width: thin;
+  scrollbar-color: #64748b #f1f5f9;
+}
+
+.statement-datatable .rdt_Table > div:has(> .rdt_TableBody)::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.statement-datatable .rdt_Table > div:has(> .rdt_TableBody)::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+.statement-datatable .rdt_Table > div:has(> .rdt_TableBody)::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 9999px;
+  border: 2px solid #f8fafc;
+}
+
+.statement-datatable .rdt_TableHeadRow {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.statement-datatable .rdt_TableCol,
+.statement-datatable .rdt_TableCol_Sortable,
+.statement-datatable .rdt_TableCol_Sortable > div {
+  overflow: visible !important;
+  white-space: nowrap !important;
+}
+
+.statement-datatable .rdt_TableCell {
   overflow: visible !important;
 }
 

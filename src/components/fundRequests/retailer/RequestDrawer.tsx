@@ -8,6 +8,7 @@ import {
   XCircle,
   Ban,
   Wallet,
+  Loader2,
 } from "lucide-react";
 import {
   Sheet,
@@ -17,6 +18,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { formatCurrency } from "@/lib/utils";
+import { useFundRequestById } from "@/src/hooks/useFundRequests";
 import type { FundRequest, FundRequestStatus } from "@/src/types/fundRequest";
 import { formatPaymentModeLabel } from "@/src/lib/fundRequestUtils";
 import FundRequestStatusBadge from "./FundRequestStatusBadge";
@@ -157,18 +159,32 @@ export default function RequestDrawer({
   onOpenChange,
   request,
 }: RequestDrawerProps) {
-  if (!request) return null;
+  const { data: detail, isLoading } = useFundRequestById(
+    request?.id,
+    open && Boolean(request?.id)
+  );
 
-  const timeline = buildTimeline(request.status);
+  const displayRequest = detail ?? request;
+  if (!displayRequest) return null;
+
+  const timeline = buildTimeline(displayRequest.status);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full overflow-y-auto p-0 sm:max-w-md">
         <SheetHeader>
           <SheetTitle>Request Details</SheetTitle>
-          <SheetDescription>{request.requestId}</SheetDescription>
+          <SheetDescription>
+            {displayRequest.referenceNumber || displayRequest.requestId}
+          </SheetDescription>
         </SheetHeader>
 
+        {isLoading && !detail ? (
+          <div className="flex items-center justify-center gap-2 px-6 py-10 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading request details...
+          </div>
+        ) : (
         <div className="space-y-6 px-6 pb-8">
           <div className="rounded-2xl bg-gradient-to-br from-blue-50 to-slate-50 p-4">
             <div className="flex items-center justify-between">
@@ -177,10 +193,10 @@ export default function RequestDrawer({
                   Requested Amount
                 </p>
                 <p className="mt-1 text-2xl font-bold text-[#001F5B]">
-                  {formatCurrency(request.amount)}
+                  {formatCurrency(displayRequest.amount)}
                 </p>
               </div>
-              <FundRequestStatusBadge status={request.status} />
+              <FundRequestStatusBadge status={displayRequest.status} />
             </div>
           </div>
 
@@ -193,14 +209,15 @@ export default function RequestDrawer({
             <div className="divide-y divide-slate-100 px-4">
               <DetailRow
                 label="Company Bank"
-                value={request.companyBankName || "—"}
+                value={displayRequest.companyBankName || "—"}
               />
-              <DetailRow label="Payment Mode" value={formatPaymentModeLabel(request.paymentMode)} />
+              <DetailRow label="Payment Mode" value={formatPaymentModeLabel(displayRequest.paymentMode)} />
               <DetailRow
                 label="UTR Number"
-                value={request.utrNumber || "—"}
+                value={displayRequest.utrNumber || "—"}
               />
-              <DetailRow label="Remark" value={request.remark || "—"} />
+              <DetailRow label="Deposit Date" value={formatDate(displayRequest.paymentDate)} />
+              <DetailRow label="Remark" value={displayRequest.remark || "—"} />
             </div>
           </div>
 
@@ -211,24 +228,27 @@ export default function RequestDrawer({
               </h4>
             </div>
             <div className="divide-y divide-slate-100 px-4">
-              <DetailRow label="Created By" value={request.createdBy} />
+              <DetailRow label="Created By" value={displayRequest.createdBy || "—"} />
               <DetailRow
                 label="Created Time"
-                value={formatDateTime(request.createdAt)}
+                value={formatDateTime(displayRequest.createdAt)}
               />
               <DetailRow
                 label="Updated Time"
-                value={formatDateTime(request.updatedAt)}
+                value={formatDateTime(displayRequest.updatedAt)}
               />
-              {request.approvedBy && (
-                <DetailRow label="Approved By" value={request.approvedBy} />
+              {displayRequest.approvedBy && (
+                <DetailRow label="Approved By" value={displayRequest.approvedBy} />
               )}
-              {request.approvedDate && (
+              {displayRequest.approvedDate && (
                 <DetailRow
                   label="Approved Date"
-                  value={formatDateTime(request.approvedDate)}
+                  value={formatDateTime(displayRequest.approvedDate)}
                 />
               )}
+              {displayRequest.adminRemark ? (
+                <DetailRow label="Admin Remark" value={displayRequest.adminRemark} />
+              ) : null}
             </div>
           </div>
 
@@ -264,11 +284,8 @@ export default function RequestDrawer({
               ))}
             </div>
           </div>
-
-          <p className="text-xs text-slate-400">
-            Payment date: {formatDate(request.paymentDate)}
-          </p>
         </div>
+        )}
       </SheetContent>
     </Sheet>
   );

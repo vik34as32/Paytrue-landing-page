@@ -12,8 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const ACCEPT = ".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf";
-const MAX_SIZE_MB = 10;
+const ACCEPT = ".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp";
+const MAX_SIZE_MB = 5;
 
 interface ReceiptUploadProps {
   file: File | null;
@@ -33,11 +33,11 @@ function formatFileSize(bytes: number): string {
 
 function validateReceipt(file: File): string {
   const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
-  const allowedExt = [".jpg", ".jpeg", ".png", ".pdf"];
-  const allowedTypes = ["image/jpeg", "image/png", "application/pdf"];
+  const allowedExt = [".jpg", ".jpeg", ".png", ".webp"];
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
 
   if (!allowedExt.includes(ext) && !allowedTypes.includes(file.type)) {
-    return "Only JPG, JPEG, PNG and PDF files are allowed";
+    return "Only JPG, JPEG, PNG and WEBP images are allowed";
   }
 
   if (file.size > MAX_SIZE_MB * 1024 * 1024) {
@@ -141,7 +141,7 @@ export default function ReceiptUpload({
               <span className="text-[#1565d8]">browse</span>
             </p>
             <p className="mt-0.5 text-[10px] text-slate-400">
-              JPG, PNG, PDF · Max {MAX_SIZE_MB} MB
+              JPG, PNG, WEBP · Max {MAX_SIZE_MB} MB
             </p>
           </div>
           <input

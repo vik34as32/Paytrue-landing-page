@@ -1,4 +1,5 @@
 import { combineReducers } from "@reduxjs/toolkit";
+import { RESET_APP_STATE } from "@/src/redux/actions";
 import authReducer from "@/src/redux/slices/authSlice";
 import profileReducer from "@/src/redux/slices/profileSlice";
 import dashboardReducer from "@/src/redux/slices/dashboardSlice";
@@ -17,7 +18,7 @@ import {
   workflowReducer,
 } from "@/src/modules/dmt/redux";
 
-const rootReducer = combineReducers({
+const combinedReducer = combineReducers({
   auth: authReducer,
   profile: profileReducer,
   dashboard: dashboardReducer,
@@ -34,5 +35,12 @@ const rootReducer = combineReducers({
   dmtWorkflow: workflowReducer,
   [dmtApi.reducerPath]: dmtApi.reducer,
 });
+
+const rootReducer = (state, action) => {
+  if (action.type === RESET_APP_STATE) {
+    return combinedReducer(undefined, action);
+  }
+  return combinedReducer(state, action);
+};
 
 export default rootReducer;

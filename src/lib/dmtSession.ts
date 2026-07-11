@@ -64,3 +64,24 @@ export function resolveSenderMobile(preferred?: string): string {
   if (fromArg) return fromArg;
   return getActiveSenderMobile();
 }
+
+/** Remove all DMT session keys on logout */
+export function clearDmtSessionStorage(): void {
+  if (typeof window === "undefined") return;
+
+  const keysToRemove: string[] = [];
+  for (let index = 0; index < sessionStorage.length; index += 1) {
+    const key = sessionStorage.key(index);
+    if (
+      key &&
+      (key.startsWith("dmt_") || key === "dmt-api-logs")
+    ) {
+      keysToRemove.push(key);
+    }
+  }
+
+  keysToRemove.forEach((key) => sessionStorage.removeItem(key));
+  sessionStorage.removeItem(DMT_SENDER_MOBILE_KEY);
+  sessionStorage.removeItem(DMT_SENDER_REF_KEY);
+  sessionStorage.removeItem("dmt_transaction_reference_key");
+}

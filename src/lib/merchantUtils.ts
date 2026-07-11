@@ -144,6 +144,16 @@ function readInnerBiometricStatus(inner: Record<string, unknown>): string {
   return status ? status.toUpperCase() : "";
 }
 
+function isApprovalPendingStatus(status: string): boolean {
+  const normalized = status.trim().toLowerCase().replace(/[\s_-]+/g, " ");
+  return (
+    normalized.includes("approval pending") ||
+    normalized.includes("pending approval") ||
+    normalized === "submitted" ||
+    normalized === "under review"
+  );
+}
+
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -265,20 +275,28 @@ export function normalizeMerchantStatus(payload: unknown): MerchantStatusResult 
 
   const innerStatus = readInnerBiometricStatus(inner);
   const isVerified = isBiometricVerified(payload);
+  const isPendingApproval =
+    !isVerified &&
+    (isApprovalPendingStatus(innerStatus) ||
+      PENDING_STATUSES.has(innerStatus.toLowerCase()));
   const isPending =
     !isVerified &&
-    (PENDING_STATUSES.has(innerStatus.toLowerCase()) ||
+    (isPendingApproval ||
+      PENDING_STATUSES.has(innerStatus.toLowerCase()) ||
       pickString(inner, ["action"])?.toUpperCase() === "ACTION-REQUIRED" ||
       innerStatus === "PENDING");
 
   const biometricStatus: BiometricStatusValue = isVerified
     ? "VERIFIED"
-    : innerStatus || (isPending ? "PENDING" : "PENDING");
+    : isPendingApproval
+      ? "APPROVAL_PENDING"
+      : innerStatus || (isPending ? "PENDING" : "PENDING");
 
   return {
     biometricStatus,
     isVerified,
     isPending: !isVerified,
+    isPendingApproval,
     outletId: refs.outletId,
     referenceKey: refs.referenceKey,
     referenceKeyType: refs.referenceKeyType,
@@ -299,13 +317,21 @@ export function normalizeBiometricKycSubmit(payload: unknown): SubmitBiometricKy
     {};
 
   const apiSuccess = top.success === true;
-  const isVerified = isBiometricVerified(payload) || apiSuccess;
+  const isVerified = isBiometricVerified(payload);
+  const innerStatus = readInnerBiometricStatus(inner);
+  const isPendingApproval =
+    !isVerified &&
+    (apiSuccess || isApprovalPendingStatus(innerStatus));
   const biometricStatus: BiometricStatusValue = isVerified
     ? "VERIFIED"
-    : readInnerBiometricStatus(inner) || "PENDING";
+    : isPendingApproval
+      ? "APPROVAL_PENDING"
+      : innerStatus || "PENDING";
 
   return {
-    success: apiSuccess || isBiometricVerified(payload),
+    success: apiSuccess || isVerified,
+    isVerified,
+    isPendingApproval,
     message: String(top.message ?? "Biometric verification submitted."),
     biometricStatus,
     raw: { top, inner },

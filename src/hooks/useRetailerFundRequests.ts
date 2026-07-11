@@ -6,11 +6,11 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
-  cancelRetailerFundRequest,
-  createRetailerFundRequest,
+  cancelFundRequest,
+  createFundRequest,
   fetchCompanyBankAccounts,
-  fetchRetailerFundRequests,
-} from "@/src/services/retailerFundRequestService";
+  fetchFundRequests,
+} from "@/src/services/fundRequestService";
 import type {
   CreateFundRequestPayload,
   FundRequestListParams,
@@ -23,7 +23,7 @@ export const COMPANY_BANK_ACCOUNTS_KEY = ["retailer", "company-bank-accounts"] a
 export function useRetailerFundRequests(params: FundRequestListParams = {}) {
   return useQuery({
     queryKey: [...RETAILER_FUND_REQUESTS_KEY, params],
-    queryFn: () => fetchRetailerFundRequests(params),
+    queryFn: () => fetchFundRequests(params),
     staleTime: 30_000,
     placeholderData: (previous) => previous,
   });
@@ -41,8 +41,7 @@ export function useSubmitRetailerFundRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: CreateFundRequestPayload) =>
-      createRetailerFundRequest(payload),
+    mutationFn: (payload: CreateFundRequestPayload) => createFundRequest(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: RETAILER_FUND_REQUESTS_KEY });
     },
@@ -53,7 +52,7 @@ export function useCancelRetailerFundRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (requestId: string) => cancelRetailerFundRequest(requestId),
+    mutationFn: (requestId: string) => cancelFundRequest(requestId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: RETAILER_FUND_REQUESTS_KEY });
     },

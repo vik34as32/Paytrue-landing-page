@@ -7,6 +7,7 @@ import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
+import Alert from "@mui/material/Alert";
 import FingerprintIcon from "@mui/icons-material/Fingerprint";
 import { useDmtOrchestrator } from "../hooks";
 import DmtStepper from "../components/DmtStepper";
@@ -15,8 +16,9 @@ import DmtSnackbar from "../components/DmtSnackbar";
 import SearchSenderCard from "../components/SearchSenderCard";
 import SenderInfoCard from "../components/SenderInfoCard";
 import BeneficiaryList from "../components/BeneficiaryList";
-import TransferCard from "../components/TransferCard";
-import TransactionReceipt from "../components/TransactionReceipt";
+import TransferModal from "../components/dialogs/TransferModal";
+import CustomerReceiptModal from "@/src/components/receipt/CustomerReceiptModal";
+import { mapDmtTransactionToStatement } from "@/src/lib/serviceReceiptMappers";
 import OtpDialog from "../components/dialogs/OtpDialog";
 import RegisterSenderDialog from "../components/dialogs/RegisterSenderDialog";
 import AddBeneficiaryDialog from "../components/dialogs/AddBeneficiaryDialog";
@@ -59,7 +61,6 @@ export default function DmtPage() {
     resetAll,
     openAddBeneficiary,
     closeDialog,
-    setSelectedBeneficiary,
     setTransactionDraft,
   } = useDmtOrchestrator();
 
@@ -80,14 +81,48 @@ export default function DmtPage() {
 
   const showBioAuth = workflow.nextAction === "BIO_AUTH";
   const [bioModalOpen, setBioModalOpen] = useState(false);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+
+  const receiptTransaction = useMemo(
+    () => mapDmtTransactionToStatement(transaction.result, beneficiary.selected),
+    [transaction.result, beneficiary.selected]
+  );
 
   useEffect(() => {
-    // Auto-open the biometric modal whenever backend asks for BIO_AUTH.
+    if (!transaction.result) return;
+
+    const failed =
+      workflow.nextAction === "FAILED" ||
+      transaction.result.status === "failed" ||
+      transaction.result.status === "failure";
+
+    if (failed) {
+      setReceiptOpen(false);
+      return;
+    }
+
+    const succeeded =
+      workflow.nextAction === "SUCCESS" ||
+      transaction.result.status === "success" ||
+      transaction.result.status === "successful" ||
+      transaction.result.status === "completed" ||
+      !transaction.result.status;
+
+    if (succeeded) {
+      setReceiptOpen(true);
+    }
+  }, [workflow.nextAction, transaction.result]);
+
+  const transferModalOpen = Boolean(
+    beneficiary.selected?.isVerified &&
+      sender.mobile &&
+      workflow.activeDialog !== "transactionOtp"
+  );
+  const showFailed = workflow.nextAction === "FAILED";
+
+  useEffect(() => {
     if (showBioAuth) setBioModalOpen(true);
   }, [showBioAuth]);
-
-  const showTransfer = Boolean(beneficiary.selected?.isVerified && sender.mobile);
-  const showReceipt = workflow.nextAction === "SUCCESS" || workflow.nextAction === "FAILED";
 
   const loading = workflow.loadingCount > 0;
 
@@ -105,8 +140,16 @@ export default function DmtPage() {
         <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: "1px solid", borderColor: "divider" }}>
           <DmtStepper activeStep={workflow.activeStep} />
 
-          {!showReceipt ? (
-            <Box sx={{ display: "grid", gap: 3 }}>
+          {showFailed ? (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {transaction.result?.reason ||
+                transaction.result?.message ||
+                workflow.error ||
+                "Transfer failed. Please try again."}
+            </Alert>
+          ) : null}
+
+          <Box sx={{ display: "grid", gap: 3 }}>
                <SearchSenderCard
                 defaultMobile={sender.mobile}
                 loading={loading}
@@ -178,27 +221,7 @@ export default function DmtPage() {
                 </>
               ) : null}
 
-              {showTransfer ? (
-                <TransferCard
-                  beneficiary={beneficiary.selected}
-                  loading={loading}
-                  onCancel={cancelTransfer}
-                  onContinue={initiateTransfer}
-                />
-              ) : null}
-            </Box>
-          ) : (
-            <TransactionReceipt
-              transaction={transaction.result}
-              failed={workflow.nextAction === "FAILED"}
-              onDone={resetAll}
-              onRetry={() => {
-                if (beneficiary.selected) {
-                  setSelectedBeneficiary(beneficiary.selected);
-                }
-              }}
-            />
-          )}
+          </Box>
         </Paper>
       </Box>
 
@@ -270,6 +293,14 @@ export default function DmtPage() {
         onSubmit={verifyBeneficiaryDelete}
       />
 
+      <TransferModal
+        open={transferModalOpen}
+        beneficiary={beneficiary.selected}
+        loading={loading}
+        onClose={cancelTransfer}
+        onContinue={initiateTransfer}
+      />
+
       <OtpDialog
         open={workflow.activeDialog === "transactionOtp"}
         title="Confirm Transfer"
@@ -281,6 +312,16 @@ export default function DmtPage() {
 
       <LoadingOverlay open={loading} />
       <DmtSnackbar />
+
+      <CustomerReceiptModal
+        open={receiptOpen}
+        onClose={() => {
+          setReceiptOpen(false);
+          resetAll();
+        }}
+        transaction={receiptTransaction}
+        title="Money Transfer Successful"
+      />
     </ThemeProvider>
   );
 }

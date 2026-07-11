@@ -4,6 +4,7 @@ import { forwardRef, useMemo } from "react";
 import { Inter } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { buildReceiptViewModel } from "@/src/lib/statementReceiptUtils";
+import BankDetailsCard from "@/src/components/statement/receipt/BankDetailsCard";
 import ReceiptHeader from "@/src/components/statement/receipt/ReceiptHeader";
 import SuccessCard from "@/src/components/statement/receipt/SuccessCard";
 import CustomerCard from "@/src/components/statement/receipt/CustomerCard";
@@ -52,6 +53,9 @@ const TransactionReceipt = forwardRef<HTMLDivElement, TransactionReceiptProps>(
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-start">
             <div className="min-w-0 space-y-8">
               <CustomerCard receipt={receipt} />
+              {receipt.showBankDetailsCard ? (
+                <BankDetailsCard receipt={receipt} />
+              ) : null}
               <TransactionCard receipt={receipt} />
               <SummaryCard receipt={receipt} />
               <ImportantNotice />

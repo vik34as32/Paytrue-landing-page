@@ -35,7 +35,8 @@ import {
   setSenderReferenceKey as persistSenderReferenceKey,
 } from "@/src/lib/dmtSession";
 import { getCurrentLocation } from "@/src/lib/rdService";
-import { codeToNextAction } from "../services/normalizers";
+import { refreshRetailerWalletData } from "@/features/retailer/utils/walletValidation";
+import { codeToNextAction, ensureTransferSuccessResponse } from "../services/normalizers";
 import {
   useAddBeneficiaryMutation,
   useBioAuthMutation,
@@ -610,7 +611,14 @@ export function useDmtOrchestrator() {
 
         const transferResponse = await transferMutation(transferPayload).unwrap();
         transferContextRef.current = null;
-        const applied = applyResponse(transferResponse);
+        const enriched = ensureTransferSuccessResponse(transferResponse, {
+          amount,
+          transferMode,
+          remarks,
+          beneficiary: beneficiary.selected,
+        });
+        const applied = applyResponse(enriched);
+        refreshRetailerWalletData();
         dispatch(closeDialog());
         dispatch(
           showSnackbar({

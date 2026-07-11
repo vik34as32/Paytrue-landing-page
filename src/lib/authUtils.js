@@ -2,6 +2,7 @@ import {
   USER_TYPE_LABELS,
   ROLE_DASHBOARD_PATHS,
   ROLE_PORTAL_PATHS,
+  ROLE_PATH_PREFIXES,
 } from "@/src/constants/auth";
 
 export function normalizeUser(user) {
@@ -52,6 +53,49 @@ export function getRedirectPathForUserType(userType) {
 
 export function getPortalPathForUserType(userType) {
   return ROLE_PORTAL_PATHS[userType] || "/auth/login";
+}
+
+export function getAllowedPathPrefixesForUserType(userType) {
+  return ROLE_PATH_PREFIXES[userType] || [];
+}
+
+export function isPathAllowedForUserType(pathname, userType) {
+  if (!pathname || !userType) return false;
+  const prefixes = getAllowedPathPrefixesForUserType(userType);
+  return prefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
+
+/**
+ * Only honor ?redirect= when it matches the logged-in user's role.
+ * Prevents retailer → distributor login from opening retailer dashboard.
+ */
+export function resolvePostLoginRedirect(redirectPath, userType) {
+  const fallback = getRedirectPathForUserType(userType);
+  if (!redirectPath?.trim()) return fallback;
+
+  let pathname = redirectPath.trim();
+  try {
+    if (pathname.startsWith("http")) {
+      pathname = new URL(pathname).pathname;
+    }
+  } catch {
+    return fallback;
+  }
+
+  if (!pathname.startsWith("/")) {
+    pathname = `/${pathname}`;
+  }
+
+  if (pathname.startsWith("/auth/")) return fallback;
+
+  return isPathAllowedForUserType(pathname, userType) ? pathname : fallback;
+}
+
+export function getUnauthorizedRedirectForPath(pathname, userType) {
+  if (isPathAllowedForUserType(pathname, userType)) return null;
+  return getRedirectPathForUserType(userType);
 }
 
 export function extractAuthPayload(responseData) {

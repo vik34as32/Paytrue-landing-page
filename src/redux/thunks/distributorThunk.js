@@ -1,32 +1,13 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "@/src/lib/axios";
 import { API_ENDPOINTS } from "@/src/constants/api";
-
-function normalizeDistributor(user) {
-  const firstName = user.firstName || "";
-  const lastName = user.lastName || "";
-  return {
-    id: user.id || user._id,
-    distributorId: user.id || user.userId,
-    name: `${firstName} ${lastName}`.trim() || user.email,
-    firstName,
-    lastName,
-    email: user.email,
-    mobile: user.mobile,
-    city: user.outlet?.city || user.city || "",
-    state: user.outlet?.state || user.state || "",
-    profileImage: user.profileImage,
-    walletBalance: user.walletBalance || user.wallet?.balance || 0,
-    status: String(user.status || (user.isActive === false ? "inactive" : "active")).toLowerCase(),
-    createdAt: user.createdAt,
-    raw: user,
-  };
-}
+import { mapApiUserShape } from "@/src/lib/retailerListUtils";
+import { normalizeDistributor } from "@/src/lib/distributorListUtils";
 
 export const fetchDistributors = createAsyncThunk(
   "distributor/fetchAll",
   async (
-    { page = 1, limit = 10, search = "", sortBy = "createdAt", sortOrder = "desc" } = {},
+    { page = 1, limit = 100, search = "", sortBy = "createdAt", sortOrder = "desc" } = {},
     { rejectWithValue }
   ) => {
     try {
@@ -47,11 +28,12 @@ export const fetchDistributors = createAsyncThunk(
       const total =
         payload?.total ||
         payload?.totalCount ||
+        payload?.meta?.total ||
         payload?.pagination?.total ||
         rows.length;
 
       return {
-        list: rows.map(normalizeDistributor),
+        list: rows.map((row) => normalizeDistributor(mapApiUserShape(row))),
         total,
         page,
         limit,
@@ -62,13 +44,26 @@ export const fetchDistributors = createAsyncThunk(
   }
 );
 
+export const fetchDistributorById = createAsyncThunk(
+  "distributor/fetchById",
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await api.get(`${API_ENDPOINTS.users}/${id}`);
+      const data = response.data?.data || response.data;
+      return normalizeDistributor(mapApiUserShape(data));
+    } catch (error) {
+      return rejectWithValue(error.message || "Failed to fetch distributor");
+    }
+  }
+);
+
 export const createDistributor = createAsyncThunk(
   "distributor/create",
   async (formData, { rejectWithValue }) => {
     try {
       const response = await api.post(API_ENDPOINTS.users, formData);
       const data = response.data?.data || response.data;
-      return normalizeDistributor(data);
+      return normalizeDistributor(mapApiUserShape(data));
     } catch (error) {
       return rejectWithValue(error.message || "Failed to create distributor");
     }
@@ -81,7 +76,7 @@ export const updateDistributor = createAsyncThunk(
     try {
       const response = await api.put(`${API_ENDPOINTS.users}/${id}`, formData);
       const result = response.data?.data || response.data;
-      return normalizeDistributor(result);
+      return normalizeDistributor(mapApiUserShape(result));
     } catch (error) {
       return rejectWithValue(error.message || "Failed to update distributor");
     }
@@ -97,7 +92,7 @@ export const toggleDistributorStatus = createAsyncThunk(
         isActive: status === "active",
       });
       const result = response.data?.data || response.data;
-      return normalizeDistributor(result || { id, status });
+      return normalizeDistributor(mapApiUserShape(result || { id, status }));
     } catch (error) {
       return rejectWithValue(error.message || "Failed to update status");
     }

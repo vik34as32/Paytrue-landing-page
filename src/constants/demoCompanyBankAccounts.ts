@@ -58,8 +58,7 @@ export function resolveDisplayBankAccounts(
   loading: boolean
 ): CompanyBankAccount[] {
   if (loading) return [];
-  if (accounts.length > 0) return accounts;
-  return DEMO_COMPANY_BANK_ACCOUNTS;
+  return accounts;
 }
 
 export function isDemoBankAccountId(id: string): boolean {

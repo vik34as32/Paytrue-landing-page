@@ -124,6 +124,7 @@ export interface AepsTransactionResult {
   aadhaarNumber?: string;
   mobileNumber?: string;
   customerName?: string;
+  ifscCode?: string;
   rrn?: string;
   stan?: string;
   miniStatement?: AepsMiniStatementRow[];

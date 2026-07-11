@@ -1,12 +1,11 @@
 "use client";
 
 import { Suspense, useMemo, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { CheckCircle2, Loader2, Send } from "lucide-react";
+import { Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,22 +24,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import DmtPageHeader from "@/src/components/dmt/DmtPageHeader";
 import DmtErrorState from "@/src/components/dmt/DmtErrorState";
 import OtpInput from "@/src/components/dmt/OtpInput";
+import CustomerReceiptModal from "@/src/components/receipt/CustomerReceiptModal";
+import { mapDmtTransactionToStatement } from "@/src/lib/serviceReceiptMappers";
 import { useBeneficiaries, useGenerateTransactionOtp, useSenderByMobile, useTransferImps, useTransferNeft, useVerifyTransactionOtp } from "@/src/hooks/useDmt";
 import { getCurrentLocation } from "@/src/lib/rdService";
 import { resolveSenderMobile, setActiveSenderMobile, setTransactionReferenceKey } from "@/src/lib/dmtSession";
 import { refreshRetailerWalletData } from "@/features/retailer/utils/walletValidation";
 import { validateRetailerWalletBalance } from "@/features/retailer/utils/walletValidation";
 import type { DmtApiError, DmtTransaction } from "@/src/types/dmt";
-import { formatCurrency } from "@/lib/utils";
 
 const schema = z.object({
   beneficiaryId: z.string().min(1, "Select beneficiary"),
@@ -83,6 +77,11 @@ function TransferPageContent() {
   const selectedBeneficiary = useMemo(
     () => beneficiaries.find((b) => b.id === form.watch("beneficiaryId")),
     [beneficiaries, form]
+  );
+
+  const receiptTransaction = useMemo(
+    () => mapDmtTransactionToStatement(successTxn, selectedBeneficiary ?? null),
+    [successTxn, selectedBeneficiary]
   );
 
   const isBusy =
@@ -321,38 +320,12 @@ function TransferPageContent() {
         <DmtErrorState code={error.code} message={error.message} onRetry={() => setError(null)} />
       )}
 
-      <Dialog open={Boolean(successTxn)} onOpenChange={() => setSuccessTxn(null)}>
-        <DialogContent className="text-center">
-          <DialogHeader>
-            <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-              <CheckCircle2 className="h-8 w-8 text-emerald-600" />
-            </div>
-            <DialogTitle>Transfer Successful</DialogTitle>
-          </DialogHeader>
-          {successTxn && (
-            <div className="space-y-2 text-sm">
-              <p>
-                Amount:{" "}
-                <span className="font-bold text-emerald-600">
-                  {formatCurrency(successTxn.amount)}
-                </span>
-              </p>
-              <p className="font-mono text-xs">
-                {successTxn.referenceNumber || successTxn.transactionId}
-              </p>
-              <Button asChild className="mt-3 w-full">
-                <Link
-                  href={`/rt/retailer/dmt/transactions/${encodeURIComponent(
-                    successTxn.referenceNumber || successTxn.id
-                  )}`}
-                >
-                  View Receipt
-                </Link>
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <CustomerReceiptModal
+        open={Boolean(successTxn)}
+        onClose={() => setSuccessTxn(null)}
+        transaction={receiptTransaction}
+        title="Money Transfer Successful"
+      />
     </div>
   );
 }

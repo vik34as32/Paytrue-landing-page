@@ -25,6 +25,38 @@ import type {
   AepsTransactionStatusPayload,
 } from "@/src/types/aeps";
 
+export interface AepsLedgerFilters {
+  page?: number;
+  limit?: number;
+}
+
+export interface AepsLedgerRecord {
+  id: string;
+  referenceId: string;
+  transactionType: string;
+  customerMobile?: string | null;
+  amount?: number | null;
+  balance?: number | null;
+  bankName?: string | null;
+  status: string;
+  message?: string | null;
+  rrn?: string | null;
+  bankRRN?: string | null;
+  txnId?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface AepsLedgerResult {
+  records: AepsLedgerRecord[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 async function request<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
@@ -152,5 +184,59 @@ export async function aepsTransactionStatus(
     const { data } = await api.post(AEPS_ENDPOINTS.transactionStatus, payload);
     const raw = unwrapAepsData<Record<string, unknown>>(data) ?? (data as Record<string, unknown>);
     return normalizeAepsTransactionResult(raw);
+  });
+}
+
+function normalizeAepsLedgerRecord(raw: Record<string, unknown>): AepsLedgerRecord {
+  return {
+    id: String(raw.id ?? raw.referenceId ?? ""),
+    referenceId: String(raw.referenceId ?? raw.id ?? ""),
+    transactionType: String(raw.transactionType ?? "AEPS"),
+    customerMobile: raw.customerMobile != null ? String(raw.customerMobile) : null,
+    amount:
+      raw.amount == null || raw.amount === ""
+        ? null
+        : Number(raw.amount),
+    balance:
+      raw.balance == null || raw.balance === ""
+        ? null
+        : Number(raw.balance),
+    bankName: raw.bankName != null ? String(raw.bankName) : null,
+    status: String(raw.status ?? "FAILED"),
+    message: raw.message != null ? String(raw.message) : null,
+    rrn: raw.rrn != null ? String(raw.rrn) : null,
+    bankRRN: raw.bankRRN != null ? String(raw.bankRRN) : null,
+    txnId: raw.txnId != null ? String(raw.txnId) : null,
+    createdAt: String(raw.createdAt ?? new Date().toISOString()),
+    updatedAt: raw.updatedAt ? String(raw.updatedAt) : undefined,
+  };
+}
+
+export async function fetchAepsLedger(
+  filters: AepsLedgerFilters = {}
+): Promise<AepsLedgerResult> {
+  return request(async () => {
+    const params: Record<string, number> = {
+      page: filters.page ?? 1,
+      limit: filters.limit ?? 100,
+    };
+
+    const { data } = await api.get(AEPS_ENDPOINTS.ledger, { params });
+    const payload = unwrapAepsData<Record<string, unknown>>(data) ?? {};
+    const rows = Array.isArray(payload)
+      ? payload
+      : ((payload.records as unknown[]) ?? []);
+    const meta = (payload.meta as Record<string, unknown>) ?? payload;
+
+    const total = Number(meta.total ?? rows.length) || rows.length;
+    const page = Number(meta.page ?? params.page) || params.page;
+    const limit = Number(meta.limit ?? params.limit) || params.limit;
+    const totalPages =
+      Number(meta.totalPages ?? (Math.ceil(total / limit) || 1)) || 1;
+
+    return {
+      records: (rows as Record<string, unknown>[]).map(normalizeAepsLedgerRecord),
+      pagination: { page, limit, total, totalPages },
+    };
   });
 }

@@ -1,5 +1,13 @@
 export type TransactionType = "debit" | "credit";
 export type TransactionStatus = "success" | "pending" | "failed";
+export type StatementSource = "dmt" | "upi-atm" | "aeps";
+
+export type AepsTransactionTypeCode =
+  | "BALANCE_ENQUIRY"
+  | "CASH_WITHDRAWAL"
+  | "MINI_STATEMENT"
+  | "CASH_DEPOSIT"
+  | "AADHAAR_PAY";
 
 export interface StatementTransaction {
   id: string;
@@ -16,6 +24,19 @@ export interface StatementTransaction {
   receiverName: string;
   mobile: string;
   remark: string;
+  source?: StatementSource;
+  bankReference?: string;
+  transferMode?: string;
+  charges?: number;
+  bankName?: string;
+  accountNumber?: string;
+  accountHolderName?: string;
+  ifscCode?: string;
+  bankBranch?: string;
+  bankAddress?: string;
+  bankCity?: string;
+  bankState?: string;
+  aepsTransactionType?: AepsTransactionTypeCode | string;
 }
 
 export interface ReceiptCustomerInfo {
@@ -53,6 +74,18 @@ export interface ReceiptViewModel {
   remark: string;
   customer: ReceiptCustomerInfo;
   qrPayload: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountHolderName?: string;
+  ifscCode?: string;
+  bankBranch?: string;
+  bankAddress?: string;
+  bankCity?: string;
+  bankState?: string;
+  txnMobile?: string;
+  aepsTransactionLabel?: string;
+  showWalletBalance?: boolean;
+  showBankDetailsCard?: boolean;
 }
 
 export const PAYTRUE_LOGO_PATH = "/images/paytrue-logo.png";

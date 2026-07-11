@@ -1,5 +1,5 @@
-import FundRequestsPage from "@/src/components/fundRequests/FundRequestsPage";
+import PortalFundRequestsPage from "@/src/components/fundRequests/PortalFundRequestsPage";
 
 export default function MdFundRequestsPage() {
-  return <FundRequestsPage role="md" />;
+  return <PortalFundRequestsPage role="md" />;
 }

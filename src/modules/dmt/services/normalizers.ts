@@ -112,6 +112,59 @@ export function normalizeSender(raw: Record<string, unknown> = {}): DmtSender {
   };
 }
 
+type BeneficiaryAccountKeyFields = Pick<
+  DmtBeneficiary,
+  "id" | "accountNumber" | "ifscCode" | "isVerified" | "status" | "externalRef"
+>;
+
+function isBeneficiaryVerified(beneficiary: BeneficiaryAccountKeyFields): boolean {
+  if (beneficiary.isVerified) return true;
+  const status = String(beneficiary.status ?? "")
+    .trim()
+    .toLowerCase();
+  return (
+    status === "verified" ||
+    status === "active" ||
+    (status.includes("verify") && !status.includes("unverify"))
+  );
+}
+
+function beneficiaryAccountKey(beneficiary: BeneficiaryAccountKeyFields): string {
+  const account = String(beneficiary.accountNumber ?? "")
+    .replace(/\s/g, "")
+    .trim();
+  const ifsc = String(beneficiary.ifscCode ?? "")
+    .trim()
+    .toUpperCase();
+  return account && ifsc ? `${account}|${ifsc}` : `id:${beneficiary.id}`;
+}
+
+/** Hide local UNVERIFIED rows when the same account already exists as VERIFIED. */
+export function dedupeBeneficiariesByAccount<T extends BeneficiaryAccountKeyFields>(
+  beneficiaries: T[]
+): T[] {
+  const groups = new Map<string, T[]>();
+
+  for (const beneficiary of beneficiaries) {
+    const key = beneficiaryAccountKey(beneficiary);
+    const group = groups.get(key) ?? [];
+    group.push(beneficiary);
+    groups.set(key, group);
+  }
+
+  const result: T[] = [];
+  for (const group of groups.values()) {
+    const verified = group.filter(isBeneficiaryVerified);
+    if (verified.length) {
+      result.push(verified.find((item) => item.externalRef) ?? verified[0]);
+      continue;
+    }
+    result.push(group[0]);
+  }
+
+  return result;
+}
+
 export function normalizeBeneficiary(raw: Record<string, unknown> = {}): DmtBeneficiary {
   const metadata = asRecord(raw.metadata);
   const instantPay = asRecord(metadata.instantPay);
@@ -180,7 +233,8 @@ export function extractDmtBeneficiaryRows(payload: unknown): Record<string, unkn
 }
 
 export function normalizeBeneficiaryList(payload: unknown): DmtBeneficiary[] {
-  return extractDmtBeneficiaryRows(payload).map(normalizeBeneficiary);
+  const beneficiaries = extractDmtBeneficiaryRows(payload).map(normalizeBeneficiary);
+  return dedupeBeneficiariesByAccount(beneficiaries);
 }
 
 export function normalizeTransaction(raw: Record<string, unknown> = {}): DmtTransaction {
@@ -202,6 +256,93 @@ export function normalizeTransaction(raw: Record<string, unknown> = {}): DmtTran
   };
 }
 
+function isFailedTransactionStatus(status?: string): boolean {
+  const normalized = String(status ?? "")
+    .trim()
+    .toLowerCase();
+  return ["failed", "failure", "error", "rejected", "cancelled"].includes(normalized);
+}
+
+function inferNextActionFromTransfer(
+  data: Record<string, unknown>,
+  root: Record<string, unknown>,
+  explicit: DmtNextAction | null,
+  transaction?: DmtTransaction
+): DmtNextAction | null {
+  if (explicit) return explicit;
+
+  const fromCode = codeToNextAction(root.code ?? data.code);
+  if (fromCode) return fromCode;
+
+  const status = String(transaction?.status ?? data.status ?? "").toLowerCase();
+  if (isFailedTransactionStatus(status)) return "FAILED";
+
+  const success = Boolean(root.success ?? data.success ?? true);
+  const hasTxnRef = Boolean(
+    transaction?.referenceNumber ||
+      transaction?.transactionId ||
+      transaction?.utr ||
+      transaction?.rrn ||
+      data.utr ||
+      data.UTR ||
+      data.referenceNumber ||
+      data.reference
+  );
+
+  if (success && hasTxnRef) return "SUCCESS";
+
+  return null;
+}
+
+export function ensureTransferSuccessResponse(
+  response: DmtWorkflowResponse,
+  context: {
+    amount: number;
+    transferMode: DmtTransaction["transferMode"];
+    remarks?: string;
+    beneficiary?: DmtBeneficiary | null;
+  }
+): DmtWorkflowResponse {
+  if (response.nextAction === "FAILED" || response.success === false) {
+    return {
+      ...response,
+      nextAction: "FAILED",
+      success: false,
+    };
+  }
+
+  const apiTxn = response.transaction;
+  const beneficiary = context.beneficiary;
+
+  const transaction: DmtTransaction = {
+    id: apiTxn?.id ?? apiTxn?.transactionId,
+    transactionId:
+      apiTxn?.transactionId ?? apiTxn?.id ?? apiTxn?.referenceNumber ?? response.referenceKey,
+    referenceNumber:
+      apiTxn?.referenceNumber ??
+      apiTxn?.reference ??
+      response.referenceKey,
+    reference: apiTxn?.reference ?? apiTxn?.referenceNumber ?? response.referenceKey,
+    utr: apiTxn?.utr ?? apiTxn?.rrn,
+    rrn: apiTxn?.rrn ?? apiTxn?.utr,
+    amount: apiTxn?.amount && apiTxn.amount > 0 ? apiTxn.amount : context.amount,
+    beneficiaryName: apiTxn?.beneficiaryName ?? beneficiary?.name,
+    bankName: apiTxn?.bankName ?? beneficiary?.bankName,
+    accountNumber: apiTxn?.accountNumber ?? beneficiary?.accountNumber,
+    transferMode: apiTxn?.transferMode ?? context.transferMode,
+    status: apiTxn?.status ?? "success",
+    message: apiTxn?.message ?? response.message ?? context.remarks,
+    reason: apiTxn?.reason,
+  };
+
+  return {
+    ...response,
+    success: true,
+    nextAction: "SUCCESS",
+    transaction,
+  };
+}
+
 export function normalizeWorkflowResponse(payload: unknown): DmtWorkflowResponse {
   const root = asRecord(payload);
   const data = unwrapPayload(payload);
@@ -218,10 +359,9 @@ export function normalizeWorkflowResponse(payload: unknown): DmtWorkflowResponse
 
   const nestedData = asRecord(data.data);
 
-  const nextAction =
-    normalizeNextAction(
-      data.nextAction ?? data.next_action ?? root.nextAction ?? root.next_action
-    ) ?? codeToNextAction(root.code ?? data.code);
+  const explicitNextAction = normalizeNextAction(
+    data.nextAction ?? data.next_action ?? root.nextAction ?? root.next_action
+  );
 
   const referenceKey = extractReferenceKey(
     data,
@@ -236,6 +376,17 @@ export function normalizeWorkflowResponse(payload: unknown): DmtWorkflowResponse
     data.beneficiaries ? { beneficiaries: data.beneficiaries } : payload
   );
 
+  const transaction = Object.keys(transactionRaw).length
+    ? normalizeTransaction(transactionRaw)
+    : undefined;
+
+  const nextAction = inferNextActionFromTransfer(
+    data,
+    root,
+    explicitNextAction,
+    transaction
+  );
+
   return {
     success: Boolean(root.success ?? data.success ?? true),
     nextAction,
@@ -247,9 +398,7 @@ export function normalizeWorkflowResponse(payload: unknown): DmtWorkflowResponse
       ? normalizeBeneficiary(beneficiaryRaw)
       : undefined,
     beneficiaries: beneficiaries.length ? beneficiaries : undefined,
-    transaction: Object.keys(transactionRaw).length
-      ? normalizeTransaction(transactionRaw)
-      : undefined,
+    transaction,
   };
 }
 

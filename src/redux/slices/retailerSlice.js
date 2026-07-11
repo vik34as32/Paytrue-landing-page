@@ -1,15 +1,16 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { retailers as mockRetailers } from "@/src/mock/retailerData";
 import {
   fetchRetailers,
+  fetchRetailerById,
   createRetailer,
   updateRetailer,
   toggleRetailerStatus,
 } from "@/src/redux/thunks/retailerThunk";
 
 const initialState = {
-  list: mockRetailers,
+  list: [],
   selected: null,
+  detailLoading: false,
   loading: false,
   error: null,
   actionLoading: false,
@@ -79,6 +80,20 @@ const retailerSlice = createSlice({
       .addCase(toggleRetailerStatus.rejected, (state, action) => {
         state.actionLoading = false;
         state.error = action.payload;
+      })
+      .addCase(fetchRetailerById.pending, (state) => {
+        state.detailLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchRetailerById.fulfilled, (state, action) => {
+        state.detailLoading = false;
+        state.selected = action.payload;
+        const index = state.list.findIndex((r) => r.id === action.payload.id);
+        if (index !== -1) state.list[index] = action.payload;
+      })
+      .addCase(fetchRetailerById.rejected, (state, action) => {
+        state.detailLoading = false;
+        state.error = action.payload;
       });
   },
 });
@@ -93,3 +108,4 @@ export const selectRetailerLoading = (state) => state.retailer.loading;
 export const selectRetailerActionLoading = (state) =>
   state.retailer.actionLoading;
 export const selectSelectedRetailer = (state) => state.retailer.selected;
+export const selectRetailerDetailLoading = (state) => state.retailer.detailLoading;

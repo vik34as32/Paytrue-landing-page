@@ -36,3 +36,14 @@ export declare const transferWalletBalance: AsyncThunk<
   },
   { rejectValue: string }
 >;
+
+export declare const deductWalletBalance: AsyncThunk<
+  unknown,
+  {
+    userId: string;
+    amount: number;
+    description?: string;
+    role: string;
+  },
+  { rejectValue: string }
+>;

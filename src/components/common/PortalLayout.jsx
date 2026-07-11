@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import PortalSidebar from "@/src/components/common/PortalSidebar";
 import PortalHeader from "@/src/components/common/PortalHeader";
 import PortalWalletStrip from "@/src/components/common/PortalWalletStrip";
@@ -17,16 +18,18 @@ import {
   selectProfileLoading,
   selectProfileError,
 } from "@/src/redux/slices/profileSlice";
-import { logoutUser } from "@/src/redux/thunks/authThunk";
 import { fetchProfile } from "@/src/redux/thunks/profileThunk";
 import { fetchWalletBalance } from "@/src/redux/thunks/walletThunk";
-import { toast } from "sonner";
+import useLogout from "@/src/hooks/useLogout";
 
 export default function PortalLayout({ children, role }) {
   const dispatch = useDispatch();
-  const router = useRouter();
+  const logout = useLogout();
+  const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const config = PORTAL_CONFIG[role];
+  const hideWalletStrip =
+    role === "md" || (role === "dd" && pathname === "/dd/dashboard");
 
   const hydrated = useSelector(selectAuthHydrated);
   const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -74,11 +77,7 @@ export default function PortalLayout({ children, role }) {
     );
   }, [profileLoading, profileError]);
 
-  const handleLogout = async () => {
-    await dispatch(logoutUser());
-    toast.success("Logged out successfully");
-    router.replace("/auth/login");
-  };
+  const handleLogout = () => void logout();
 
   return (
     <div className="rt-portal-bg min-h-screen">
@@ -111,16 +110,18 @@ export default function PortalLayout({ children, role }) {
         />
 
         <div className="flex-1 overflow-y-auto w-full max-w-none">
-          <PortalWalletStrip
-            balance={balance}
-            fundRequestPath={`${config.basePath}/fund-requests`}
-            userName={user?.name}
-            userId={user?.userId}
-            roleLabel={user?.roleLabel}
-            loading={walletLoading}
-            loaded={walletLoaded}
-            error={wallet.error}
-          />
+          {!hideWalletStrip ? (
+            <PortalWalletStrip
+              balance={balance}
+              fundRequestPath={`${config.basePath}/fund-requests`}
+              userName={user?.name}
+              userId={user?.userId}
+              roleLabel={user?.roleLabel}
+              loading={walletLoading}
+              loaded={walletLoaded}
+              error={wallet.error}
+            />
+          ) : null}
           <main className="w-full max-w-none px-4 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6">
             {children}
           </main>

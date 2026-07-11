@@ -202,7 +202,7 @@ export default function DashboardPage({ role }) {
         </div>
       </div>
 
-      {isMd ? (
+      {/* {isMd ? (
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader>
@@ -270,48 +270,7 @@ export default function DashboardPage({ role }) {
             </CardContent>
           </Card>
         </div>
-      ) : (
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Recent Transactions</CardTitle>
-            <CardDescription>Latest activity on your account</CardDescription>
-          </div>
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`${basePath}/transactions`}>View All</Link>
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {recentTransactions.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-500">
-              No recent transactions
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {recentTransactions.map((txn) => (
-                <div
-                  key={txn.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-[#0b1f3a]">
-                      {txn.transactionType}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {txn.retailerName} ·{" "}
-                      {new Date(txn.dateTime).toLocaleString("en-IN")}
-                    </p>
-                  </div>
-                  <p className="text-sm font-bold text-[#1565d8]">
-                    ₹{txn.amount.toLocaleString("en-IN")}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      )}
+      ) : null} */}
     </div>
   );
 }

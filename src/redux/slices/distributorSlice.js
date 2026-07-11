@@ -1,17 +1,12 @@
 import { createSlice } from "@reduxjs/toolkit";
 
 import {
-
   fetchDistributors,
-
+  fetchDistributorById,
   createDistributor,
-
   updateDistributor,
-
   toggleDistributorStatus,
-
   deleteDistributor,
-
 } from "@/src/redux/thunks/distributorThunk";
 
 
@@ -33,7 +28,7 @@ const initialState = {
   sortOrder: "desc",
 
   selected: null,
-
+  detailLoading: false,
   loading: false,
 
   error: null,
@@ -210,10 +205,22 @@ const distributorSlice = createSlice({
 
         state.error = action.payload;
 
+      })
+      .addCase(fetchDistributorById.pending, (state) => {
+        state.detailLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchDistributorById.fulfilled, (state, action) => {
+        state.detailLoading = false;
+        state.selected = action.payload;
+        const index = state.list.findIndex((d) => d.id === action.payload.id);
+        if (index !== -1) state.list[index] = action.payload;
+      })
+      .addCase(fetchDistributorById.rejected, (state, action) => {
+        state.detailLoading = false;
+        state.error = action.payload;
       });
-
   },
-
 });
 
 
@@ -265,6 +272,8 @@ export const selectDistributorActionLoading = (state) =>
   state.distributor.actionLoading;
 
 export const selectSelectedDistributor = (state) => state.distributor.selected;
+
+export const selectDistributorDetailLoading = (state) => state.distributor.detailLoading;
 
 export const selectDistributorError = (state) => state.distributor.error;
 

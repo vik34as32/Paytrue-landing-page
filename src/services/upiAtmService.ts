@@ -74,6 +74,52 @@ export async function fetchUpiAtmStatus(
   };
 }
 
+export interface UpiAtmHistoryFilters {
+  page?: number;
+  limit?: number;
+}
+
+export interface UpiAtmHistoryResult {
+  items: UpiAtmTransaction[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export async function fetchUpiAtmHistory(
+  filters: UpiAtmHistoryFilters = {}
+): Promise<UpiAtmHistoryResult> {
+  const params: Record<string, number> = {
+    page: filters.page ?? 1,
+    limit: filters.limit ?? 100,
+  };
+
+  const response = await api.get(UPI_ATM_ENDPOINTS.history, { params });
+  const root = asRecord(response.data);
+  const rows = Array.isArray(root.data)
+    ? root.data
+    : Array.isArray(asRecord(root.data).items)
+      ? (asRecord(root.data).items as unknown[])
+      : [];
+
+  const paginationRaw =
+    asRecord(root.pagination) || asRecord(asRecord(root.data).pagination);
+
+  const total = Number(paginationRaw.total ?? rows.length) || rows.length;
+  const page = Number(paginationRaw.page ?? params.page) || params.page;
+  const limit = Number(paginationRaw.limit ?? params.limit) || params.limit;
+  const totalPages =
+    Number(paginationRaw.totalPages ?? (Math.ceil(total / limit) || 1)) || 1;
+
+  return {
+    items: rows.map((row) => normalizeUpiAtmTransaction(row)),
+    pagination: { page, limit, total, totalPages },
+  };
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)

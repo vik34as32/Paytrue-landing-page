@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAppDispatch } from "@/src/redux/types";
-import { useRouter } from "next/navigation";
 import { Eye, EyeOff, KeyRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -12,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import PasswordStrengthMeter from "@/src/components/common/PasswordStrengthMeter";
 import { changePassword } from "@/src/services/authService";
-import { logoutUser } from "@/src/redux/thunks/authThunk";
+import { performLogoutRedirect } from "@/src/lib/sessionCleanup";
 import {
   changePasswordFormSchema,
   type ChangePasswordFormValues,
@@ -70,8 +68,6 @@ export default function ChangePassword({
   onSuccess,
   logoutAfterSuccess = true,
 }: ChangePasswordProps) {
-  const dispatch = useAppDispatch();
-  const router = useRouter();
   const [showOld, setShowOld] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -105,8 +101,7 @@ export default function ChangePassword({
       onSuccess?.();
 
       if (logoutAfterSuccess) {
-        await (dispatch as (action: unknown) => Promise<unknown>)(logoutUser());
-        router.push("/auth/login");
+        performLogoutRedirect("/auth/login");
       }
     } catch (error: unknown) {
       const message =

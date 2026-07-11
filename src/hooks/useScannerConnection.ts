@@ -83,7 +83,7 @@ export function useScannerConnection(
       const readyMsg =
         device === "MANTRA"
           ? `Mantra connected (${model}). Click "Start Finger Scan" — scanner light will glow.`
-          : `Morpho connected (${model}). Ready for fingerprint capture.`;
+          : `Morpho connected (${model}). Click "Start Finger Scan" — place finger on scanner.`;
 
       setMessage(readyMsg);
       bioLog(device, "Scanner connected", { model, serial, baseUrl: rdStatus.baseUrl });

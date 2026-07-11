@@ -23,11 +23,15 @@ export default function SummaryCard({ receipt }: SummaryCardProps) {
       value: formatCurrency(receipt.netAmount),
       bold: true,
     },
-    {
-      label: "Wallet Balance",
-      value: formatCurrency(receipt.closingBalance),
-      accent: true,
-    },
+    ...(receipt.showWalletBalance
+      ? [
+          {
+            label: "Wallet Balance",
+            value: formatCurrency(receipt.closingBalance),
+            accent: true,
+          },
+        ]
+      : []),
   ];
 
   return (

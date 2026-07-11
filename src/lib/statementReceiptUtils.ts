@@ -1,5 +1,7 @@
 import { formatStatementTransactionId } from "@/src/lib/statementExcelExport";
 import { formatCurrency } from "@/lib/utils";
+import { resolveBankLogoFromIfsc } from "@/src/lib/bankLogos";
+import { enrichStatementWithIfsc } from "@/src/services/ifscService";
 import type {
   ReceiptCustomerInfo,
   ReceiptViewModel,
@@ -70,7 +72,7 @@ export function buildReceiptViewModel(
   const transactionId = formatTransactionId(txn.id);
   const { date, time } = splitReceiptDateTime(txn.createdAt);
   const commission = deriveCommission(txn);
-  const charge = 0;
+  const charge = txn.charges ?? 0;
   const gst = 0;
 
   return {
@@ -97,17 +99,37 @@ export function buildReceiptViewModel(
     openingBalance: txn.openingBalance,
     closingBalance: txn.balanceAfter,
     referenceNumber: txn.referenceNumber,
-    bankReference: `BNK-${txn.referenceNumber}`,
-    paymentMode: "PayTrue Wallet",
+    bankReference: txn.bankReference || "",
+    paymentMode: txn.transferMode || txn.service,
     transactionType: txn.type,
     remark: txn.remark,
     customer,
     qrPayload: JSON.stringify({
       transactionId,
+      reference: txn.referenceNumber,
       amount: txn.amount,
       status: txn.status.toUpperCase(),
       date,
     }),
+    bankName: txn.bankName || undefined,
+    accountNumber: txn.accountNumber,
+    accountHolderName: txn.accountHolderName || txn.receiverName || undefined,
+    ifscCode: txn.ifscCode || undefined,
+    bankBranch: txn.bankBranch || undefined,
+    bankAddress: txn.bankAddress || undefined,
+    bankCity: txn.bankCity || undefined,
+    bankState: txn.bankState || undefined,
+    txnMobile: txn.mobile,
+    aepsTransactionLabel: txn.aepsTransactionType
+      ? txn.aepsTransactionType
+          .replace(/_/g, " ")
+          .toLowerCase()
+          .replace(/\b\w/g, (char) => char.toUpperCase())
+      : undefined,
+    showWalletBalance: txn.source === "dmt" && txn.openingBalance > 0,
+    showBankDetailsCard: Boolean(
+      txn.bankName || txn.accountNumber || txn.ifscCode || txn.accountHolderName
+    ),
   };
 }
 
@@ -153,7 +175,8 @@ export async function downloadStatementReceiptPdf(
   ]);
 
   const autoTable = autoTableModule.default;
-  const receipt = buildReceiptViewModel(txn, customer);
+  const enrichedTxn = await enrichStatementWithIfsc(txn);
+  const receipt = buildReceiptViewModel(enrichedTxn, customer);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 14;
@@ -214,6 +237,70 @@ export async function downloadStatementReceiptPdf(
 
   y += 36;
 
+  if (receipt.showBankDetailsCard) {
+    const bankLogoPath = resolveBankLogoFromIfsc(
+      receipt.bankName || "",
+      receipt.ifscCode
+    );
+    const bankLogoDataUrl = bankLogoPath
+      ? await loadImageAsDataUrl(bankLogoPath)
+      : null;
+
+    doc.setFillColor(0, 31, 91);
+    doc.roundedRect(margin, y, pageWidth - margin * 2, 16, 2, 2, "F");
+    if (bankLogoDataUrl) {
+      doc.addImage(bankLogoDataUrl, "SVG", margin + 3, y + 2, 12, 12);
+    }
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(receipt.bankName || "Bank", margin + (bankLogoDataUrl ? 18 : 4), y + 10);
+
+    y += 18;
+
+    if (receipt.accountHolderName) {
+      doc.setFillColor(230, 126, 34);
+      doc.rect(margin, y, pageWidth - margin * 2, 8, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8.5);
+      doc.text(receipt.accountHolderName, pageWidth / 2, y + 5.5, {
+        align: "center",
+      });
+      y += 10;
+    }
+
+    autoTable(doc, {
+      startY: y,
+      theme: "plain",
+      styles: { fontSize: 8.5, cellPadding: 2.5, textColor: [17, 24, 39] },
+      headStyles: {
+        fillColor: [248, 250, 252],
+        textColor: [0, 31, 91],
+        fontStyle: "bold",
+      },
+      head: [["Beneficiary Bank Details", ""]],
+      body: [
+        ...(receipt.accountNumber
+          ? [["Account Number", receipt.accountNumber] as [string, string]]
+          : []),
+        ...(receipt.ifscCode
+          ? [["IFSC Code", receipt.ifscCode] as [string, string]]
+          : []),
+        ...(receipt.bankBranch
+          ? [["Branch", receipt.bankBranch] as [string, string]]
+          : []),
+        ...(receipt.bankAddress
+          ? [["Bank Address", receipt.bankAddress] as [string, string]]
+          : []),
+      ],
+      margin: { left: margin, right: margin },
+    });
+
+    y =
+      ((doc as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ??
+        y) + 6;
+  }
+
   autoTable(doc, {
     startY: y,
     theme: "plain",
@@ -251,17 +338,42 @@ export async function downloadStatementReceiptPdf(
     body: [
       ["Transaction ID", receipt.transactionId],
       ["Reference Number", receipt.referenceNumber],
+      ...(receipt.bankReference
+        ? [["Bank Reference / RRN", receipt.bankReference] as [string, string]]
+        : []),
+      ...(receipt.aepsTransactionLabel
+        ? [["Transaction Type", receipt.aepsTransactionLabel] as [string, string]]
+        : []),
       ["Operator", receipt.operator],
       ["Service", receipt.service],
+      ...(receipt.showBankDetailsCard
+        ? []
+        : receipt.bankName
+          ? [["Bank Name", receipt.bankName] as [string, string]]
+          : []),
+      ...(receipt.showBankDetailsCard
+        ? []
+        : receipt.accountNumber
+          ? [["Bank Account Number", receipt.accountNumber] as [string, string]]
+          : []),
+      ...(receipt.txnMobile
+        ? [["Mobile Number", receipt.txnMobile] as [string, string]]
+        : []),
       ["Payment Mode", receipt.paymentMode],
       ["Status", receipt.status.toUpperCase()],
       ["Date", receipt.date],
       ["Time", receipt.time],
-      ["Opening Balance", formatCurrency(receipt.openingBalance)],
-      ["Closing Balance", formatCurrency(receipt.closingBalance)],
-      ["Commission", formatCurrency(receipt.commission)],
-      ["Charges", formatCurrency(receipt.charge)],
-      ["GST", formatCurrency(receipt.gst)],
+      ...(receipt.showWalletBalance
+        ? [
+            ["Opening Balance", formatCurrency(receipt.openingBalance)] as [
+              string,
+              string,
+            ],
+            ["Commission", formatCurrency(receipt.commission)] as [string, string],
+            ["Charges", formatCurrency(receipt.charge)] as [string, string],
+            ["GST", formatCurrency(receipt.gst)] as [string, string],
+          ]
+        : []),
     ],
     margin: { left: margin, right: margin },
   });
@@ -282,7 +394,14 @@ export async function downloadStatementReceiptPdf(
       ["Commission", formatCurrency(receipt.commission)],
       ["GST", formatCurrency(receipt.gst)],
       ["Net Amount", formatCurrency(receipt.netAmount)],
-      ["Wallet Balance", formatCurrency(receipt.closingBalance)],
+      ...(receipt.showWalletBalance
+        ? [
+            ["Wallet Balance", formatCurrency(receipt.closingBalance)] as [
+              string,
+              string,
+            ],
+          ]
+        : []),
     ],
     margin: { left: margin, right: margin },
   });

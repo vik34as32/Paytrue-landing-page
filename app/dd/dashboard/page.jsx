@@ -1,5 +1,5 @@
-import DashboardPage from "@/src/components/dashboard/DashboardPage";
+import DistributorDashboardPage from "@/src/components/dashboard/DistributorDashboardPage";
 
 export default function DdDashboardPage() {
-  return <DashboardPage role="dd" />;
+  return <DistributorDashboardPage />;
 }

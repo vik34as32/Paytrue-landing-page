@@ -26,6 +26,13 @@ export interface WalletTransferPayload {
   role: WalletRole;
 }
 
+export interface WalletDeductPayload {
+  userId: string;
+  amount: number;
+  description: string;
+  role: WalletRole;
+}
+
 export interface WalletTransferRecord {
   id: string;
   transactionId: string;

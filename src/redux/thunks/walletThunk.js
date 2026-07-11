@@ -1,5 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { transferBalance } from "@/src/services/walletService";
+import { transferBalance, deductBalance } from "@/src/services/walletService";
 import api from "@/src/lib/axios";
 import { API_ENDPOINTS } from "@/src/constants/api";
 import {
@@ -60,6 +60,25 @@ export const transferWalletBalance = createAsyncThunk(
       };
     } catch (error) {
       return rejectWithValue(error.message || "Transfer failed");
+    }
+  }
+);
+
+export const deductWalletBalance = createAsyncThunk(
+  "wallet/deduct",
+  async ({ userId, amount, description, role }, { rejectWithValue }) => {
+    try {
+      const data = await deductBalance({
+        userId,
+        amount,
+        description: description || "Wallet Deduction",
+      });
+      return {
+        role: getWalletRoleKey(role),
+        data,
+      };
+    } catch (error) {
+      return rejectWithValue(error.message || "Deduction failed");
     }
   }
 );

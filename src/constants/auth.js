@@ -24,6 +24,17 @@ export const ROLE_PORTAL_PATHS = {
   [USER_TYPES.RETAILER]: "/rt/retailer",
 };
 
+/** Route prefixes each role is allowed to access */
+export const ROLE_PATH_PREFIXES = {
+  [USER_TYPES.MASTER_DISTRIBUTOR]: ["/md", "/dashboard/master-distributor"],
+  [USER_TYPES.DISTRIBUTOR]: ["/dd", "/dashboard/distributor"],
+  [USER_TYPES.RETAILER]: [
+    "/rt/retailer",
+    "/rt/balance-transfer",
+    "/dashboard/retailer",
+  ],
+};
+
 export const PROTECTED_PREFIXES = ["/md", "/dd", "/dashboard", "/rt/retailer", "/rt/balance-transfer"];
 
 export const PUBLIC_PATHS = [

@@ -282,6 +282,10 @@ export function createInitialWalletState() {
       loading: false,
       error: null,
     },
+    deduct: {
+      loading: false,
+      error: null,
+    },
     history: {
       list: [],
       total: 0,

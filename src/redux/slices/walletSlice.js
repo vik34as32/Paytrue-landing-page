@@ -4,6 +4,7 @@ import {
   fetchWalletBalance,
   refreshWalletBalance,
   transferWalletBalance,
+  deductWalletBalance,
   fetchTransferHistory,
 } from "@/src/redux/thunks/walletThunk";
 
@@ -59,6 +60,9 @@ const walletSlice = createSlice({
     clearTransferError(state) {
       state.transfer.error = null;
     },
+    clearDeductError(state) {
+      state.deduct.error = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -100,6 +104,17 @@ const walletSlice = createSlice({
         state.transfer.loading = false;
         state.transfer.error = action.payload;
       })
+      .addCase(deductWalletBalance.pending, (state) => {
+        state.deduct.loading = true;
+        state.deduct.error = null;
+      })
+      .addCase(deductWalletBalance.fulfilled, (state) => {
+        state.deduct.loading = false;
+      })
+      .addCase(deductWalletBalance.rejected, (state, action) => {
+        state.deduct.loading = false;
+        state.deduct.error = action.payload;
+      })
       .addCase(fetchTransferHistory.pending, (state) => {
         state.history.loading = true;
         state.history.error = null;
@@ -130,6 +145,7 @@ export const {
   creditDdWallet,
   setTransferHistoryQuery,
   clearTransferError,
+  clearDeductError,
 } = walletSlice.actions;
 
 export default walletSlice.reducer;
@@ -138,6 +154,7 @@ export const selectMdWallet = (state) => state.wallet.md;
 export const selectDdWallet = (state) => state.wallet.dd;
 export const selectRtWallet = (state) => state.wallet.rt;
 export const selectWalletTransfer = (state) => state.wallet.transfer;
+export const selectWalletDeduct = (state) => state.wallet.deduct;
 export const selectTransferHistory = (state) => state.wallet.history;
 
 export function selectWalletByRole(role) {

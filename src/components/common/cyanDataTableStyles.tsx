@@ -1,7 +1,9 @@
 export const CYAN_DATA_TABLE_HEADER_BG = "#00AEEF";
 
-/** Minimum table width — sum of column min-widths; enables horizontal scroll without clipping headers */
-export const CYAN_DATA_TABLE_MIN_WIDTH = "1320px";
+/** Minimum table width — enables horizontal scroll without clipping columns */
+export const CYAN_DATA_TABLE_MIN_WIDTH = "1520px";
+
+export const FUND_REQUEST_TABLE_MIN_WIDTH = "1520px";
 
 export const cyanDataTableStyles = {
   table: {

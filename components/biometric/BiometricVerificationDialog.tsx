@@ -22,6 +22,7 @@ import { X } from "lucide-react";
 import BankingThemeProvider from "@/components/biometric/BankingThemeProvider";
 import FingerprintScanner from "@/components/biometric/FingerprintScanner";
 import VerificationSuccess from "@/components/biometric/VerificationSuccess";
+import BiometricPendingApproval from "@/components/biometric/BiometricPendingApproval";
 import { useBiometricDevice } from "@/src/hooks/useBiometricDevice";
 import { useFingerprint } from "@/src/hooks/useFingerprint";
 import useScannerConnection from "@/src/hooks/useScannerConnection";
@@ -79,6 +80,7 @@ export default function BiometricVerificationDialog({
   const isScanning = phase === "scanning";
   const busy = isScanning || phase === "verifying" || isConnecting;
   const isSuccess = phase === "success";
+  const isPendingApproval = phase === "pending_approval";
   const canScan = scannerConnected || isConnected;
 
   useEffect(() => {
@@ -98,12 +100,13 @@ export default function BiometricVerificationDialog({
   }, [isConnected]);
 
   useEffect(() => {
-    if (phase !== "success") return;
+    if (phase !== "success" && phase !== "pending_approval") return;
+    const delay = phase === "pending_approval" ? 5000 : 2000;
     const timer = window.setTimeout(() => {
       dispatch(closeBiometricModal());
       dispatch(resetMerchantVerification());
       onClose();
-    }, 2000);
+    }, delay);
     return () => window.clearTimeout(timer);
   }, [dispatch, onClose, phase]);
 
@@ -190,7 +193,9 @@ export default function BiometricVerificationDialog({
         </DialogTitle>
 
         <DialogContent sx={{ pt: 3 }}>
-          {isSuccess ? (
+          {isPendingApproval ? (
+            <BiometricPendingApproval />
+          ) : isSuccess ? (
             <VerificationSuccess />
           ) : (
             <Stack spacing={2.5}>
@@ -326,7 +331,7 @@ export default function BiometricVerificationDialog({
           )}
         </DialogContent>
 
-        {!isSuccess ? (
+        {!isSuccess && !isPendingApproval ? (
           <DialogActions sx={{ px: 3, pb: 3, pt: 0 }}>
             <Button onClick={handleDialogClose} disabled={busy || isScanning}>
               Cancel

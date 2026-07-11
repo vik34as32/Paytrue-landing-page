@@ -9,41 +9,6 @@ export const SERVICE_CATEGORIES = [
   { id: "payment", label: "Bill Payments" },
 ] as const;
 
-export const DASHBOARD_STATS = [
-  {
-    id: "today_txn",
-    label: "Today's Transactions",
-    value: "47",
-    change: "+12%",
-    trend: "up" as const,
-    icon: "Activity",
-  },
-  {
-    id: "commission",
-    label: "Commission Earned",
-    value: "₹1,284",
-    change: "+8.5%",
-    trend: "up" as const,
-    icon: "IndianRupee",
-  },
-  {
-    id: "success_rate",
-    label: "Success Rate",
-    value: "98.6%",
-    change: "+0.4%",
-    trend: "up" as const,
-    icon: "CheckCircle2",
-  },
-  {
-    id: "pending",
-    label: "Pending Settlement",
-    value: "₹3,450",
-    change: "2 items",
-    trend: "neutral" as const,
-    icon: "Clock",
-  },
-];
-
 export const QUICK_ACTIONS = [
   {
     id: "fund",

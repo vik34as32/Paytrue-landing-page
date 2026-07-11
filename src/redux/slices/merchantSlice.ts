@@ -9,6 +9,7 @@ interface MerchantState {
   statusLoading: boolean;
   biometricStatus: BiometricStatusValue;
   isVerified: boolean;
+  isPendingApproval: boolean;
   modalOpen: boolean;
   verificationPhase: VerificationPhase;
   error: string | null;
@@ -26,6 +27,7 @@ const initialState: MerchantState = {
   statusLoading: false,
   biometricStatus: "PENDING",
   isVerified: false,
+  isPendingApproval: false,
   modalOpen: false,
   verificationPhase: "idle",
   error: null,
@@ -62,7 +64,7 @@ const merchantSlice = createSlice({
       state.error = null;
     },
     openBiometricModal(state) {
-      if (!state.isVerified) {
+      if (!state.isVerified && !state.isPendingApproval) {
         state.modalOpen = true;
         state.error = null;
       }
@@ -79,6 +81,7 @@ const merchantSlice = createSlice({
         state.statusChecked = true;
         state.biometricStatus = action.payload.biometricStatus;
         state.isVerified = action.payload.isVerified;
+        state.isPendingApproval = Boolean(action.payload.isPendingApproval);
         state.retailerId = action.payload.retailerId ?? state.retailerId;
         state.outletId = action.payload.outletId ?? state.outletId;
         state.referenceKey = action.payload.referenceKey ?? state.referenceKey;
@@ -105,11 +108,16 @@ const merchantSlice = createSlice({
         state.error = null;
       })
       .addCase(submitMerchantBiometricVerification.fulfilled, (state, action) => {
-        state.verificationPhase = "success";
+        state.verificationPhase = action.payload.isPendingApproval
+          ? "pending_approval"
+          : "success";
         state.biometricStatus = action.payload.biometricStatus;
-        state.isVerified = true;
-        state.modalOpen = false;
+        state.isVerified = Boolean(action.payload.isVerified);
+        state.isPendingApproval = Boolean(action.payload.isPendingApproval);
         state.error = null;
+        if (action.payload.isVerified) {
+          state.modalOpen = false;
+        }
       })
       .addCase(submitMerchantBiometricVerification.rejected, (state, action) => {
         state.verificationPhase = "error";
@@ -139,8 +147,14 @@ export const selectMerchantBiometricStatus = (state: { merchant: MerchantState }
   state.merchant.biometricStatus;
 export const selectMerchantIsVerified = (state: { merchant: MerchantState }) =>
   state.merchant.isVerified;
+
+export const selectMerchantIsPendingApproval = (state: { merchant: MerchantState }) =>
+  state.merchant.isPendingApproval;
+
 export const selectMerchantNeedsBiometric = (state: { merchant: MerchantState }) =>
-  state.merchant.statusChecked && !state.merchant.isVerified;
+  state.merchant.statusChecked &&
+  !state.merchant.isVerified &&
+  !state.merchant.isPendingApproval;
 
 export const selectMerchantStatusChecked = (state: { merchant: MerchantState }) =>
   state.merchant.statusChecked;

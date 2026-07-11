@@ -18,7 +18,19 @@ import { lookupPincode } from "@/src/lib/pincodeLookup";
 import { lookupCoordinates } from "@/src/lib/geoLookup";
 import { formatDateDisplay } from "@/src/validation/schemas";
 import EmailVerificationField from "@/src/components/users/EmailVerificationField";
+import MobileVerificationField from "@/src/components/users/MobileVerificationField";
 import { cn } from "@/lib/utils";
+import { format, isValid, parse } from "date-fns";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import DatePickerInput from "./DatePickerInput";
+
+function parseStoredDate(value) {
+  if (!value) return null;
+  const parsed = parse(String(value), "yyyy-MM-dd", new Date());
+  return isValid(parsed) ? parsed : null;
+}
+
 
 export function FormField({
   name,
@@ -329,6 +341,7 @@ export function PersonalDetailsStep({
   setFile,
   values,
   originalEmail = "",
+  originalMobile = "",
   userType = "DISTRIBUTOR",
 }) {
   const dateOfBirth = values.dateOfBirth;
@@ -356,9 +369,13 @@ export function PersonalDetailsStep({
         isEdit={isEdit}
         originalEmail={originalEmail}
       />
-      <FormField name="mobile" label="Mobile" placeholder="10-digit mobile" methods={methods} maxLength={10} inputMode="numeric" />
+      <MobileVerificationField
+        methods={methods}
+        isEdit={isEdit}
+        originalMobile={originalMobile}
+      />
       <SelectField name="gender" label="Gender" placeholder="Select gender" options={GENDER_OPTIONS} methods={methods} />
-      <div className="space-y-2" data-field="dateOfBirth">
+      {/* <div className="space-y-2" data-field="dateOfBirth">
         <Label>Date of Birth</Label>
         <Input
           type="date"
@@ -373,7 +390,44 @@ export function PersonalDetailsStep({
         {methods.formState.errors.dateOfBirth && (
           <p className="text-xs text-red-500">{methods.formState.errors.dateOfBirth.message}</p>
         )}
-      </div>
+      </div> */}
+ <div className="space-y-2" data-field="dateOfBirth">
+  <Label>Date of Birth</Label>
+
+  <Controller
+    name="dateOfBirth"
+    control={methods.control}
+    render={({ field }) => (
+      <DatePicker
+        selected={parseStoredDate(field.value)}
+        onChange={(date) =>
+          field.onChange(date ? format(date, "yyyy-MM-dd") : "")
+        }
+        dateFormat="MM/dd/yyyy"
+        placeholderText="MM/DD/YYYY"
+        maxDate={new Date()}
+        showMonthDropdown
+        showYearDropdown
+        dropdownMode="select"
+        scrollableYearDropdown
+        yearDropdownItemNumber={120}
+        customInput={<DatePickerInput placeholder="MM/DD/YYYY" />}
+      />
+    )}
+  />
+
+  {dateOfBirth ? (
+    <p className="text-xs text-slate-500">
+      Saved as: {formatDateDisplay(dateOfBirth)}
+    </p>
+  ) : null}
+
+  {methods.formState.errors.dateOfBirth && (
+    <p className="text-xs text-red-500">
+      {methods.formState.errors.dateOfBirth.message}
+    </p>
+  )}
+</div>
       <PasswordFieldGroup methods={methods} isEdit={isEdit} password={password} />
       <div className="lg:col-span-2">
         <ImageUpload

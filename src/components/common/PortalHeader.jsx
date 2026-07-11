@@ -191,29 +191,35 @@ export default function PortalHeader({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="w-60 rounded-xl border-slate-100 p-1.5 shadow-xl dark:border-slate-800 dark:bg-slate-900"
+              className="w-60 rounded-xl border border-slate-200 bg-white p-1.5 text-[#0b1f3a] shadow-xl"
             >
               <DropdownMenuLabel className="px-3 py-2.5">
-                <p className="text-sm font-bold text-[#0b1f3a] dark:text-white">{user?.name}</p>
-                <p className="text-[11px] font-normal text-slate-400">{user?.email}</p>
+                <p className="text-sm font-bold text-[#0b1f3a]">{user?.name}</p>
+                <p className="text-[11px] font-normal text-slate-500">{user?.email}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-        
+
               <DropdownMenuItem asChild>
-                <Link href={profilePath} className="cursor-pointer rounded-lg text-white hover:text-white">
+                <Link
+                  href={profilePath}
+                  className="cursor-pointer rounded-lg text-[#0b1f3a] hover:text-[#0b1f3a] focus:text-[#0b1f3a]"
+                >
                   <User className="h-4 w-4 text-[#1565d8]" />
                   My Profile
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href={settingsPath} className="cursor-pointer rounded-lg text-white hover:text-white">
+                <Link
+                  href={settingsPath}
+                  className="cursor-pointer rounded-lg text-[#0b1f3a] hover:text-[#0b1f3a] focus:text-[#0b1f3a]"
+                >
                   <Settings className="h-4 w-4 text-slate-500" />
                   Settings
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setShowChangePassword(true)}
-                className="cursor-pointer rounded-lg"
+                className="cursor-pointer rounded-lg text-[#0b1f3a] focus:text-[#0b1f3a]"
               >
                 <KeyRound className="h-4 w-4 text-amber-600" />
                 Change Password

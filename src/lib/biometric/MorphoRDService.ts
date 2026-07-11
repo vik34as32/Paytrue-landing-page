@@ -7,13 +7,14 @@ import {
   RD_SERVICE_PROTOCOLS,
 } from "@/src/constants/aepsApi";
 import {
+  rdCaptureRequest,
   rdXhrRequest,
   RdRequestError,
   resolveRdProviderLabel,
   type RdDiscoveredEndpoint,
   type RdRequestResult,
 } from "@/src/lib/rdService";
-import { isMorphoRdXml } from "@/src/lib/biometric/vendorFilters";
+import { isMorphoCandidateRdXml, isMorphoRdXml } from "@/src/lib/biometric/vendorFilters";
 import { bioError, bioLog, bioLogAttempt, bioWarn } from "@/src/lib/biometric/biometricLogger";
 import { assertPidCaptureXml } from "@/src/lib/pidParser";
 import type { AepsPidCaptureResult, PidCaptureOptions, RdServiceStatus } from "@/src/types/aeps";
@@ -42,15 +43,34 @@ function parseXmlAttr(xml: string, tag: string, attr: string): string {
 }
 
 function parseInterfacePath(xml: string, interfaceId: string): string {
+  const escapedId = interfaceId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const regex = new RegExp(
-    `<Interface[^>]*id\\s*=\\s*["']${interfaceId}["'][^>]*path\\s*=\\s*["']([^"']*)["']`,
+    `<Interface[^>]*id\\s*=\\s*["']${escapedId}["'][^>]*path\\s*=\\s*["']([^"']*)["']`,
     "i"
   );
   const reverseRegex = new RegExp(
-    `<Interface[^>]*path\\s*=\\s*["']([^"']*)["'][^>]*id\\s*=\\s*["']${interfaceId}["']`,
+    `<Interface[^>]*path\\s*=\\s*["']([^"']*)["'][^>]*id\\s*=\\s*["']${escapedId}["']`,
     "i"
   );
   return xml.match(regex)?.[1]?.trim() || xml.match(reverseRegex)?.[1]?.trim() || "";
+}
+
+function parseCapturePathFromXml(xml: string): string {
+  return (
+    parseInterfacePath(xml, "CAPTURE") ||
+    parseInterfacePath(xml, "Capture") ||
+    parseInterfacePath(xml, "capture") ||
+    ""
+  );
+}
+
+function parseDeviceInfoPathFromXml(xml: string): string {
+  return (
+    parseInterfacePath(xml, "DEVICEINFO") ||
+    parseInterfacePath(xml, "DeviceInfo") ||
+    parseInterfacePath(xml, "deviceinfo") ||
+    ""
+  );
 }
 
 function isRdServiceXml(body: string): boolean {
@@ -184,7 +204,7 @@ async function tryMorphoDiscovery(
         continue;
       }
 
-      if (!isMorphoRdXml(response.body)) {
+      if (!isMorphoCandidateRdXml(response.body)) {
         bioWarn(DEVICE_TYPE, "Vendor mismatch — not Morpho RD Service", {
           url: attempt.url,
           bodyPreview: response.body.slice(0, 200),
@@ -197,13 +217,13 @@ async function tryMorphoDiscovery(
         protocol,
         port,
         method: attempt.method,
+        strictMorpho: isMorphoRdXml(response.body),
       });
 
       const capturePath =
-        parseInterfacePath(response.body, "CAPTURE") ||
-        MORPHO_FALLBACK_PATHS.capture[0];
+        parseCapturePathFromXml(response.body) || MORPHO_FALLBACK_PATHS.capture[0];
       const deviceInfoPath =
-        parseInterfacePath(response.body, "DEVICEINFO") ||
+        parseDeviceInfoPathFromXml(response.body) ||
         MORPHO_FALLBACK_PATHS.deviceInfo[0];
 
       return {
@@ -372,6 +392,76 @@ export async function checkMorphoRDService(forceRefresh = false): Promise<RdServ
   return status;
 }
 
+function alternateBaseUrls(baseUrl: string): string[] {
+  const urls = [baseUrl];
+  if (baseUrl.includes("127.0.0.1")) {
+    urls.push(baseUrl.replace("127.0.0.1", "localhost"));
+  } else if (baseUrl.includes("localhost")) {
+    urls.push(baseUrl.replace("localhost", "127.0.0.1"));
+  }
+  return [...new Set(urls)];
+}
+
+function buildMorphoCaptureUrls(endpoint: RdDiscoveredEndpoint): string[] {
+  const xmlPath = endpoint.rawInfoXml ? parseCapturePathFromXml(endpoint.rawInfoXml) : "";
+  const paths = [
+    xmlPath,
+    endpoint.capturePath,
+    ...MORPHO_FALLBACK_PATHS.capture,
+    RD_SERVICE_PATHS.capture,
+  ]
+    .map((path) => (path?.startsWith("/") ? path : path ? `/${path}` : ""))
+    .filter((path, index, list) => path && list.indexOf(path) === index);
+
+  const urls: string[] = [];
+  for (const base of alternateBaseUrls(endpoint.baseUrl)) {
+    for (const path of paths) {
+      urls.push(resolveMorphoRdUrl(base, path));
+    }
+  }
+  return [...new Set(urls)];
+}
+
+async function captureMorphoViaLocalProxy(
+  endpoint: RdDiscoveredEndpoint,
+  pidOptionsXml: string
+): Promise<AepsPidCaptureResult> {
+  const captureUrls = buildMorphoCaptureUrls(endpoint);
+  bioLog(DEVICE_TYPE, "Trying local RD capture proxy", { captureUrls });
+
+  const response = await fetch("/api/local-rd/capture", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      captureUrls,
+      pidOptions: pidOptionsXml,
+    }),
+  });
+
+  const payload = (await response.json()) as {
+    success?: boolean;
+    body?: string;
+    url?: string;
+    error?: string;
+  };
+
+  if (!response.ok || !payload.success || !payload.body) {
+    throw new Error(payload.error || "Local Morpho RD capture proxy failed.");
+  }
+
+  const pidXml = payload.body.trim();
+  assertPidCaptureXml(pidXml);
+  bioLog(DEVICE_TYPE, "Capture Success via local proxy", {
+    url: payload.url || captureUrls[0],
+    pidLength: pidXml.length,
+  });
+
+  return {
+    pidData: pidXml,
+    capturedAt: new Date().toISOString(),
+  };
+}
+
 export async function captureMorphoFingerprint(
   forceRefresh = false,
   options: PidCaptureOptions = {}
@@ -386,79 +476,65 @@ export async function captureMorphoFingerprint(
     );
   }
 
-  const capturePaths = [
-    endpoint.capturePath,
-    ...MORPHO_FALLBACK_PATHS.capture,
-    RD_SERVICE_PATHS.capture,
-  ];
-  const uniquePaths = [...new Set(capturePaths.filter(Boolean))];
-
+  const pidOptionsXml = buildMorphoPidOptions(options);
+  const captureUrls = buildMorphoCaptureUrls(endpoint);
   let lastError: Error | null = null;
 
-  for (const path of uniquePaths) {
-    const captureUrl = resolveMorphoRdUrl(endpoint.baseUrl, path);
+  for (const captureUrl of captureUrls) {
     bioLog(DEVICE_TYPE, "Sending CAPTURE request", { url: captureUrl });
+    try {
+      const response = await rdCaptureRequest(
+        captureUrl,
+        pidOptionsXml,
+        RD_CAPTURE_TIMEOUT_MS
+      );
+      const pidXml = (response.body || "").trim();
 
-    for (const method of [RD_METHOD.capture, "POST"]) {
-      try {
-        const response = await rdXhrRequest(
-          method,
-          captureUrl,
-          buildMorphoPidOptions(options),
-          RD_CAPTURE_TIMEOUT_MS
-        );
-
-        const pidXml = (response.body || "").trim();
-
-        if (pidXml && /<\s*PidData\b/i.test(pidXml)) {
-          try {
-            assertPidCaptureXml(pidXml);
-          } catch (validationError) {
-            lastError =
-              validationError instanceof Error
-                ? validationError
-                : new Error("Morpho capture failed.");
-            bioError(DEVICE_TYPE, "Capture Failed — PID validation", {
-              url: captureUrl,
-              error: lastError.message,
-            });
-            continue;
-          }
-
-          bioLog(DEVICE_TYPE, "Capture Success — PID XML received", {
-            url: captureUrl,
-            pidLength: pidXml.length,
-            hasWadh: Boolean(options.wadh?.trim()),
-          });
-          return {
-            pidData: pidXml,
-            capturedAt: new Date().toISOString(),
-          };
-        }
-
-        const errCode = parseXmlAttr(pidXml, "Resp", "errCode");
-        const errInfo = parseXmlAttr(pidXml, "Resp", "errInfo");
-        lastError = new Error(
-          errInfo ||
-            (errCode
-              ? `Morpho capture failed (code ${errCode})`
-              : "Morpho capture failed.")
-        );
-        bioError(DEVICE_TYPE, "Capture Failed — invalid PID", {
+      if (pidXml && /<\s*PidData\b/i.test(pidXml)) {
+        assertPidCaptureXml(pidXml);
+        bioLog(DEVICE_TYPE, "Capture Success — PID XML received", {
           url: captureUrl,
-          errCode,
-          errInfo,
+          pidLength: pidXml.length,
+          hasWadh: Boolean(options.wadh?.trim()),
         });
-      } catch (error) {
-        lastError =
-          error instanceof Error ? error : new Error("Morpho capture failed.");
-        bioError(DEVICE_TYPE, "Capture Failed", { url: captureUrl, method, error });
+        return {
+          pidData: pidXml,
+          capturedAt: new Date().toISOString(),
+        };
       }
+
+      const errCode = parseXmlAttr(pidXml, "Resp", "errCode");
+      const errInfo = parseXmlAttr(pidXml, "Resp", "errInfo");
+      lastError = new Error(
+        errInfo ||
+          (errCode
+            ? `Morpho capture failed (code ${errCode})`
+            : "Morpho capture failed.")
+      );
+      bioError(DEVICE_TYPE, "Capture Failed — invalid PID", {
+        url: captureUrl,
+        errCode,
+        errInfo,
+      });
+    } catch (error) {
+      lastError =
+        error instanceof Error ? error : new Error("Morpho capture failed.");
+      bioError(DEVICE_TYPE, "Capture Failed", { url: captureUrl, error: lastError.message });
     }
   }
 
-  bioError(DEVICE_TYPE, "Capture Failed — all attempts exhausted");
-  throw lastError ?? new Error("Morpho capture failed.");
+  try {
+    return await captureMorphoViaLocalProxy(endpoint, pidOptionsXml);
+  } catch (proxyError) {
+    bioError(DEVICE_TYPE, "Capture Failed — browser and proxy attempts exhausted", {
+      error: proxyError,
+    });
+    throw (
+      (proxyError instanceof Error ? proxyError : null) ??
+      lastError ??
+      new Error("Morpho capture failed.")
+    );
+  }
 }
 
 export default {

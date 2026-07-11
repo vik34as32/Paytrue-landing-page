@@ -1,21 +1,28 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useSelector } from "react-redux";
-import { selectUser } from "@/src/redux/slices/authSlice";
-import { getUserDisplayName } from "@/src/lib/userUtils";
+import { Loader2 } from "lucide-react";
+import { formatDashboardGreeting, formatLastLogin } from "@/src/lib/retailerDashboardMappers";
+import type { RetailerDashboardData } from "@/src/types/retailerDashboard";
 
-function getGreeting() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good Morning";
-  if (hour < 17) return "Good Afternoon";
-  return "Good Evening";
+interface DashboardHeaderProps {
+  dashboard?: RetailerDashboardData;
+  loading?: boolean;
 }
 
-export default function DashboardHeader() {
-  const user = useSelector(selectUser);
-  const displayName = getUserDisplayName(user, "Retailer");
-  const retailerId = user?.userId || user?.retailerId || user?.id || "—";
+export default function DashboardHeader({
+  dashboard,
+  loading = false,
+}: DashboardHeaderProps) {
+  const displayName =
+    dashboard?.user?.name?.trim() ||
+    [dashboard?.user?.firstName, dashboard?.user?.lastName].filter(Boolean).join(" ").trim() ||
+    "Retailer";
+  const retailerId =
+    dashboard?.user?.userCode || dashboard?.user?.id || "—";
+  const greeting = formatDashboardGreeting(dashboard?.greeting);
+  const systemStatus = dashboard?.systemStatus || "All systems operational";
+  const lastLogin = formatLastLogin(dashboard?.user?.lastLoginAt);
 
   return (
     <motion.div
@@ -26,12 +33,19 @@ export default function DashboardHeader() {
     >
       <div>
         <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-[#1565d8]">
-          {getGreeting()}
+          {loading && !dashboard ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Loading...
+            </span>
+          ) : (
+            greeting
+          )}
         </p>
         <h1 className="text-xl font-bold tracking-tight text-[#0b1f3a] sm:text-2xl">
           {displayName}
           <span className="ml-2 text-base font-medium text-slate-400 sm:text-lg">
-            · Retailer
+            · {dashboard?.user?.role || "Retailer"}
           </span>
         </h1>
         <p className="mt-0.5 text-[13px] text-slate-500">
@@ -40,20 +54,13 @@ export default function DashboardHeader() {
           {" · "}
           <span className="inline-flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            All systems operational
+            {systemStatus}
           </span>
         </p>
       </div>
 
       <div className="flex items-center gap-2 text-[11px] font-medium text-slate-400">
-        <span>
-          Last login:{" "}
-          {new Date().toLocaleDateString("en-IN", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })}
-        </span>
+        <span>Last login: {lastLogin}</span>
       </div>
     </motion.div>
   );

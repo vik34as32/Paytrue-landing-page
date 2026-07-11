@@ -89,9 +89,10 @@ export function buildUserFormData(values, files = {}, options = {}) {
 }
 
 export function mapApiUserToFormValues(user = {}) {
+  const profile = user.profile || {};
   const outlet = user.outlet || {};
-  const kyc = user.kyc || {};
-  const bank = user.bankDetails || user.bankAccount || {};
+  const kyc = user.kycDocument || user.kyc || {};
+  const bank = user.bankAccount || user.bankDetails || {};
 
   return {
     firstName: user.firstName || "",
@@ -100,10 +101,12 @@ export function mapApiUserToFormValues(user = {}) {
     email: user.email || "",
     emailVerified: Boolean(user.emailVerified ?? user.isEmailVerified),
     mobile: user.mobile || "",
+    mobileVerified: Boolean(user.mobileVerified ?? user.isMobileVerified),
     password: "",
-    alternateMobileNumber: user.alternateMobileNumber || "",
-    gender: user.gender || "",
-    dateOfBirth: user.dateOfBirth || user.dob || "",
+    alternateMobileNumber:
+      profile.alternateMobileNumber || user.alternateMobileNumber || "",
+    gender: user.gender || profile.gender || "",
+    dateOfBirth: user.dateOfBirth || user.dob || profile.dateOfBirth || "",
     outletName: outlet.outletName || "",
     businessType: outlet.businessType || "",
     gstNumber: outlet.gstNumber || "",
@@ -126,11 +129,12 @@ export function mapApiUserToFormValues(user = {}) {
 }
 
 export function mapApiUserToExistingUrls(user = {}) {
-  const kyc = user.kyc || {};
-  const bank = user.bankDetails || user.bankAccount || {};
+  const profile = user.profile || {};
+  const kyc = user.kycDocument || user.kyc || {};
+  const bank = user.bankAccount || user.bankDetails || {};
 
   return {
-    profileImage: user.profileImage || null,
+    profileImage: profile.profileImage || user.profileImage || null,
     aadhaarFront: kyc.aadhaarFrontUrl || kyc.aadhaarFrontImage || kyc.aadhaarFront || null,
     aadhaarBack: kyc.aadhaarBackUrl || kyc.aadhaarBackImage || kyc.aadhaarBack || null,
     panCard: kyc.panCardUrl || kyc.panCardImage || kyc.panCard || null,

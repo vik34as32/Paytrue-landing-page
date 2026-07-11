@@ -11,6 +11,8 @@ export const AEPS_ENDPOINTS = {
   transactionStatus: "/aeps/transaction-status",
   /** GET /aeps/banks — AEPS bank list (cached 24h on server) */
   banks: "/aeps/banks",
+  /** GET /aeps/ledger — retailer AEPS transaction history */
+  ledger: "/aeps/ledger",
   health: "/aeps/health",
 };
 

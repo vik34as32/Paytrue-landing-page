@@ -73,7 +73,11 @@ export interface CreateFundRequestPayload {
   bankName?: string;
   paymentDate: string;
   remark?: string;
+  /** Pre-uploaded proof URL (JSON body only; prefer `receipt` file) */
+  imageUrl?: string;
+  /** Payment proof file — sent as multipart `image` field */
   receipt?: File;
+  onUploadProgress?: (percent: number) => void;
 }
 
 export interface FundRequestListParams {
@@ -95,13 +99,12 @@ export interface FundRequestListResult {
 }
 
 export const FUND_REQUEST_STATUS_FILTERS = [
-  "All",
   "Pending",
-  "Processing",
   "Approved",
   "Declined",
-  "Cancelled",
 ] as const;
 
+/** Internal value when no status chip is selected (shows all statuses). */
 export type FundRequestStatusFilter =
-  (typeof FUND_REQUEST_STATUS_FILTERS)[number];
+  | (typeof FUND_REQUEST_STATUS_FILTERS)[number]
+  | "All";

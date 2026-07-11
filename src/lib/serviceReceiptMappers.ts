@@ -1,11 +1,36 @@
 import { mapAepsToStatement, mapDmtToStatement } from "@/src/lib/statementMappers";
 import type { AepsTransactionResult } from "@/src/types/aeps";
 import type { StatementTransaction } from "@/types/statementReceipt";
-import type { DmtBeneficiary, DmtTransaction } from "@/src/modules/dmt/types";
+
+/** Loose DMT txn shape accepted by receipt mapper (both legacy and module types). */
+export interface ReceiptDmtTransactionSource {
+  id?: string;
+  transactionId?: string;
+  referenceNumber?: string;
+  reference?: string;
+  utr?: string;
+  rrn?: string;
+  amount: number;
+  beneficiaryName?: string;
+  bankName?: string;
+  accountNumber?: string;
+  transferMode?: string;
+  status?: string;
+  message?: string;
+  reason?: string;
+}
+
+export type ReceiptDmtBeneficiarySource = {
+  name?: string;
+  bankName?: string;
+  accountNumber?: string;
+  ifscCode?: string;
+  mobile?: string;
+};
 
 export function mapDmtTransactionToStatement(
-  txn: DmtTransaction | null | undefined,
-  beneficiary?: DmtBeneficiary | null
+  txn: ReceiptDmtTransactionSource | null | undefined,
+  beneficiary?: ReceiptDmtBeneficiarySource | null
 ): StatementTransaction | null {
   if (!txn) return null;
 

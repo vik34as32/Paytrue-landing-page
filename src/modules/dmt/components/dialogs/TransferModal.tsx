@@ -87,13 +87,15 @@ export default function TransferModal({
       onClose={loading ? undefined : onClose}
       maxWidth="sm"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 3,
-          border: "2px solid",
-          borderColor: "primary.main",
-          overflow: "hidden",
-          m: { xs: 1.5, sm: 2 },
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: 3,
+            border: "2px solid",
+            borderColor: "primary.main",
+            overflow: "hidden",
+            m: { xs: 1.5, sm: 2 },
+          },
         },
       }}
     >

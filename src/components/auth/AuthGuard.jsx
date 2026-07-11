@@ -5,6 +5,12 @@ import { useRequireAuth } from "@/src/hooks/useAuth";
 import PageLoader from "@/src/components/common/PageLoader";
 import IdleSessionGuard from "@/src/components/auth/IdleSessionGuard";
 
+/**
+ * @param {{
+ *   children: import("react").ReactNode;
+ *   allowedTypes?: string[];
+ * }} props
+ */
 export default function AuthGuard({ children, allowedTypes = [] }) {
   const { hydrated, isAuthenticated } = useRequireAuth(allowedTypes);
 

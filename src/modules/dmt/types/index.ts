@@ -14,7 +14,7 @@ export const DMT_NEXT_ACTIONS = [
 
 export type DmtNextAction = (typeof DMT_NEXT_ACTIONS)[number];
 
-export type DmtTransferMode = "IMPS" | "NEFT";
+export type DmtTransferMode = "IMPS" | "NEFT" | "RTGS";
 
 export interface DmtWorkflowResponse<T = Record<string, unknown>> {
   success: boolean;

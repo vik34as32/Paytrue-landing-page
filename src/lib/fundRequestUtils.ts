@@ -88,19 +88,16 @@ export function matchesFundRequestStatusFilter(
   const normalized = String(status || "pending").toLowerCase();
   switch (filter) {
     case "Pending":
-      return normalized === "pending";
-    case "Processing":
-      return normalized === "processing";
+      return normalized === "pending" || normalized === "processing";
     case "Approved":
       return normalized === "approved";
     case "Declined":
       return (
         normalized === "rejected" ||
         normalized === "declined" ||
-        normalized === "decline"
+        normalized === "decline" ||
+        normalized === "cancelled"
       );
-    case "Cancelled":
-      return normalized === "cancelled";
     default:
       return true;
   }

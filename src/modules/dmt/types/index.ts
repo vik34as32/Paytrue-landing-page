@@ -170,3 +170,33 @@ export interface DmtBank {
   ifscPrefix?: string;
   instantPayBankId?: string | number;
 }
+
+export type DmtBankVerifyPennyDrop = "YES" | "NO" | "AUTO";
+
+export interface VerifyBankAccountRequest {
+  accountNumber: string;
+  bankIfsc: string;
+  name?: string;
+  pennyDrop?: DmtBankVerifyPennyDrop;
+  latitude: string;
+  longitude: string;
+  externalRef?: string;
+  consent?: "Y" | "N";
+}
+
+export interface VerifyBankAccountPayee {
+  name: string | null;
+  account?: string;
+  ifsc?: string;
+  accountType?: string | null;
+  nameMatchPercent?: number | null;
+  nameMatchResult?: string | null;
+}
+
+export interface VerifyBankAccountResult {
+  verified: boolean;
+  statuscode?: string;
+  status?: string;
+  externalRef?: string;
+  payee?: VerifyBankAccountPayee;
+}

@@ -16,6 +16,8 @@ import {
 } from "@mui/material";
 import { useFetchBanksQuery } from "../../redux/dmtApi";
 import DmtBankSelect from "../DmtBankSelect";
+import BankAccountVerifyField from "../BankAccountVerifyField";
+import { verifyBankAccount } from "@/src/services/dmtService";
 
 const schema = z
   .object({
@@ -72,6 +74,15 @@ export default function AddBeneficiaryDialog({
     }
   }, [open, form]);
 
+  const ifscCode = form.watch("ifscCode");
+  const beneficiaryName = form.watch("name");
+
+  const handleBankVerified = (result: { payee?: { name?: string | null } }) => {
+    if (!form.getValues("name")?.trim() && result.payee?.name) {
+      form.setValue("name", result.payee.name, { shouldValidate: true });
+    }
+  };
+
   return (
     <Dialog open={open} onClose={loading ? undefined : onClose} fullWidth maxWidth="sm">
       <DialogTitle sx={{ fontWeight: 700 }}>Add Beneficiary</DialogTitle>
@@ -126,16 +137,41 @@ export default function AddBeneficiaryDialog({
             />
 
             <Controller
-              name="accountNumber"
+              name="ifscCode"
               control={form.control}
               render={({ field, fieldState }) => (
                 <TextField
                   {...field}
-                  label="Account Number"
+                  label="IFSC"
                   fullWidth
-                  inputMode="numeric"
+                  onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                   error={!!fieldState.error}
                   helperText={fieldState.error?.message}
+                />
+              )}
+            />
+
+            <Controller
+              name="accountNumber"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <BankAccountVerifyField
+                  value={field.value}
+                  onChange={field.onChange}
+                  ifscCode={ifscCode}
+                  name={beneficiaryName}
+                  verifyFn={(input) =>
+                    verifyBankAccount({
+                      accountNumber: input.accountNumber,
+                      ifscCode: input.ifscCode,
+                      name: input.name,
+                      pennyDrop: "YES",
+                    })
+                  }
+                  onVerified={handleBankVerified}
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
+                  disabled={loading}
                 />
               )}
             />
@@ -149,21 +185,6 @@ export default function AddBeneficiaryDialog({
                   label="Confirm Account"
                   fullWidth
                   inputMode="numeric"
-                  error={!!fieldState.error}
-                  helperText={fieldState.error?.message}
-                />
-              )}
-            />
-
-            <Controller
-              name="ifscCode"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <TextField
-                  {...field}
-                  label="IFSC"
-                  fullWidth
-                  onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                   error={!!fieldState.error}
                   helperText={fieldState.error?.message}
                 />

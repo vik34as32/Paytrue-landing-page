@@ -201,7 +201,7 @@ const sharedKycFields = {
     .required("PAN number is required"),
   panCard: fileRequired("PAN card image is required"),
   ownerPhoto: fileRequired("Owner photo is required"),
-  videoVerification: fileRequired("Video verification is required"),
+  videoVerification: fileOptional,
 };
 
 export function getKycStepSchema(userType) {

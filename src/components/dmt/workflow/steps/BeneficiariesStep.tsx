@@ -32,7 +32,9 @@ import {
   useVerifyBeneficiary,
   useDeleteBeneficiary,
   useVerifyBeneficiaryDelete,
+  useVerifyBankAccount,
 } from "@/src/hooks/useDmt";
+import BankAccountVerifyField from "@/src/modules/dmt/components/BankAccountVerifyField";
 import { maskAccountNumber, normalizeIndianMobile } from "@/src/lib/dmtUtils";
 import { useDmtWorkflow, STEP } from "../DmtWorkflowContext";
 import OtpDialog from "../OtpDialog";
@@ -60,6 +62,7 @@ export default function BeneficiariesStep() {
   const { data: banks = [], isLoading: banksLoading } = useDmtBanks();
 
   const addMutation = useAddBeneficiary();
+  const verifyBankMutation = useVerifyBankAccount();
   const verifyMutation = useVerifyBeneficiary();
   const deleteMutation = useDeleteBeneficiary();
   const verifyDeleteMutation = useVerifyBeneficiaryDelete();
@@ -79,6 +82,9 @@ export default function BeneficiariesStep() {
       bankId: "",
     },
   });
+
+  const ifscCode = form.watch("ifscCode");
+  const beneficiaryName = form.watch("name");
 
   const onAdd = async (values: AddValues) => {
     try {
@@ -247,14 +253,28 @@ export default function BeneficiariesStep() {
               <Controller name="mobile" control={form.control} render={({ field, fieldState }) => (
                 <TextField {...field} label="Mobile (optional)" fullWidth slotProps={{ htmlInput: { maxLength: 10 } }} error={!!fieldState.error} helperText={fieldState.error?.message} />
               )} />
+              <Controller name="ifscCode" control={form.control} render={({ field, fieldState }) => (
+                <TextField {...field} label="IFSC Code" fullWidth onChange={(e) => field.onChange(e.target.value.toUpperCase())} error={!!fieldState.error} helperText={fieldState.error?.message} />
+              )} />
               <Controller name="accountNumber" control={form.control} render={({ field, fieldState }) => (
-                <TextField {...field} label="Account Number" fullWidth error={!!fieldState.error} helperText={fieldState.error?.message} />
+                <BankAccountVerifyField
+                  value={field.value}
+                  onChange={field.onChange}
+                  ifscCode={ifscCode}
+                  name={beneficiaryName}
+                  verifyFn={(input) => verifyBankMutation.mutateAsync(input)}
+                  onVerified={(result) => {
+                    if (!form.getValues("name")?.trim() && result.payee?.name) {
+                      form.setValue("name", result.payee.name, { shouldValidate: true });
+                    }
+                  }}
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
+                  disabled={addMutation.isPending}
+                />
               )} />
               <Controller name="confirmAccountNumber" control={form.control} render={({ field, fieldState }) => (
                 <TextField {...field} label="Confirm Account" fullWidth error={!!fieldState.error} helperText={fieldState.error?.message} />
-              )} />
-              <Controller name="ifscCode" control={form.control} render={({ field, fieldState }) => (
-                <TextField {...field} label="IFSC Code" fullWidth onChange={(e) => field.onChange(e.target.value.toUpperCase())} error={!!fieldState.error} helperText={fieldState.error?.message} />
               )} />
               <Controller name="bankId" control={form.control} render={({ field, fieldState }) => (
                 <TextField {...field} select label="Bank" fullWidth disabled={banksLoading} error={!!fieldState.error} helperText={fieldState.error?.message}>

@@ -160,6 +160,9 @@ export function sortStatementTransactions(
       case "amount":
       case "Amount":
         return compareValues(a.amount, b.amount, sortState.direction);
+      case "openingBalance":
+      case "Previous Balance":
+        return compareValues(a.openingBalance, b.openingBalance, sortState.direction);
       case "balanceAfter":
       case "Closing Balance":
         return compareValues(a.balanceAfter, b.balanceAfter, sortState.direction);

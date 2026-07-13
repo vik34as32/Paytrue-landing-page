@@ -16,8 +16,9 @@ import {
   ArrowLeftRight,
   BarChart3,
   CreditCard,
-  Loader2,
   MinusCircle,
+  FileSpreadsheet,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils";
@@ -34,6 +35,7 @@ const iconMap = {
   BarChart3,
   CreditCard,
   MinusCircle,
+  FileSpreadsheet,
 };
 
 function SidebarProfile({

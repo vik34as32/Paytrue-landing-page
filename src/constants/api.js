@@ -9,6 +9,7 @@ export const API_ENDPOINTS = {
   walletTransfer: "/wallet/transfer",
   walletDeduct: "/wallet/deduct",
   walletTransfers: "/wallet/transfers",
+  walletSummary: "/wallet/summary",
   fundRequests: "/fund-requests",
   myBankAccounts: "/my-bank-accounts",
   dashboardRetailer: "/dashboard/retailer",

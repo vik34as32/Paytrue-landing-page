@@ -179,7 +179,7 @@ export default function UserMultiStepForm({
     mode: "onBlur",
   });
 
-  const { handleSubmit, watch, setValue, setError, getValues, reset } = methods;
+  const { watch, setValue, setError, clearErrors, getValues, reset } = methods;
   const password = watch("password");
   const values = watch();
 
@@ -203,6 +203,8 @@ export default function UserMultiStepForm({
 
   const goNext = async () => {
     const currentSchema = steps[step - 1]?.schema;
+    // Always clear previous step errors so a fixed upload/field can proceed.
+    clearErrors();
     if (currentSchema) {
       try {
         await currentSchema.validate(getValues(), {
@@ -214,7 +216,7 @@ export default function UserMultiStepForm({
           const paths = [];
           err.inner.forEach((e) => {
             if (e.path) {
-              setError(e.path, { message: e.message });
+              setError(e.path, { type: "manual", message: e.message });
               paths.push(e.path);
             }
           });
@@ -232,6 +234,7 @@ export default function UserMultiStepForm({
   const onSubmit = async () => {
     const data = getValues();
     const errorPaths = [];
+    clearErrors();
 
     for (const stepDef of steps.slice(0, 4)) {
       if (!stepDef.schema) continue;
@@ -244,7 +247,7 @@ export default function UserMultiStepForm({
         if (err.inner) {
           err.inner.forEach((e) => {
             if (e.path) {
-              setError(e.path, { message: e.message });
+              setError(e.path, { type: "manual", message: e.message });
               errorPaths.push(e.path);
             }
           });
@@ -290,9 +293,15 @@ export default function UserMultiStepForm({
 
   const setFile = useCallback(
     (field, file) => {
-      setValue(field, file, { shouldValidate: true });
+      // Clear stuck manual errors from a previous Next-click validation failure.
+      clearErrors(field);
+      setValue(field, file, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: false,
+      });
     },
-    [setValue]
+    [clearErrors, setValue]
   );
 
   const jumpToStep = (targetStep) => setStep(targetStep);
@@ -309,7 +318,16 @@ export default function UserMultiStepForm({
       <StepIndicator steps={steps} currentStep={step} />
 
       <FormProvider {...methods}>
-        <form onSubmit={handleSubmit(step === 5 ? onSubmit : goNext)}>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (step === 5) {
+              void onSubmit();
+            } else {
+              void goNext();
+            }
+          }}
+        >
           <Card>
             <CardHeader>
               <CardTitle>{steps[step - 1].title}</CardTitle>

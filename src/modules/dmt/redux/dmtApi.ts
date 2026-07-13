@@ -3,6 +3,10 @@ import { API_BASE_URL } from "@/src/constants/api";
 import { getAccessToken } from "@/src/lib/cookies";
 import { buildAepsLoginApiBody } from "@/src/lib/aepsUtils";
 import { resolveBeneficiaryBankFields, resolveBeneficiaryMobileNumber } from "@/src/lib/dmtUtils";
+import {
+  buildVerifyBankAccountPayload,
+  normalizeVerifyBankAccountResponse,
+} from "@/src/lib/dmtBankVerify";
 import { DMT_MODULE_ENDPOINTS } from "../services/endpoints";
 import { normalizeBeneficiaryList, normalizeDmtBankList, normalizeWorkflowResponse } from "../services/normalizers";
 import type {
@@ -19,6 +23,8 @@ import type {
   VerifyBeneficiaryOtpRequest,
   VerifySenderOtpRequest,
   VerifyTransactionOtpRequest,
+  VerifyBankAccountRequest,
+  VerifyBankAccountResult,
 } from "../types";
 
 function mapApiError(error: unknown): { message: string; code?: string } {
@@ -152,6 +158,23 @@ export const dmtApi = createApi({
     fetchBanks: builder.query<DmtBank[], void>({
       query: () => DMT_MODULE_ENDPOINTS.banks,
       transformResponse: (response: unknown) => normalizeDmtBankList(response),
+    }),
+
+    verifyBankAccount: builder.mutation<VerifyBankAccountResult, VerifyBankAccountRequest>({
+      query: (body) => ({
+        url: DMT_MODULE_ENDPOINTS.verifyBankAccount,
+        method: "POST",
+        body: buildVerifyBankAccountPayload({
+          accountNumber: body.accountNumber,
+          ifscCode: body.bankIfsc,
+          name: body.name,
+          pennyDrop: body.pennyDrop ?? "YES",
+          latitude: body.latitude,
+          longitude: body.longitude,
+        }),
+      }),
+      transformResponse: (response: unknown) => normalizeVerifyBankAccountResponse(response),
+      transformErrorResponse: mapApiError,
     }),
 
     addBeneficiary: builder.mutation<DmtWorkflowResponse, AddBeneficiaryRequest>({
@@ -328,6 +351,7 @@ export const {
   useBioAuthMutation,
   useFetchBeneficiariesQuery,
   useFetchBanksQuery,
+  useVerifyBankAccountMutation,
   useAddBeneficiaryMutation,
   useVerifyBeneficiaryOtpMutation,
   useDeleteBeneficiaryMutation,

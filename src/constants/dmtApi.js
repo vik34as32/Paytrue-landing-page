@@ -12,6 +12,7 @@ export const DMT_ENDPOINTS = {
   remitterByMobile: (mobile) => `/dmt/remitter/${encodeURIComponent(mobile)}`,
   senderByMobile: (mobile) => `/dmt/sender/${encodeURIComponent(mobile)}`,
   banks: "/dmt/banks",
+  verifyBankAccount: "/dmt/bank-account/verify",
   beneficiaries: "/dmt/beneficiaries",
   beneficiaryVerify: (id) => `/dmt/beneficiaries/${encodeURIComponent(id)}/verify`,
   beneficiaryDelete: (id) => `/dmt/beneficiaries/${encodeURIComponent(id)}`,

@@ -110,7 +110,16 @@ export function mapUpiAtmToStatement(
   const payer = asRecord(raw.payerDetails);
   const customerMobile = String(raw.customerMobile ?? payer.mobile ?? "");
   const payerName = String(payer.name ?? raw.customerName ?? "Customer");
+  const metadata = asRecord(raw.metadata);
+  const walletSummary = asRecord(metadata.walletSummary);
   const amount = toNumber(raw.amount);
+  const charges = toNumber(walletSummary.charge ?? raw.charges);
+  const openingBalance = toNumber(
+    raw.openingBalance ?? walletSummary.openingBalance
+  );
+  const balanceAfter = toNumber(
+    raw.closingBalance ?? walletSummary.closingBalance
+  );
 
   return {
     id: String(raw.id ?? raw.referenceId ?? ""),
@@ -123,8 +132,8 @@ export function mapUpiAtmToStatement(
     type: "debit",
     status: normalizeStatus(raw.status),
     amount,
-    openingBalance: 0,
-    balanceAfter: 0,
+    openingBalance,
+    balanceAfter,
     senderName: payerName,
     receiverName: "UPI ATM",
     mobile: customerMobile,
@@ -151,6 +160,14 @@ export function mapAepsToStatement(raw: Record<string, unknown>): StatementTrans
     transactionType === "CASH_WITHDRAWAL" ||
     transactionType === "AADHAAR_PAY" ||
     transactionType === "CASH_DEPOSIT";
+  const metadata = asRecord(raw.metadata);
+  const walletSummary = asRecord(metadata.walletSummary);
+  const openingBalance = toNumber(
+    raw.openingBalance ?? walletSummary.openingBalance
+  );
+  const balanceAfter = toNumber(
+    raw.closingBalance ?? walletSummary.closingBalance
+  );
 
   return {
     id: String(raw.id ?? raw.referenceId ?? ""),
@@ -161,8 +178,8 @@ export function mapAepsToStatement(raw: Record<string, unknown>): StatementTrans
     type: transactionType === "CASH_DEPOSIT" ? "credit" : isCashMovement ? "debit" : "debit",
     status: normalizeStatus(raw.status),
     amount,
-    openingBalance: 0,
-    balanceAfter: 0,
+    openingBalance,
+    balanceAfter,
     senderName: String(raw.customerName ?? "Customer"),
     receiverName: bankName,
     mobile: String(raw.customerMobile ?? ""),

@@ -226,3 +226,33 @@ export interface DmtApiError extends Error {
   code?: DmtErrorCode;
   data?: unknown;
 }
+
+export type DmtBankVerifyPennyDrop = "YES" | "NO" | "AUTO";
+
+export interface VerifyBankAccountPayload {
+  accountNumber: string;
+  bankIfsc: string;
+  name?: string;
+  pennyDrop?: DmtBankVerifyPennyDrop;
+  latitude: string;
+  longitude: string;
+  externalRef?: string;
+  consent?: "Y" | "N";
+}
+
+export interface VerifyBankAccountPayee {
+  name: string | null;
+  account?: string;
+  ifsc?: string;
+  accountType?: string | null;
+  nameMatchPercent?: number | null;
+  nameMatchResult?: string | null;
+}
+
+export interface VerifyBankAccountResponse {
+  verified: boolean;
+  statuscode?: string;
+  status?: string;
+  externalRef?: string;
+  payee?: VerifyBankAccountPayee;
+}

@@ -34,6 +34,7 @@ import {
   verifyRemitterOtp,
   verifySenderOtp,
   verifyTransactionOtp,
+  verifyBankAccount,
 } from "@/src/services/dmtService";
 import { buildDashboardStats } from "@/src/lib/dmtUtils";
 import { getActiveSenderMobile, resolveSenderMobile } from "@/src/lib/dmtSession";
@@ -165,6 +166,12 @@ export function useDmtBanks() {
     queryKey: DMT_KEYS.banks,
     queryFn: fetchDmtBanks,
     staleTime: 60_000 * 10,
+  });
+}
+
+export function useVerifyBankAccount() {
+  return useMutation({
+    mutationFn: verifyBankAccount,
   });
 }
 

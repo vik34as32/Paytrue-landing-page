@@ -522,7 +522,12 @@ export function KycStep({ methods, userType, values, existingUrls, setFile }) {
       <ImageUpload label="PAN Card" file={values.panCard} existingUrl={existingUrls.panCard} onChange={(file) => setFile("panCard", file)} />
       <ImageUpload label="Owner Photo" file={values.ownerPhoto} existingUrl={existingUrls.ownerPhoto} onChange={(file) => setFile("ownerPhoto", file)} />
       <div className="lg:col-span-2">
-        <VideoUpload label="Video Verification" file={values.videoVerification} existingUrl={existingUrls.videoVerification} onChange={(file) => setFile("videoVerification", file)} />
+        <VideoUpload
+          label="Video Verification (Optional)"
+          file={values.videoVerification}
+          existingUrl={existingUrls.videoVerification}
+          onChange={(file) => setFile("videoVerification", file)}
+        />
         {methods.formState.errors.videoVerification && (
           <p className="mt-1 text-xs text-red-500">{methods.formState.errors.videoVerification.message}</p>
         )}

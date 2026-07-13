@@ -5,6 +5,11 @@ import { logDmtApiCall, apiNameFromEndpoint } from "@/src/lib/dmtApiLogger";
 import { buildAepsLoginApiBody } from "@/src/lib/aepsUtils";
 import { formatGeoLocation } from "@/src/lib/geoUtils";
 import {
+  buildVerifyBankAccountPayload,
+  normalizeVerifyBankAccountResponse,
+  resolveDmtGeoCoordinates,
+} from "@/src/lib/dmtBankVerify";
+import {
   mapDmtError,
   normalizeBeneficiary,
   normalizeBeneficiaryList,
@@ -37,6 +42,8 @@ import type {
   VerifyBeneficiaryPayload,
   VerifyOtpPayload,
   VerifyTransactionOtpPayload,
+  VerifyBankAccountPayload,
+  VerifyBankAccountResponse,
 } from "@/src/types/dmt";
 
 async function request<T>(
@@ -340,6 +347,40 @@ export async function fetchDmtBanks(): Promise<DmtBank[]> {
     const response = await api.get(DMT_ENDPOINTS.banks);
     return normalizeDmtBankList(response.data);
   });
+}
+
+export async function verifyBankAccount(input: {
+  accountNumber: string;
+  ifscCode: string;
+  name?: string;
+  pennyDrop?: VerifyBankAccountPayload["pennyDrop"];
+}): Promise<VerifyBankAccountResponse> {
+  return request(
+    async () => {
+      const coords = await resolveDmtGeoCoordinates();
+      const body = buildVerifyBankAccountPayload({
+        accountNumber: input.accountNumber,
+        ifscCode: input.ifscCode,
+        name: input.name,
+        pennyDrop: input.pennyDrop ?? "YES",
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      });
+
+      const response = await api.post(DMT_ENDPOINTS.verifyBankAccount, body);
+      return normalizeVerifyBankAccountResponse(response.data);
+    },
+    {
+      endpoint: DMT_ENDPOINTS.verifyBankAccount,
+      method: "POST",
+      body: {
+        accountNumber: input.accountNumber,
+        bankIfsc: input.ifscCode,
+        name: input.name,
+        pennyDrop: input.pennyDrop ?? "YES",
+      },
+    }
+  );
 }
 
 export async function fetchBeneficiaries(params: {

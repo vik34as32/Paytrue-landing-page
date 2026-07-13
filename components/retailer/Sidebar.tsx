@@ -17,6 +17,7 @@ import {
   BellRing,
   Gift,
   Settings,
+  FileSpreadsheet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -38,6 +39,7 @@ const iconMap = {
   BellRing,
   Gift,
   Settings,
+  FileSpreadsheet,
 };
 
 type SidebarLinkItem = {

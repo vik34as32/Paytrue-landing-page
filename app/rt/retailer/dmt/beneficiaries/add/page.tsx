@@ -21,7 +21,8 @@ import {
 } from "@/components/ui/select";
 import DmtPageHeader from "@/src/components/dmt/DmtPageHeader";
 import DmtErrorState from "@/src/components/dmt/DmtErrorState";
-import { useAddBeneficiary, useDmtBanks } from "@/src/hooks/useDmt";
+import BankAccountVerifyInput from "@/src/components/dmt/BankAccountVerifyInput";
+import { useAddBeneficiary, useDmtBanks, useVerifyBankAccount } from "@/src/hooks/useDmt";
 import { resolveSenderMobile, setActiveSenderMobile, setBeneficiaryReferenceKey } from "@/src/lib/dmtSession";
 import type { DmtApiError } from "@/src/types/dmt";
 
@@ -52,6 +53,7 @@ function AddBeneficiaryForm() {
   const params = useSearchParams();
   const mobileFromUrl = params?.get("mobile") ?? "";
   const addMutation = useAddBeneficiary();
+  const verifyBankMutation = useVerifyBankAccount();
   const { data: banks = [], isLoading: banksLoading } = useDmtBanks();
   const [error, setError] = useState<DmtApiError | null>(null);
 
@@ -112,6 +114,9 @@ function AddBeneficiaryForm() {
   };
 
   const senderMobile = form.watch("senderMobile");
+  const accountNumber = form.watch("accountNumber");
+  const ifscCode = form.watch("ifscCode");
+  const beneficiaryName = form.watch("name");
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -162,8 +167,34 @@ function AddBeneficiaryForm() {
             >
               <Input maxLength={10} inputMode="numeric" {...form.register("mobile")} />
             </Field>
+            <div className="sm:col-span-2">
+              <Field label="IFSC Code" error={form.formState.errors.ifscCode?.message}>
+                <Input
+                  className="uppercase"
+                  {...form.register("ifscCode", {
+                    onChange: (e) => {
+                      e.target.value = e.target.value.toUpperCase();
+                    },
+                  })}
+                />
+              </Field>
+            </div>
             <Field label="Account Number" error={form.formState.errors.accountNumber?.message}>
-              <Input inputMode="numeric" {...form.register("accountNumber")} />
+              <BankAccountVerifyInput
+                value={accountNumber}
+                onChange={(value) =>
+                  form.setValue("accountNumber", value, { shouldValidate: true })
+                }
+                ifscCode={ifscCode}
+                name={beneficiaryName}
+                verifyFn={(input) => verifyBankMutation.mutateAsync(input)}
+                onVerified={(result) => {
+                  if (!form.getValues("name")?.trim() && result.payee?.name) {
+                    form.setValue("name", result.payee.name, { shouldValidate: true });
+                  }
+                }}
+                disabled={addMutation.isPending}
+              />
             </Field>
             <Field
               label="Confirm Account Number"
@@ -193,18 +224,6 @@ function AddBeneficiaryForm() {
                     ))}
                   </SelectContent>
                 </Select>
-              </Field>
-            </div>
-            <div className="sm:col-span-2">
-              <Field label="IFSC Code" error={form.formState.errors.ifscCode?.message}>
-                <Input
-                  className="uppercase"
-                  {...form.register("ifscCode", {
-                    onChange: (e) => {
-                      e.target.value = e.target.value.toUpperCase();
-                    },
-                  })}
-                />
               </Field>
             </div>
             <div className="sm:col-span-2">

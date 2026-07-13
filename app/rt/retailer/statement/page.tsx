@@ -97,6 +97,10 @@ interface ExportRow {
   Description: string;
   Type: string;
   Status: string;
+  "Previous Balance": string;
+  "Credit Amount": string;
+  "Debit Amount": string;
+  "Updated Balance": string;
   Amount: number;
   "Bank Name": string;
   "Account Number": string;
@@ -118,7 +122,7 @@ const SERVICE_FILTERS: ServiceFilter[] = [
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 30];
 const RETAILER_NAME = "Amit Kumar";
 
-const STATEMENT_TABLE_MIN_WIDTH = "1480px";
+const STATEMENT_TABLE_MIN_WIDTH = "1960px";
 const STATEMENT_TABLE_SCROLL_HEIGHT = "520px";
 
 const tableCustomStyles = {
@@ -234,10 +238,6 @@ function formatStatementDate(value: string): string {
   });
 }
 
-function formatAmountDisplay(type: TransactionType, amount: number): string {
-  return `${type === "debit" ? "-" : "+"}${formatCurrency(amount)}`;
-}
-
 function matchesAepsSubFilter(
   txn: StatementTransaction,
   filter: AepsSubFilter
@@ -246,7 +246,56 @@ function matchesAepsSubFilter(
   return txn.aepsTransactionType === filter;
 }
 
+function StackedHeader({ lines }: { lines: string[] }) {
+  return (
+    <span className="inline-flex flex-col items-center justify-center text-[11px] font-bold uppercase tracking-wide leading-[1.2]">
+      {lines.map((line) => (
+        <span key={line}>{line}</span>
+      ))}
+    </span>
+  );
+}
+
+function hasStatementBalance(txn: StatementTransaction): boolean {
+  return txn.openingBalance > 0 || txn.balanceAfter > 0;
+}
+
+function StatementBalanceCell({
+  value,
+  tone,
+}: {
+  value: number;
+  tone: "credit" | "debit" | "neutral" | "balance";
+}) {
+  if (!value && tone !== "balance" && tone !== "neutral") {
+    return <span className="text-slate-300">—</span>;
+  }
+
+  return (
+    <span
+      className={cn(
+        "font-bold tabular-nums tracking-tight",
+        tone === "credit" && "text-emerald-700",
+        tone === "debit" && "text-red-600",
+        tone === "balance" && "text-[#001F5B]",
+        tone === "neutral" && "text-slate-600"
+      )}
+    >
+      {tone === "credit" ? "+" : tone === "debit" ? "−" : ""}
+      {formatCurrency(value)}
+    </span>
+  );
+}
+
+function formatBalanceExport(value: number, txn: StatementTransaction): string {
+  if (!hasStatementBalance(txn) && value === 0) return "—";
+  return formatCurrency(value);
+}
+
 function mapToExportRow(txn: StatementTransaction): ExportRow {
+  const creditAmount = txn.type === "credit" ? txn.amount : 0;
+  const debitAmount = txn.type === "debit" ? txn.amount : 0;
+
   return {
     "Transaction ID": formatTransactionId(txn.id),
     "Reference Number": txn.referenceNumber,
@@ -255,6 +304,10 @@ function mapToExportRow(txn: StatementTransaction): ExportRow {
     Description: txn.description,
     Type: txn.type,
     Status: txn.status,
+    "Previous Balance": formatBalanceExport(txn.openingBalance, txn),
+    "Credit Amount": creditAmount ? formatCurrency(creditAmount) : "—",
+    "Debit Amount": debitAmount ? formatCurrency(debitAmount) : "—",
+    "Updated Balance": formatBalanceExport(txn.balanceAfter, txn),
     Amount: txn.amount,
     "Bank Name": txn.bankName ?? txn.receiverName ?? "",
     "Account Number": txn.accountNumber ?? "",
@@ -293,7 +346,10 @@ function exportStatementPdf(rows: StatementTransaction[]) {
     txn.description,
     txn.type,
     txn.status,
-    formatAmountDisplay(txn.type, txn.amount),
+    formatBalanceExport(txn.openingBalance, txn),
+    txn.type === "credit" ? formatCurrency(txn.amount) : "—",
+    txn.type === "debit" ? formatCurrency(txn.amount) : "—",
+    formatBalanceExport(txn.balanceAfter, txn),
     txn.bankName ?? txn.receiverName ?? "",
     txn.accountNumber ?? "",
     txn.mobile,
@@ -312,7 +368,10 @@ function exportStatementPdf(rows: StatementTransaction[]) {
         "Description",
         "Type",
         "Status",
-        "Amount",
+        "Previous Bal.",
+        "Credit",
+        "Debit",
+        "Updated Bal.",
         "Bank",
         "Account",
         "Mobile",
@@ -610,22 +669,60 @@ export default function StatementPage() {
         cell: (row) => <StatusBadge status={row.status} />,
       },
       {
-        id: "amount",
-        name: "Amount",
-        selector: (row) => row.amount,
+        id: "openingBalance",
+        name: <StackedHeader lines={["Previous", "Balance"]} />,
+        selector: (row) => row.openingBalance,
         sortable: true,
         right: true,
-        minWidth: "110px",
+        minWidth: "118px",
+        cell: (row) =>
+          hasStatementBalance(row) ? (
+            <StatementBalanceCell value={row.openingBalance} tone="neutral" />
+          ) : (
+            <span className="text-slate-300">—</span>
+          ),
+      },
+      {
+        id: "creditAmount",
+        name: <StackedHeader lines={["Credit", "Amount"]} />,
+        selector: (row) => (row.type === "credit" ? row.amount : 0),
+        sortable: true,
+        right: true,
+        minWidth: "108px",
         cell: (row) => (
-          <span
-            className={cn(
-              "font-semibold tabular-nums",
-              row.type === "debit" ? "text-red-600" : "text-emerald-600"
-            )}
-          >
-            {formatAmountDisplay(row.type, row.amount)}
-          </span>
+          <StatementBalanceCell
+            value={row.type === "credit" ? row.amount : 0}
+            tone="credit"
+          />
         ),
+      },
+      {
+        id: "debitAmount",
+        name: <StackedHeader lines={["Debit", "Amount"]} />,
+        selector: (row) => (row.type === "debit" ? row.amount : 0),
+        sortable: true,
+        right: true,
+        minWidth: "108px",
+        cell: (row) => (
+          <StatementBalanceCell
+            value={row.type === "debit" ? row.amount : 0}
+            tone="debit"
+          />
+        ),
+      },
+      {
+        id: "balanceAfter",
+        name: <StackedHeader lines={["Updated", "Balance"]} />,
+        selector: (row) => row.balanceAfter,
+        sortable: true,
+        right: true,
+        minWidth: "118px",
+        cell: (row) =>
+          hasStatementBalance(row) ? (
+            <StatementBalanceCell value={row.balanceAfter} tone="balance" />
+          ) : (
+            <span className="text-slate-300">—</span>
+          ),
       },
       {
         name: "Action",

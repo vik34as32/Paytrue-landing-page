@@ -40,12 +40,11 @@ export const SIDEBAR_LINKS = [
     href: "/rt/retailer/fund-request",
     icon: "Wallet",
   },
-  // {
-  //   label: "AEPS",
-  //   href: "/rt/retailer/aeps",
-  //   icon: "Fingerprint",
-  // },
-  // { label: "Services", href: "/rt/retailer", icon: "Grid3x3" },
+  {
+    label: "Wallet Summary",
+    href: "/rt/retailer/wallet-summary",
+    icon: "FileSpreadsheet",
+  },
   {
     label: "Statement",
     href: "/rt/retailer/statement",

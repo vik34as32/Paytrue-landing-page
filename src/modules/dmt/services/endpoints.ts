@@ -9,6 +9,7 @@ export const DMT_MODULE_ENDPOINTS = {
   bioAuth: "/dmt/remitter/ekyc",
   senderProfile: (mobile: string) => `/dmt/remitter/${encodeURIComponent(mobile)}`,
   banks: "/dmt/banks",
+  verifyBankAccount: "/dmt/bank-account/verify",
   beneficiaries: "/dmt/beneficiaries",
   addBeneficiary: "/dmt/beneficiaries",
   verifyBeneficiaryOtp: (id: string) =>

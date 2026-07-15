@@ -51,16 +51,6 @@ import type {
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 25, 50, 100];
 
-function StackedHeader({ lines }: { lines: string[] }) {
-  return (
-    <span className="inline-flex flex-col items-center justify-center text-[11px] font-bold uppercase tracking-wide leading-[1.2]">
-      {lines.map((line) => (
-        <span key={line}>{line}</span>
-      ))}
-    </span>
-  );
-}
-
 function AmountCell({
   value,
   tone,
@@ -263,8 +253,8 @@ export default function WalletSummaryTable({
   const columns = useMemo<TableColumn<WalletSummaryTransaction>[]>(
     () => [
       {
-        name: <StackedHeader lines={["Txn", "Date"]} />,
-        minWidth: "108px",
+        name: "Txn Date",
+        minWidth: "120px",
         cell: (row) => (
           <div className="py-0.5">
             <p className="text-xs font-bold text-[#001F5B]">
@@ -275,8 +265,8 @@ export default function WalletSummaryTable({
         ),
       },
       {
-        name: <StackedHeader lines={["Performed", "By"]} />,
-        minWidth: "140px",
+        name: "Performed By",
+        minWidth: "150px",
         cell: (row) => (
           <div>
             <p className="text-sm font-bold text-[#001F5B]">
@@ -289,8 +279,8 @@ export default function WalletSummaryTable({
         ),
       },
       {
-        name: <StackedHeader lines={["User", "Type"]} />,
-        minWidth: "108px",
+        name: "User Type",
+        minWidth: "110px",
         cell: (row) => (
           <span className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-600">
             {row.performedBy?.roleLabel || row.performedBy?.role || "—"}
@@ -298,30 +288,30 @@ export default function WalletSummaryTable({
         ),
       },
       {
-        name: <StackedHeader lines={["Previous", "Balance"]} />,
-        minWidth: "118px",
+        name: "Previous Balance",
+        minWidth: "130px",
         right: true,
         cell: (row) => <AmountCell value={row.openingBalance} tone="neutral" />,
       },
       {
-        name: <StackedHeader lines={["Credit", "Amt."]} />,
-        minWidth: "108px",
+        name: "Credit Amt.",
+        minWidth: "110px",
         right: true,
         cell: (row) => (
           <AmountCell value={row.type === "CREDIT" ? row.amount : 0} tone="credit" />
         ),
       },
       {
-        name: <StackedHeader lines={["Deduct", "Amt."]} />,
-        minWidth: "108px",
+        name: "Deduct Amt.",
+        minWidth: "110px",
         right: true,
         cell: (row) => (
           <AmountCell value={row.type === "DEDUCT" ? row.amount : 0} tone="deduct" />
         ),
       },
       {
-        name: <StackedHeader lines={["Updated", "Balance"]} />,
-        minWidth: "118px",
+        name: "Updated Balance",
+        minWidth: "130px",
         right: true,
         cell: (row) => <AmountCell value={row.updatedBalance} tone="balance" />,
       },
@@ -351,37 +341,36 @@ export default function WalletSummaryTable({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      {/* Bank statement header */}
-      <div className="border-b border-[#001F5B]/10 bg-gradient-to-r from-[#001F5B] via-[#003380] to-[#0057D9] px-4 py-5 text-white md:px-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
+      {/* Statement meta strip */}
+      <div className="border-b border-slate-200 bg-white px-4 py-4 md:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1565d8]/10 text-[#1565d8]">
               <Landmark className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/70">
-                Paytrue Wallet
-              </p>
-              <h2 className="text-xl font-bold tracking-tight">Account Statement</h2>
-              <p className="mt-1 text-sm text-white/80">
+              <h2 className="text-base font-bold tracking-tight text-[#001F5B] sm:text-lg">
+                Account Statement
+              </h2>
+              <p className="text-sm text-slate-500">
                 {user?.roleLabel || "Account Holder"}
                 {user?.role ? ` · ${user.role.replace(/_/g, " ")}` : ""}
               </p>
             </div>
           </div>
 
-          <div className="grid gap-1 text-sm lg:text-right">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-slate-600">
             <p>
-              <span className="text-white/60">Period:</span>{" "}
-              <span className="font-semibold">{statementPeriod}</span>
+              <span className="text-slate-400">Period:</span>{" "}
+              <span className="font-semibold text-[#001F5B]">{statementPeriod}</span>
             </p>
             <p>
-              <span className="text-white/60">Generated:</span>{" "}
-              <span className="font-semibold">{generatedAt}</span>
+              <span className="text-slate-400">Generated:</span>{" "}
+              <span className="font-semibold text-[#001F5B]">{generatedAt}</span>
             </p>
             <p>
-              <span className="text-white/60">Entries:</span>{" "}
-              <span className="font-semibold">
+              <span className="text-slate-400">Entries:</span>{" "}
+              <span className="font-semibold text-[#001F5B]">
                 {from}–{to} of {total}
               </span>
             </p>
@@ -429,10 +418,13 @@ export default function WalletSummaryTable({
 
       {/* Toolbar: filters + exports aligned */}
       <div className="space-y-3 border-b border-slate-100 bg-white px-4 py-4 md:px-5">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="w-full sm:w-52">
-              <Label htmlFor="wallet-summary-search" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-[200px] flex-1 sm:max-w-[240px] sm:flex-none">
+              <Label
+                htmlFor="wallet-summary-search"
+                className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-400"
+              >
                 Search
               </Label>
               <div className="relative">
@@ -448,37 +440,45 @@ export default function WalletSummaryTable({
               </div>
             </div>
 
-            <div className="w-[132px]">
-              <Label htmlFor="wallet-summary-from" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                From
-              </Label>
-              <Input
-                id="wallet-summary-from"
-                type="date"
-                value={dateFrom}
-                max={dateTo || undefined}
-                onChange={(event) => onDateFromChange?.(event.target.value)}
-                className="h-9 rounded-lg border-slate-200 text-sm"
-                disabled={loading}
-              />
+            <div className="flex shrink-0 items-end gap-3">
+              <div className="w-[148px]">
+                <Label
+                  htmlFor="wallet-summary-from"
+                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-400"
+                >
+                  From
+                </Label>
+                <Input
+                  id="wallet-summary-from"
+                  type="date"
+                  value={dateFrom}
+                  max={dateTo || undefined}
+                  onChange={(event) => onDateFromChange?.(event.target.value)}
+                  className="h-9 rounded-lg border-slate-200 text-sm"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="w-[148px]">
+                <Label
+                  htmlFor="wallet-summary-to"
+                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-400"
+                >
+                  To
+                </Label>
+                <Input
+                  id="wallet-summary-to"
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={(event) => onDateToChange?.(event.target.value)}
+                  className="h-9 rounded-lg border-slate-200 text-sm"
+                  disabled={loading}
+                />
+              </div>
             </div>
 
-            <div className="w-[132px]">
-              <Label htmlFor="wallet-summary-to" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                To
-              </Label>
-              <Input
-                id="wallet-summary-to"
-                type="date"
-                value={dateTo}
-                min={dateFrom || undefined}
-                onChange={(event) => onDateToChange?.(event.target.value)}
-                className="h-9 rounded-lg border-slate-200 text-sm"
-                disabled={loading}
-              />
-            </div>
-
-            <div className="w-[120px]">
+            <div className="w-[128px] shrink-0">
               <Label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                 Status
               </Label>
@@ -507,7 +507,7 @@ export default function WalletSummaryTable({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="mb-0 h-9 gap-1 rounded-lg px-2.5 text-xs"
+                className="h-9 gap-1 rounded-lg px-2.5 text-xs"
                 onClick={clearFilters}
               >
                 <X className="h-3.5 w-3.5" />
@@ -516,7 +516,7 @@ export default function WalletSummaryTable({
             ) : null}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
             <div className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5">
               {WALLET_SUMMARY_TYPE_FILTERS.map((filter) => (
                 <button
@@ -612,19 +612,30 @@ export default function WalletSummaryTable({
             ...cyanDataTableStyles,
             table: {
               style: {
+                ...cyanDataTableStyles.table.style,
                 borderCollapse: "separate",
                 borderSpacing: 0,
               },
             },
             headRow: {
               style: {
-                backgroundColor: "#f8fafc",
-                borderBottom: "2px solid #e2e8f0",
+                ...cyanDataTableStyles.headRow.style,
                 minHeight: "48px",
+              },
+            },
+            headCells: {
+              style: {
+                ...cyanDataTableStyles.headCells.style,
+                color: "#ffffff",
+                fontWeight: 700,
+                fontSize: "12px",
+                justifyContent: "flex-start",
+                textAlign: "left" as const,
               },
             },
             rows: {
               style: {
+                ...cyanDataTableStyles.rows.style,
                 minHeight: "52px",
                 borderBottom: "1px solid #f1f5f9",
                 fontSize: "13px",

@@ -23,7 +23,7 @@ function RetailerDashboardContent() {
       <NewsBar />
       <DashboardHeader dashboard={dashboard} loading={isLoading} />
       <BiometricKycDashboardCard />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <CommissionBalanceCard
           role="rt"
           wallet={commissionQuery.data}
@@ -37,7 +37,7 @@ function RetailerDashboardContent() {
           }
           onRetry={() => void commissionQuery.refetch()}
         />
-      </div>
+      </div> */}
       <DashboardStats
         dashboard={dashboard}
         loading={isLoading}

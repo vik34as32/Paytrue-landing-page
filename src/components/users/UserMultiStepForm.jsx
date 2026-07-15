@@ -4,11 +4,19 @@ import { useMemo, useState, useCallback } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
-import { Users, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Users, ChevronLeft, ChevronRight, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import PageHeader from "@/src/components/common/PageHeader";
 import SuccessModal from "@/src/components/common/SuccessModal";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Card,
   CardContent,
@@ -172,6 +180,7 @@ export default function UserMultiStepForm({
 
   const [step, setStep] = useState(1);
   const [successOpen, setSuccessOpen] = useState(false);
+  const [clearDraftOpen, setClearDraftOpen] = useState(false);
   const [outletCityOptions, setOutletCityOptions] = useState([]);
 
   const methods = useForm({
@@ -193,6 +202,25 @@ export default function UserMultiStepForm({
     setStep,
     enabled: !isEdit,
   });
+
+  const requestClearSavedData = useCallback(() => {
+    if (isEdit || actionLoading) return;
+    setClearDraftOpen(true);
+  }, [actionLoading, isEdit]);
+
+  const confirmClearSavedData = useCallback(() => {
+    clearDraft();
+    clearErrors();
+    reset({
+      ...emptyDefaults,
+      password: generateSecurePassword(),
+    });
+    setStep(1);
+    setOutletCityOptions([]);
+    window.setTimeout(() => clearDraft(), 500);
+    setClearDraftOpen(false);
+    toast.success("Saved form data removed from local storage.");
+  }, [clearDraft, clearErrors, reset]);
 
   const validationContext = {
     isEdit,
@@ -313,6 +341,20 @@ export default function UserMultiStepForm({
         description={description}
         icon={Icon}
         backHref={backHref}
+        actions={
+          !isEdit ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+              onClick={requestClearSavedData}
+              disabled={actionLoading}
+            >
+              <Trash2 className="h-4 w-4" />
+              Clear Saved Data
+            </Button>
+          ) : null
+        }
       />
 
       <StepIndicator steps={steps} currentStep={step} />
@@ -435,16 +477,30 @@ export default function UserMultiStepForm({
                 </div>
               )}
 
-              <div className="flex flex-wrap justify-between gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={goBack}
-                  disabled={step === 1 || actionLoading}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={goBack}
+                    disabled={step === 1 || actionLoading}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  {!isEdit ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                      onClick={requestClearSavedData}
+                      disabled={actionLoading}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Clear Saved Data
+                    </Button>
+                  ) : null}
+                </div>
                 {step < 5 ? (
                   <Button type="submit" disabled={actionLoading}>
                     Next
@@ -481,6 +537,34 @@ export default function UserMultiStepForm({
           message="The user has been onboarded successfully."
         />
       )}
+
+      <Dialog open={clearDraftOpen} onOpenChange={setClearDraftOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Clear saved form data?</DialogTitle>
+            <DialogDescription>
+              This will remove all local storage draft data for this form. This
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setClearDraftOpen(false)}
+            >
+              No
+            </Button>
+            <Button
+              type="button"
+              className="bg-red-600 hover:bg-red-700"
+              onClick={confirmClearSavedData}
+            >
+              Yes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

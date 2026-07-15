@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { motion } from "framer-motion";
 import { Wallet } from "lucide-react";
 import { toast } from "sonner";
 import PageHeader from "@/src/components/common/PageHeader";
@@ -17,7 +16,7 @@ import type {
 
 const PAGE_CONFIG: Record<
   WalletSummaryPortalRole,
-  { title: string; description: string; backHref: string; useMotionHeader?: boolean }
+  { title: string; description: string; backHref: string }
 > = {
   md: {
     title: "Wallet Summary",
@@ -33,7 +32,6 @@ const PAGE_CONFIG: Record<
     title: "Wallet Summary",
     description: "Your wallet account statement — credits, deductions, and balance ledger.",
     backHref: "/rt/retailer",
-    useMotionHeader: true,
   },
 };
 
@@ -133,34 +131,13 @@ function WalletSummaryContent({ role }: { role: WalletSummaryPortalRole }) {
 
   return (
     <div className="space-y-5">
-      {config.useMotionHeader ? (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35 }}
-          className="flex items-start gap-4"
-        >
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#0A84FF] to-[#0057D9] text-white shadow-lg">
-            <Wallet className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-[#001F5B] dark:text-white">
-              Wallet Statement
-            </h1>
-            <p className="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
-              {config.description}
-            </p>
-          </div>
-        </motion.div>
-      ) : (
-        <PageHeader
-          title="Wallet Statement"
-          description={config.description}
-          icon={Wallet}
-          backHref={config.backHref}
-          actions={null}
-        />
-      )}
+      <PageHeader
+        title="Wallet Summary"
+        description={config.description}
+        icon={Wallet}
+        backHref={config.backHref}
+        actions={null}
+      />
 
       <WalletSummaryTable
         transactions={data?.transactions ?? []}

@@ -54,19 +54,19 @@ const ROLE_META: Record<
   { title: string; backHref: string; walletRole: "rt" | "dd" | "md"; roleLabel: string }
 > = {
   rt: {
-    title: "Commission Ledger",
+    title: "Commission Report",
     backHref: "/rt/retailer",
     walletRole: "rt",
     roleLabel: "Retailer",
   },
   dd: {
-    title: "Commission Ledger",
+    title: "Commission Report",
     backHref: "/dd/dashboard",
     walletRole: "dd",
     roleLabel: "Distributor",
   },
   md: {
-    title: "Commission Ledger",
+    title: "Commission Report",
     backHref: "/md/dashboard",
     walletRole: "md",
     roleLabel: "Master Distributor",

@@ -11,9 +11,7 @@ export const MD_SIDEBAR_LINKS = [
   { label: "Reports", href: "/md/reports", icon: "BarChart3" },
   { label: "Wallet", href: "/md/wallet", icon: "CreditCard" },
   { label: "Wallet Summary", href: "/md/wallet-summary", icon: "FileSpreadsheet" },
-  { label: "Commission", href: "/md/commission", icon: "IndianRupee" },
-  { label: "Profile", href: "/md/profile", icon: "User" },
-  { label: "Settings", href: "/md/settings", icon: "Settings" },
+  { label: "Commission Report", href: "/md/commission", icon: "IndianRupee" },
 ];
 
 export const DD_SIDEBAR_LINKS = [
@@ -23,12 +21,9 @@ export const DD_SIDEBAR_LINKS = [
   { label: "Balance Deduct", href: "/dd/wallet-deduct", icon: "MinusCircle" },
   { label: "Fund Requests", href: "/dd/fund-requests", icon: "Wallet" },
   { label: "Transactions", href: "/dd/transactions", icon: "FileText" },
-  { label: "Reports", href: "/dd/reports", icon: "BarChart3" },
   { label: "Wallet", href: "/dd/wallet", icon: "CreditCard" },
   { label: "Wallet Summary", href: "/dd/wallet-summary", icon: "FileSpreadsheet" },
-  { label: "Commission", href: "/dd/commission", icon: "IndianRupee" },
-  { label: "Profile", href: "/dd/profile", icon: "User" },
-  { label: "Settings", href: "/dd/settings", icon: "Settings" },
+  { label: "Commission Report", href: "/dd/commission", icon: "IndianRupee" },
 ];
 
 export const PORTAL_CONFIG = {

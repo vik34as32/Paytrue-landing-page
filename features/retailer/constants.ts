@@ -45,6 +45,11 @@ export const SIDEBAR_LINKS = [
     href: "/rt/retailer/wallet-summary",
     icon: "FileSpreadsheet",
   },
+  {
+    label: "Commission Report",
+    href: "/rt/retailer/commission",
+    icon: "IndianRupee",
+  },
 
   {
     label: "Statement",

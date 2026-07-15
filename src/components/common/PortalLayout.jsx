@@ -21,6 +21,7 @@ import {
 import { fetchProfile } from "@/src/redux/thunks/profileThunk";
 import { fetchWalletBalance } from "@/src/redux/thunks/walletThunk";
 import useLogout from "@/src/hooks/useLogout";
+import { commissionLedgerPath } from "@/src/lib/commissionUtils";
 
 export default function PortalLayout({ children, role }) {
   const dispatch = useDispatch();
@@ -30,6 +31,7 @@ export default function PortalLayout({ children, role }) {
   const config = PORTAL_CONFIG[role];
   const hideWalletStrip =
     role === "md" || (role === "dd" && pathname === "/dd/dashboard");
+  const commissionHref = commissionLedgerPath(role);
 
   const hydrated = useSelector(selectAuthHydrated);
   const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -92,6 +94,7 @@ export default function PortalLayout({ children, role }) {
         walletLoading={walletLoading}
         walletLoaded={walletLoaded}
         profileLoading={profileLoading}
+        commissionHref={commissionHref}
         onLogout={handleLogout}
       />
 
@@ -107,6 +110,7 @@ export default function PortalLayout({ children, role }) {
           walletLoading={walletLoading}
           walletLoaded={walletLoaded}
           profileLoading={profileLoading}
+          commissionHref={commissionHref}
         />
 
         <div className="flex-1 overflow-y-auto w-full max-w-none">
@@ -120,6 +124,7 @@ export default function PortalLayout({ children, role }) {
               loading={walletLoading}
               loaded={walletLoaded}
               error={wallet.error}
+              commissionHref={commissionHref}
             />
           ) : null}
           <main className="w-full max-w-none px-4 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6">

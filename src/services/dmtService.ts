@@ -4,6 +4,7 @@ import api from "@/src/lib/axios";
 import { logDmtApiCall, apiNameFromEndpoint } from "@/src/lib/dmtApiLogger";
 import { buildAepsLoginApiBody } from "@/src/lib/aepsUtils";
 import { formatGeoLocation } from "@/src/lib/geoUtils";
+import { resolveDmtTransferServiceId } from "@/features/retailer/store/retailerServicesStore";
 import {
   buildVerifyBankAccountPayload,
   normalizeVerifyBankAccountResponse,
@@ -105,11 +106,13 @@ function normalizeDeleteBeneficiaryResponse(payload: unknown): DeleteBeneficiary
   };
 }
 
-function buildTransferBody(payload: TransferPayload): Record<string, unknown> {
+async function buildTransferBody(payload: TransferPayload): Promise<Record<string, unknown>> {
   const coords = formatGeoLocation({
     latitude: payload.latitude,
     longitude: payload.longitude,
   });
+
+  const serviceId = await resolveDmtTransferServiceId(payload.transferMode);
 
   const body: Record<string, unknown> = {
     senderMobile: payload.senderMobile.trim(),
@@ -120,6 +123,7 @@ function buildTransferBody(payload: TransferPayload): Record<string, unknown> {
     referenceKey: payload.referenceKey.trim(),
     latitude: coords.latitude,
     longitude: coords.longitude,
+    serviceId,
   };
 
   if (payload.remarks?.trim()) {
@@ -521,7 +525,7 @@ export async function transferImps(
   return request(async () => {
     const response = await api.post(
       DMT_ENDPOINTS.transferImps,
-      buildTransferBody({ ...payload, transferMode: "IMPS" })
+      await buildTransferBody({ ...payload, transferMode: "IMPS" })
     );
     return normalizeTransferResponse(response.data, payload);
   });
@@ -533,7 +537,7 @@ export async function transferNeft(
   return request(async () => {
     const response = await api.post(
       DMT_ENDPOINTS.transferNeft,
-      buildTransferBody({ ...payload, transferMode: "NEFT" })
+      await buildTransferBody({ ...payload, transferMode: "NEFT" })
     );
     return normalizeTransferResponse(response.data, payload);
   });

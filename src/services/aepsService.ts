@@ -1,5 +1,10 @@
 import api from "@/src/lib/axios";
 import { AEPS_ENDPOINTS } from "@/src/constants/aepsApi";
+import { RETAILER_SERVICE_NAMES } from "@/src/constants/retailerServices";
+import {
+  appendServiceId,
+  ensureRetailerServicesLoaded,
+} from "@/features/retailer/store/retailerServicesStore";
 import {
   buildAepsLoginApiBody,
   buildAepsAccountVerifyApiBody,
@@ -97,7 +102,11 @@ export async function aepsCashWithdrawal(
   payload: AepsTransactionPayload
 ): Promise<AepsTransactionResult> {
   return request(async () => {
-    const body = buildAepsTransactionApiBody(payload);
+    await ensureRetailerServicesLoaded();
+    const body = appendServiceId(
+      buildAepsTransactionApiBody(payload),
+      RETAILER_SERVICE_NAMES.AEPS_CASH_WITHDRAWAL
+    );
     const { data } = await api.post(AEPS_ENDPOINTS.cashWithdrawal, body);
     const raw = unwrapAepsData<Record<string, unknown>>(data) ?? (data as Record<string, unknown>);
     return normalizeAepsTransactionResult(raw);
@@ -108,7 +117,11 @@ export async function aepsBalanceEnquiry(
   payload: AepsTransactionPayload
 ): Promise<AepsTransactionResult> {
   return request(async () => {
-    const body = buildAepsTransactionApiBody(payload);
+    await ensureRetailerServicesLoaded();
+    const body = appendServiceId(
+      buildAepsTransactionApiBody(payload),
+      RETAILER_SERVICE_NAMES.AEPS_BALANCE_ENQUIRY
+    );
     const { data } = await api.post(AEPS_ENDPOINTS.balanceEnquiry, body);
     const envelope = data as Record<string, unknown>;
     const raw = unwrapAepsData<Record<string, unknown>>(data) ?? envelope;
@@ -123,7 +136,11 @@ export async function aepsMiniStatement(
   payload: AepsTransactionPayload
 ): Promise<AepsTransactionResult> {
   return request(async () => {
-    const body = buildAepsTransactionApiBody(payload);
+    await ensureRetailerServicesLoaded();
+    const body = appendServiceId(
+      buildAepsTransactionApiBody(payload),
+      RETAILER_SERVICE_NAMES.AEPS_MINI_STATEMENT
+    );
     const { data } = await api.post(AEPS_ENDPOINTS.miniStatement, body);
     const envelope = data as Record<string, unknown>;
     const raw = unwrapAepsData<Record<string, unknown>>(data) ?? envelope;
@@ -138,7 +155,11 @@ export async function aepsVerifyCashDepositAccount(
   payload: AepsAccountVerifyPayload
 ): Promise<AepsAccountVerifyResult> {
   return request(async () => {
-    const body = buildAepsAccountVerifyApiBody(payload);
+    await ensureRetailerServicesLoaded();
+    const body = appendServiceId(
+      buildAepsAccountVerifyApiBody(payload),
+      RETAILER_SERVICE_NAMES.AEPS_CASH_DEPOSIT
+    );
     const { data } = await api.post(AEPS_ENDPOINTS.cashDepositVerifyAccount, body);
     const raw = unwrapAepsData<Record<string, unknown>>(data) ?? (data as Record<string, unknown>);
     return normalizeAepsAccountVerifyResult(raw);
@@ -149,7 +170,11 @@ export async function aepsCashDeposit(
   payload: AepsTransactionPayload
 ): Promise<AepsTransactionResult> {
   return request(async () => {
-    const body = buildAepsTransactionApiBody(payload);
+    await ensureRetailerServicesLoaded();
+    const body = appendServiceId(
+      buildAepsTransactionApiBody(payload),
+      RETAILER_SERVICE_NAMES.AEPS_CASH_DEPOSIT
+    );
     const { data } = await api.post(AEPS_ENDPOINTS.cashDeposit, body);
     const raw = unwrapAepsData<Record<string, unknown>>(data) ?? (data as Record<string, unknown>);
     return normalizeAepsTransactionResult(raw);
@@ -160,7 +185,11 @@ export async function aepsAadhaarPay(
   payload: AepsTransactionPayload
 ): Promise<AepsTransactionResult> {
   return request(async () => {
-    const body = buildAepsTransactionApiBody(payload);
+    await ensureRetailerServicesLoaded();
+    const body = appendServiceId(
+      buildAepsTransactionApiBody(payload),
+      RETAILER_SERVICE_NAMES.AEPS_AADHAAR_PAY
+    );
     const { data } = await api.post(AEPS_ENDPOINTS.aadhaarPay, body);
     const raw = unwrapAepsData<Record<string, unknown>>(data) ?? (data as Record<string, unknown>);
     return normalizeAepsTransactionResult(raw);

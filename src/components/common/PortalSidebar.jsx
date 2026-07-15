@@ -19,9 +19,11 @@ import {
   MinusCircle,
   FileSpreadsheet,
   Loader2,
+  IndianRupee,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils";
+import PortalCommissionBalance from "@/src/components/commission/PortalCommissionBalance";
 
 const iconMap = {
   LayoutDashboard,
@@ -36,6 +38,7 @@ const iconMap = {
   CreditCard,
   MinusCircle,
   FileSpreadsheet,
+  IndianRupee,
 };
 
 function SidebarProfile({
@@ -44,6 +47,7 @@ function SidebarProfile({
   walletLoading,
   walletLoaded,
   profileLoading,
+  commissionHref,
 }) {
   if (profileLoading && !user?.name) {
     return (
@@ -99,6 +103,7 @@ function SidebarProfile({
           </p>
         )}
       </div>
+      {commissionHref ? <PortalCommissionBalance href={commissionHref} /> : null}
     </div>
   );
 }
@@ -114,6 +119,7 @@ export default function PortalSidebar({
   walletLoading = false,
   walletLoaded = false,
   profileLoading = false,
+  commissionHref = null,
   onLogout,
 }) {
   const pathname = usePathname();
@@ -179,6 +185,7 @@ export default function PortalSidebar({
             walletLoading={walletLoading}
             walletLoaded={walletLoaded}
             profileLoading={profileLoading}
+            commissionHref={commissionHref}
           />
         </div>
 

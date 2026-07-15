@@ -45,6 +45,7 @@ export const SIDEBAR_LINKS = [
     href: "/rt/retailer/wallet-summary",
     icon: "FileSpreadsheet",
   },
+
   {
     label: "Statement",
     href: "/rt/retailer/statement",

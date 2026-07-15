@@ -9,6 +9,8 @@ import { selectProfileLoading } from "@/src/redux/slices/profileSlice";
 import { useMasterDistributorDashboard } from "@/src/hooks/useMasterDistributorDashboard";
 import MasterDistributorStatsCards from "./MasterDistributorStatsCards";
 import MasterDistributorBusinessBreakdown from "./MasterDistributorBusinessBreakdown";
+import CommissionBalanceCard from "@/src/components/commission/CommissionBalanceCard";
+import { useCommissionWallet } from "@/src/hooks/useCommission";
 import {
   Card,
   CardContent,
@@ -36,6 +38,7 @@ function MasterDistributorDashboardContent() {
   const profileLoading = useSelector(selectProfileLoading);
   const { data, isLoading, isFetching, isError, error, refetch } =
     useMasterDistributorDashboard();
+  const commissionQuery = useCommissionWallet();
 
   return (
     <div className="w-full space-y-6 pb-8">
@@ -68,6 +71,22 @@ function MasterDistributorDashboardContent() {
           </span>
         </p>
       </motion.div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <CommissionBalanceCard
+          role="md"
+          wallet={commissionQuery.data}
+          loading={commissionQuery.isLoading}
+          error={
+            commissionQuery.error instanceof Error
+              ? commissionQuery.error.message
+              : commissionQuery.isError
+                ? "Unable to load commission."
+                : null
+          }
+          onRetry={() => void commissionQuery.refetch()}
+        />
+      </div>
 
       <MasterDistributorStatsCards
         metrics={data}

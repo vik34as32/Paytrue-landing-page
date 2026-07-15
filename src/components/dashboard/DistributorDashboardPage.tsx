@@ -8,6 +8,8 @@ import { selectUser } from "@/src/redux/slices/authSlice";
 import { selectProfileLoading } from "@/src/redux/slices/profileSlice";
 import { useDistributorDashboard } from "@/src/hooks/useDistributorDashboard";
 import DistributorStatsCards from "./DistributorStatsCards";
+import CommissionBalanceCard from "@/src/components/commission/CommissionBalanceCard";
+import { useCommissionWallet } from "@/src/hooks/useCommission";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -21,6 +23,7 @@ function DistributorDashboardContent() {
   const profileLoading = useSelector(selectProfileLoading);
   const { data, isLoading, isFetching, isError, error, refetch } =
     useDistributorDashboard();
+  const commissionQuery = useCommissionWallet();
 
   return (
     <div className="w-full space-y-5">
@@ -53,6 +56,22 @@ function DistributorDashboardContent() {
           </span>
         </p>
       </motion.div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <CommissionBalanceCard
+          role="dd"
+          wallet={commissionQuery.data}
+          loading={commissionQuery.isLoading}
+          error={
+            commissionQuery.error instanceof Error
+              ? commissionQuery.error.message
+              : commissionQuery.isError
+                ? "Unable to load commission."
+                : null
+          }
+          onRetry={() => void commissionQuery.refetch()}
+        />
+      </div>
 
       <DistributorStatsCards
         metrics={data}

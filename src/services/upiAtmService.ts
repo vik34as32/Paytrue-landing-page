@@ -2,6 +2,7 @@ import api from "@/src/lib/axios";
 import { UPI_ATM_ENDPOINTS } from "@/src/constants/upiAtmApi";
 import { getCurrentLocation } from "@/src/lib/rdService";
 import { normalizeUpiAtmTransaction } from "@/src/lib/upiAtmUtils";
+import { resolveUpiCashPointServiceId } from "@/features/retailer/store/retailerServicesStore";
 import type {
   UpiAtmGenerateQrPayload,
   UpiAtmGenerateQrResponse,
@@ -21,7 +22,7 @@ function createExternalRef(): string {
 export async function buildUpiAtmGeneratePayload(input: {
   mobile: string;
   amount: number | string;
-}): Promise<UpiAtmGenerateQrPayload> {
+}): Promise<UpiAtmGenerateQrPayload & { serviceId: string }> {
   let latitude = FALLBACK_COORDS.latitude;
   let longitude = FALLBACK_COORDS.longitude;
 
@@ -33,12 +34,15 @@ export async function buildUpiAtmGeneratePayload(input: {
     // Fallback coordinates when browser location is unavailable.
   }
 
+  const serviceId = await resolveUpiCashPointServiceId();
+
   return {
     latitude,
     longitude,
     customerMobile: String(input.mobile).trim(),
     amount: String(input.amount).trim(),
     externalRef: createExternalRef(),
+    serviceId,
   };
 }
 
@@ -63,7 +67,10 @@ export async function generateUpiAtmQr(input: {
 export async function fetchUpiAtmStatus(
   referenceId: string
 ): Promise<UpiAtmStatusResponse & { transaction: UpiAtmTransaction }> {
-  const response = await api.get(UPI_ATM_ENDPOINTS.status(referenceId));
+  const serviceId = await resolveUpiCashPointServiceId();
+  const response = await api.get(UPI_ATM_ENDPOINTS.status(referenceId), {
+    params: { serviceId },
+  });
   const transaction = normalizeUpiAtmTransaction(response.data);
 
   return {
@@ -92,9 +99,13 @@ export interface UpiAtmHistoryResult {
 export async function fetchUpiAtmHistory(
   filters: UpiAtmHistoryFilters = {}
 ): Promise<UpiAtmHistoryResult> {
-  const params: Record<string, number> = {
-    page: filters.page ?? 1,
-    limit: filters.limit ?? 100,
+  const serviceId = await resolveUpiCashPointServiceId();
+  const pageNum = filters.page ?? 1;
+  const limitNum = filters.limit ?? 100;
+  const params: Record<string, string | number> = {
+    page: pageNum,
+    limit: limitNum,
+    serviceId,
   };
 
   const response = await api.get(UPI_ATM_ENDPOINTS.history, { params });
@@ -109,8 +120,8 @@ export async function fetchUpiAtmHistory(
     asRecord(root.pagination) || asRecord(asRecord(root.data).pagination);
 
   const total = Number(paginationRaw.total ?? rows.length) || rows.length;
-  const page = Number(paginationRaw.page ?? params.page) || params.page;
-  const limit = Number(paginationRaw.limit ?? params.limit) || params.limit;
+  const page = Number(paginationRaw.page ?? pageNum) || pageNum;
+  const limit = Number(paginationRaw.limit ?? limitNum) || limitNum;
   const totalPages =
     Number(paginationRaw.totalPages ?? (Math.ceil(total / limit) || 1)) || 1;
 

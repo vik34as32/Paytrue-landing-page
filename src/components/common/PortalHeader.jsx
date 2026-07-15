@@ -30,6 +30,7 @@ import { useDarkMode } from "@/src/hooks/useDarkMode";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import ChangePasswordDialog from "@/src/components/common/ChangePasswordDialog";
+import PortalCommissionBalance from "@/src/components/commission/PortalCommissionBalance";
 
 function ProfileAvatar({ user, loading }) {
   if (loading && !user?.name) {
@@ -65,6 +66,7 @@ export default function PortalHeader({
   walletLoading = false,
   walletLoaded = false,
   profileLoading = false,
+  commissionHref = null,
 }) {
   const { dark, toggle } = useDarkMode();
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -148,6 +150,12 @@ export default function PortalHeader({
               )}
             </div>
           </div>
+
+          {commissionHref ? (
+            <div className="hidden sm:block">
+              <PortalCommissionBalance href={commissionHref} compact />
+            </div>
+          ) : null}
 
           <button
             type="button"

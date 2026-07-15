@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Mail, Menu, Phone } from "lucide-react";
 import { SUPPORT_EMAIL, SUPPORT_MOBILE } from "@/features/retailer/constants";
 import HeaderWalletBalance from "./HeaderWalletBalance";
+import HeaderCommissionBalance from "./HeaderCommissionBalance";
 import ProfileDropdown from "./ProfileDropdown";
 
 interface HeaderProps {
@@ -67,6 +68,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             </Link>
           </div>
           <HeaderWalletBalance />
+          <HeaderCommissionBalance />
           <ProfileDropdown />
         </div>
       </div>

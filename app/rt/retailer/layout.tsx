@@ -8,6 +8,7 @@ import BiometricVerificationGuard from "@/components/biometric/BiometricVerifica
 import Sidebar from "@/components/retailer/Sidebar";
 import Header from "@/components/retailer/Header";
 import RetailerWalletSync from "@/components/retailer/RetailerWalletSync";
+import RetailerServicesBootstrap from "@/components/retailer/RetailerServicesBootstrap";
 import { USER_TYPES } from "@/src/constants/auth";
 
 export default function RetailerLayout({
@@ -32,6 +33,7 @@ export default function RetailerLayout({
         <IdleSessionGuard>
           <BiometricVerificationGuard>
             <RetailerWalletSync />
+            <RetailerServicesBootstrap />
             <div className="rt-portal-bg min-h-screen">
               <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 

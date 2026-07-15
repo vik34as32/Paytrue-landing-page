@@ -18,6 +18,7 @@ import {
   Gift,
   Settings,
   FileSpreadsheet,
+  IndianRupee,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -40,6 +41,7 @@ const iconMap = {
   Gift,
   Settings,
   FileSpreadsheet,
+  IndianRupee,
 };
 
 type SidebarLinkItem = {

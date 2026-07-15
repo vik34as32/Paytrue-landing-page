@@ -12,6 +12,7 @@ export interface UpiAtmGenerateQrPayload {
   customerMobile: string;
   amount: string;
   externalRef: string;
+  serviceId?: string;
 }
 
 export interface UpiAtmTransaction {

@@ -2,6 +2,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { API_BASE_URL } from "@/src/constants/api";
 import { getAccessToken } from "@/src/lib/cookies";
 import { buildAepsLoginApiBody } from "@/src/lib/aepsUtils";
+import { resolveDmtTransferServiceId } from "@/features/retailer/store/retailerServicesStore";
 import { resolveBeneficiaryBankFields, resolveBeneficiaryMobileNumber } from "@/src/lib/dmtUtils";
 import {
   buildVerifyBankAccountPayload,
@@ -296,43 +297,63 @@ export const dmtApi = createApi({
     }),
 
     transfer: builder.mutation<DmtWorkflowResponse, TransferRequest>({
-      query: (body) => {
-        const beneficiaryId = String(body.beneficiaryId || "").trim();
-        const senderMobile = String(body.senderMobile || "").trim();
-        const referenceKey = String(body.referenceKey || "").trim();
-        const otp = String(body.otp || "").trim();
-        const latitude = String(body.latitude || "").trim();
-        const longitude = String(body.longitude || "").trim();
+      async queryFn(body, _api, _extraOptions, baseQuery) {
+        try {
+          const beneficiaryId = String(body.beneficiaryId || "").trim();
+          const senderMobile = String(body.senderMobile || "").trim();
+          const referenceKey = String(body.referenceKey || "").trim();
+          const otp = String(body.otp || "").trim();
+          const latitude = String(body.latitude || "").trim();
+          const longitude = String(body.longitude || "").trim();
 
-        if (!beneficiaryId) throw new Error("Beneficiary ID is required.");
-        if (!senderMobile) throw new Error("Sender mobile is required.");
-        if (!referenceKey) throw new Error("Reference key is required.");
-        if (!otp) throw new Error("OTP is required.");
-        if (!latitude || !longitude) throw new Error("Location is required for transfer.");
+          if (!beneficiaryId) throw new Error("Beneficiary ID is required.");
+          if (!senderMobile) throw new Error("Sender mobile is required.");
+          if (!referenceKey) throw new Error("Reference key is required.");
+          if (!otp) throw new Error("OTP is required.");
+          if (!latitude || !longitude) throw new Error("Location is required for transfer.");
 
-        const payload: Record<string, unknown> = {
-          senderMobile,
-          beneficiaryId,
-          amount: body.amount,
-          transferMode: body.transferMode,
-          otp,
-          referenceKey,
-          latitude,
-          longitude,
-        };
-        if (body.remarks?.trim()) payload.remarks = body.remarks.trim();
+          const serviceId = await resolveDmtTransferServiceId(body.transferMode);
 
-        return {
-          url:
-            body.transferMode === "NEFT"
-              ? DMT_MODULE_ENDPOINTS.transferNeft
-              : DMT_MODULE_ENDPOINTS.transferImps,
-          method: "POST",
-          body: payload,
-        };
+          const payload: Record<string, unknown> = {
+            senderMobile,
+            beneficiaryId,
+            amount: body.amount,
+            transferMode: body.transferMode,
+            otp,
+            referenceKey,
+            latitude,
+            longitude,
+            serviceId,
+          };
+          if (body.remarks?.trim()) payload.remarks = body.remarks.trim();
+
+          const result = await baseQuery({
+            url:
+              body.transferMode === "NEFT"
+                ? DMT_MODULE_ENDPOINTS.transferNeft
+                : DMT_MODULE_ENDPOINTS.transferImps,
+            method: "POST",
+            body: payload,
+          });
+
+          if (result.error) {
+            return { error: result.error };
+          }
+
+          return {
+            data: normalizeWorkflowResponse(result.data),
+          };
+        } catch (error) {
+          const mapped = mapApiError(error);
+          return {
+            error: {
+              status: "CUSTOM_ERROR" as const,
+              error: mapped.message,
+              data: mapped,
+            },
+          };
+        }
       },
-      transformResponse: (response: unknown) => normalizeWorkflowResponse(response),
-      transformErrorResponse: mapApiError,
       invalidatesTags: ["Transaction"],
     }),
 

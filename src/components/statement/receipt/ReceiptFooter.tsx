@@ -9,7 +9,7 @@ import {
 
 export default function ReceiptFooter() {
   return (
-    <footer className="border-t border-[#E5E7EB] bg-white px-6 py-8 text-center sm:px-8 lg:px-10">
+    <footer className="receipt-footer border-t border-[#E5E7EB] bg-white px-6 py-8 text-center sm:px-8 lg:px-10">
       <div className="mx-auto flex max-w-md flex-col items-center">
         <Image
           src={PAYTRUE_LOGO_PATH}

@@ -129,15 +129,40 @@ export default function DmtPage() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ p: { xs: 1.5, md: 2 } }}>
-        <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5 }}>
-          Domestic Money Transfer
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Backend controls workflow via nextAction. Frontend only renders the next step.
-        </Typography>
+      <Box
+        sx={{
+          width: "100%",
+          maxWidth: "100%",
+          minWidth: 0,
+          mx: "auto",
+          boxSizing: "border-box",
+          overflowX: "hidden",
+        }}
+      >
+        <Box sx={{ mb: 2, minWidth: 0 }}>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: "#0b1f3a", mb: 0.25 }}>
+            Domestic Money Transfer
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Search remitter, manage beneficiaries, and transfer money securely.
+          </Typography>
+        </Box>
 
-        <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: "1px solid", borderColor: "divider" }}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 1.5, md: 2.5 },
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 2.5,
+            bgcolor: "#fff",
+            width: "100%",
+            maxWidth: "100%",
+            minWidth: 0,
+            overflow: "hidden",
+            boxSizing: "border-box",
+          }}
+        >
           <DmtStepper activeStep={workflow.activeStep} />
 
           {showFailed ? (
@@ -149,78 +174,88 @@ export default function DmtPage() {
             </Alert>
           ) : null}
 
-          <Box sx={{ display: "grid", gap: 3 }}>
-               <SearchSenderCard
-                defaultMobile={sender.mobile}
-                loading={loading}
-                onSearch={searchSender}
-              /> 
+          <Box
+            sx={{
+              display: "grid",
+              gap: 2.5,
+              width: "100%",
+              maxWidth: "100%",
+              minWidth: 0,
+            }}
+          >
+            <SearchSenderCard
+              defaultMobile={sender.mobile}
+              loading={loading}
+              onSearch={searchSender}
+            />
 
-              {showBioAuth ? (
-                <Paper
-                  elevation={0}
+            {showBioAuth ? (
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2.5,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: 2,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 2,
+                  flexWrap: "wrap",
+                  bgcolor: "#f8fafc",
+                }}
+              >
+                <Box
                   sx={{
-                    p: 3,
-                    border: "1px solid",
-                    borderColor: "divider",
+                    width: 48,
+                    height: 48,
+                    borderRadius: "50%",
+                    bgcolor: "primary.main",
+                    color: "#fff",
                     display: "flex",
                     alignItems: "center",
-                    gap: 2,
-                    flexWrap: "wrap",
+                    justifyContent: "center",
                   }}
                 >
-                  <Box
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: "50%",
-                      bgcolor: "primary.main",
-                      color: "#fff",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <FingerprintIcon />
-                  </Box>
-                  <Box sx={{ flex: 1, minWidth: 200 }}>
-                    <Typography sx={{ fontWeight: 700 }}>
-                      Biometric authentication required
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Select scanner and capture the sender&apos;s fingerprint to continue.
-                    </Typography>
-                  </Box>
-                  <Button
-                    variant="contained"
-                    startIcon={<FingerprintIcon />}
-                    onClick={() => setBioModalOpen(true)}
-                  >
-                    Open Biometric
-                  </Button>
-                </Paper>
-              ) : null}
+                  <FingerprintIcon />
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 200 }}>
+                  <Typography sx={{ fontWeight: 700 }}>
+                    Biometric authentication required
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Select scanner and capture the sender&apos;s fingerprint to continue.
+                  </Typography>
+                </Box>
+                <Button
+                  variant="contained"
+                  startIcon={<FingerprintIcon />}
+                  onClick={() => setBioModalOpen(true)}
+                  sx={{ boxShadow: "none" }}
+                >
+                  Open Biometric
+                </Button>
+              </Paper>
+            ) : null}
 
-              {showBeneficiarySection ? (
-                <>
-                  <SenderInfoCard
-                    sender={sender.profile}
-                    mobile={sender.mobile}
-                    beneficiaryCount={beneficiaries.length}
-                  />
-                  <BeneficiaryList
-                    beneficiaries={beneficiaries}
-                    loading={beneficiariesLoading}
-                    error={beneficiariesError}
-                    actionError={workflow.error}
-                    onAdd={openAddBeneficiary}
-                    onVerify={(item) => openVerifyBeneficiary(item)}
-                    onTransfer={(item: DmtBeneficiary) => startTransfer(item)}
-                    onDelete={(item) => deleteBeneficiary(item)}
-                  />
-                </>
-              ) : null}
-
+            {showBeneficiarySection ? (
+              <>
+                <SenderInfoCard
+                  sender={sender.profile}
+                  mobile={sender.mobile}
+                  beneficiaryCount={beneficiaries.length}
+                />
+                <BeneficiaryList
+                  beneficiaries={beneficiaries}
+                  loading={beneficiariesLoading}
+                  error={beneficiariesError}
+                  actionError={workflow.error}
+                  onAdd={openAddBeneficiary}
+                  onVerify={(item) => openVerifyBeneficiary(item)}
+                  onTransfer={(item: DmtBeneficiary) => startTransfer(item)}
+                  onDelete={(item) => deleteBeneficiary(item)}
+                />
+              </>
+            ) : null}
           </Box>
         </Paper>
       </Box>

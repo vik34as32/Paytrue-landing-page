@@ -44,16 +44,25 @@ function buildStatusBody(
   return body;
 }
 
-/** POST /merchant/biometric-status — returns outlet reference fields for KYC submit */
+/** GET /merchant/biometric-status — preferred; falls back to POST */
 export async function fetchMerchantBiometricStatus(
   requestParams: MerchantBiometricStatusRequest | string = {}
 ): Promise<MerchantStatusResult> {
   return request(async () => {
-    const { data } = await api.post(
-      MERCHANT_ENDPOINTS.biometricStatus,
-      buildStatusBody(requestParams)
-    );
-    return normalizeMerchantStatus(data);
+    const body = buildStatusBody(requestParams);
+
+    try {
+      const { data } = await api.get(MERCHANT_ENDPOINTS.biometricStatus, {
+        params: body,
+      });
+      return normalizeMerchantStatus(data);
+    } catch {
+      const { data } = await api.post(
+        MERCHANT_ENDPOINTS.biometricStatus,
+        body
+      );
+      return normalizeMerchantStatus(data);
+    }
   });
 }
 

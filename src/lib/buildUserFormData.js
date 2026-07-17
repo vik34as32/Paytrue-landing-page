@@ -13,73 +13,101 @@ function appendFileIfPresent(formData, key, file) {
   }
 }
 
-/**
- * Build multipart/form-data for POST/PUT /users
- * @param {object} values - form text values
- * @param {object} files - map of form field → File
- * @param {{ userType: string, includePassword?: boolean }} options
- */
-export function buildUserFormData(values, files = {}, options = {}) {
+function pickPresent(target, key, value) {
+  if (value !== undefined && value !== null && String(value).trim() !== "") {
+    target[key] = typeof value === "string" ? value.trim() : value;
+  }
+}
+
+function buildSharedUserFields(values, options = {}) {
   const { userType, includePassword = true } = options;
-  const formData = new FormData();
+  const body = {};
 
   if (userType === "RETAILER") {
     const { firstName, lastName } = resolveRetailerNameFields(values);
-    appendIfPresent(formData, "firstName", firstName);
-    appendIfPresent(formData, "lastName", lastName);
+    pickPresent(body, "firstName", firstName);
+    pickPresent(body, "lastName", lastName);
   } else {
-    appendIfPresent(formData, "firstName", values.firstName);
-    appendIfPresent(formData, "lastName", values.lastName);
+    pickPresent(body, "firstName", values.firstName);
+    pickPresent(body, "lastName", values.lastName);
   }
-  appendIfPresent(formData, "email", values.email);
-  appendIfPresent(formData, "mobile", values.mobile);
-  appendIfPresent(formData, "alternateMobileNumber", values.alternateMobileNumber);
-  appendIfPresent(formData, "userType", userType);
-  appendIfPresent(formData, "gender", values.gender);
-  appendIfPresent(formData, "dateOfBirth", values.dateOfBirth);
-  appendIfPresent(formData, "address", values.address);
-  appendIfPresent(formData, "state", values.state);
-  appendIfPresent(formData, "city", values.city);
-  appendIfPresent(formData, "pincode", values.pincode);
+
+  pickPresent(body, "email", values.email);
+  pickPresent(body, "mobile", values.mobile);
+  pickPresent(body, "alternateMobileNumber", values.alternateMobileNumber);
+  pickPresent(body, "userType", userType);
+  pickPresent(body, "gender", values.gender);
+  pickPresent(body, "dateOfBirth", values.dateOfBirth);
+  pickPresent(body, "address", values.address);
+  pickPresent(body, "state", values.state);
+  pickPresent(body, "city", values.city);
+  pickPresent(body, "pincode", values.pincode);
 
   if (includePassword && values.password) {
-    appendIfPresent(formData, "password", values.password);
+    pickPresent(body, "password", values.password);
   }
 
-  formData.append(
-    "outlet",
-    JSON.stringify({
-      outletName: values.outletName,
-      businessType: values.businessType,
-      gstNumber: values.gstNumber,
-      address: values.address,
-      state: values.state,
-      district: values.district,
-      city: values.city,
-      village: values.village,
-      pincode: values.pincode,
-      latitude: values.latitude,
-      longitude: values.longitude,
-    })
-  );
+  const latitude =
+    values.latitude !== undefined &&
+    values.latitude !== null &&
+    String(values.latitude).trim() !== ""
+      ? Number(values.latitude)
+      : undefined;
+  const longitude =
+    values.longitude !== undefined &&
+    values.longitude !== null &&
+    String(values.longitude).trim() !== ""
+      ? Number(values.longitude)
+      : undefined;
 
-  const kycPayload = {
+  if (Number.isFinite(latitude)) body.latitude = latitude;
+  if (Number.isFinite(longitude)) body.longitude = longitude;
+
+  body.outlet = {
+    outletName: values.outletName || "",
+    businessType: values.businessType || "",
+    gstNumber: values.gstNumber || "",
+    address: values.address || "",
+    state: values.state || "",
+    district: values.district || "",
+    city: values.city || "",
+    village: values.village || "",
+    pincode: values.pincode || "",
+    ...(Number.isFinite(latitude) ? { latitude } : {}),
+    ...(Number.isFinite(longitude) ? { longitude } : {}),
+  };
+
+  body.kyc = {
     panNumber: values.panNumber ? String(values.panNumber).toUpperCase() : "",
   };
   if (userType === "RETAILER") {
-    kycPayload.aadhaarNumber = values.aadhaarNumber || "";
+    body.kyc.aadhaarNumber = values.aadhaarNumber || "";
   }
-  formData.append("kyc", JSON.stringify(kycPayload));
 
-  formData.append(
-    "bankAccount",
-    JSON.stringify({
-      accountHolderName: values.accountHolderName,
-      bankName: values.bankName,
-      accountNumber: values.accountNumber,
-      ifscCode: values.ifscCode ? String(values.ifscCode).toUpperCase() : "",
-    })
-  );
+  body.bankAccount = {
+    accountHolderName: values.accountHolderName || "",
+    bankName: values.bankName || "",
+    accountNumber: values.accountNumber || "",
+    ifscCode: values.ifscCode ? String(values.ifscCode).toUpperCase() : "",
+  };
+
+  return body;
+}
+
+/**
+ * Build multipart/form-data for POST /users (create with file uploads)
+ */
+export function buildUserFormData(values, files = {}, options = {}) {
+  const formData = new FormData();
+  const body = buildSharedUserFields(values, options);
+
+  Object.entries(body).forEach(([key, value]) => {
+    if (value && typeof value === "object" && !(value instanceof File)) {
+      formData.append(key, JSON.stringify(value));
+    } else if (value !== undefined && value !== null && value !== "") {
+      formData.append(key, String(value));
+    }
+  });
 
   Object.entries(USER_FILE_FIELDS).forEach(([formKey, apiKey]) => {
     appendFileIfPresent(formData, apiKey, files[formKey]);
@@ -88,16 +116,62 @@ export function buildUserFormData(values, files = {}, options = {}) {
   return formData;
 }
 
+/**
+ * Build plain JSON object for PUT /users/:id
+ * Backend validates body as object — multipart FormData fails with "must be object".
+ */
+export function buildUserJsonBody(values, options = {}) {
+  return buildSharedUserFields(values, options);
+}
+
+/** Normalize API gender (Male/Female/M/F) to form select values M | F | T */
+export function normalizeGender(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const upper = raw.toUpperCase();
+  if (upper === "M" || upper === "MALE") return "M";
+  if (upper === "F" || upper === "FEMALE") return "F";
+  if (
+    upper === "T" ||
+    upper === "TRANSGENDER" ||
+    upper === "OTHER" ||
+    upper === "O"
+  ) {
+    return "T";
+  }
+  return "";
+}
+
+/** Normalize DOB to yyyy-MM-dd for DatePicker */
+export function normalizeDateOfBirth(value) {
+  if (!value) return "";
+  const raw = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
+  }
+  return "";
+}
+
 export function mapApiUserToFormValues(user = {}) {
   const profile = user.profile || {};
   const outlet = user.outlet || {};
   const kyc = user.kycDocument || user.kyc || {};
   const bank = user.bankAccount || user.bankDetails || {};
 
+  const fullName =
+    user.firstName ||
+    user.name ||
+    user.fullName ||
+    `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+    "";
+
   return {
     firstName: user.firstName || "",
     lastName: user.lastName || "",
-    fullName: user.firstName || "",
+    fullName,
     email: user.email || "",
     emailVerified: Boolean(user.emailVerified ?? user.isEmailVerified),
     mobile: user.mobile || "",
@@ -105,8 +179,10 @@ export function mapApiUserToFormValues(user = {}) {
     password: "",
     alternateMobileNumber:
       profile.alternateMobileNumber || user.alternateMobileNumber || "",
-    gender: user.gender || profile.gender || "",
-    dateOfBirth: user.dateOfBirth || user.dob || profile.dateOfBirth || "",
+    gender: normalizeGender(user.gender || profile.gender || ""),
+    dateOfBirth: normalizeDateOfBirth(
+      user.dateOfBirth || user.dob || profile.dateOfBirth || ""
+    ),
     outletName: outlet.outletName || "",
     businessType: outlet.businessType || "",
     gstNumber: outlet.gstNumber || "",

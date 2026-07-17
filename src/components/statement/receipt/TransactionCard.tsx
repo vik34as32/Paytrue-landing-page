@@ -146,10 +146,10 @@ export default function TransactionCard({ receipt }: TransactionCardProps) {
         {rows.map(({ icon: Icon, label, value, valueClassName }) => (
           <div
             key={label}
-            className="flex items-start justify-between gap-4 px-5 py-3.5"
+            className="receipt-detail-row flex items-start justify-between gap-4 px-5 py-3.5"
           >
             <div className="flex min-w-0 items-center gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F8FAFC] text-[#0057D9]">
+              <span className="receipt-detail-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F8FAFC] text-[#0057D9]">
                 <Icon className="h-4 w-4" />
               </span>
               <span className="text-sm text-slate-500">{label}</span>

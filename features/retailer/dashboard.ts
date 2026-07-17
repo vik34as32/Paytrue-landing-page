@@ -11,13 +11,6 @@ export const SERVICE_CATEGORIES = [
 
 export const QUICK_ACTIONS = [
   {
-    id: "fund",
-    label: "Fund Request",
-    href: "/rt/retailer/fund-request",
-    icon: "Wallet",
-    color: "bg-blue-600",
-  },
-  {
     id: "dmt",
     label: "Send Money",
     href: "/rt/retailer/dmt",
@@ -25,10 +18,10 @@ export const QUICK_ACTIONS = [
     color: "bg-indigo-600",
   },
   {
-    id: "statement",
-    label: "Statement",
-    href: "/rt/retailer/statement",
-    icon: "FileText",
+    id: "upi_cash_point",
+    label: "UPI",
+    href: "/rt/retailer/upi-cash-point",
+    icon: "QrCode",
     color: "bg-violet-600",
   },
   {
@@ -44,13 +37,6 @@ export const QUICK_ACTIONS = [
     href: "/rt/retailer/recharge",
     icon: "Smartphone",
     color: "bg-emerald-600",
-  },
-  {
-    id: "profile",
-    label: "My Profile",
-    href: "/rt/retailer/profile",
-    icon: "User",
-    color: "bg-slate-600",
   },
 ];
 

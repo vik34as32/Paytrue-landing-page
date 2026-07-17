@@ -3,11 +3,19 @@ import {
   loadMerchantBiometricStatus,
   submitMerchantBiometricVerification,
 } from "@/src/redux/thunks/merchantThunk";
-import type { BiometricStatusValue, VerificationPhase } from "@/src/types/merchant";
+import type {
+  BiometricStatusValue,
+  MerchantBiometricUiPhase,
+  VerificationPhase,
+} from "@/src/types/merchant";
+import { deriveMerchantBiometricUiPhase } from "@/src/lib/merchantUtils";
 
 interface MerchantState {
   statusLoading: boolean;
   biometricStatus: BiometricStatusValue;
+  action: string | null;
+  actionRequired: boolean;
+  uiPhase: MerchantBiometricUiPhase;
   isVerified: boolean;
   isPendingApproval: boolean;
   modalOpen: boolean;
@@ -26,6 +34,9 @@ interface MerchantState {
 const initialState: MerchantState = {
   statusLoading: false,
   biometricStatus: "PENDING",
+  action: null,
+  actionRequired: true,
+  uiPhase: "loading",
   isVerified: false,
   isPendingApproval: false,
   modalOpen: false,
@@ -41,6 +52,47 @@ const initialState: MerchantState = {
   raw: null,
 };
 
+function applyStatusFields(
+  state: MerchantState,
+  payload: {
+    biometricStatus: BiometricStatusValue;
+    action?: string;
+    actionRequired?: boolean;
+    isVerified: boolean;
+    isPendingApproval?: boolean;
+    uiPhase?: MerchantBiometricUiPhase;
+    retailerId?: string;
+    outletId?: string;
+    referenceKey?: string;
+    referenceKeyType?: string;
+    spKey?: string;
+    pidOptionWadh?: string;
+    raw?: Record<string, unknown>;
+  }
+) {
+  state.biometricStatus = payload.biometricStatus;
+  state.action = payload.action ?? null;
+  state.actionRequired = Boolean(payload.actionRequired);
+  state.isVerified = payload.isVerified;
+  state.isPendingApproval = Boolean(payload.isPendingApproval);
+  state.uiPhase =
+    payload.uiPhase ??
+    deriveMerchantBiometricUiPhase({
+      isVerified: payload.isVerified,
+      isPendingApproval: Boolean(payload.isPendingApproval),
+      actionRequired: Boolean(payload.actionRequired),
+      biometricStatus: payload.biometricStatus,
+      action: payload.action,
+    });
+  state.retailerId = payload.retailerId ?? state.retailerId;
+  state.outletId = payload.outletId ?? state.outletId;
+  state.referenceKey = payload.referenceKey ?? state.referenceKey;
+  state.referenceKeyType = payload.referenceKeyType ?? state.referenceKeyType;
+  state.spKey = payload.spKey ?? state.spKey;
+  state.pidOptionWadh = payload.pidOptionWadh ?? state.pidOptionWadh;
+  state.raw = payload.raw ?? state.raw;
+}
+
 const merchantSlice = createSlice({
   name: "merchant",
   initialState,
@@ -55,7 +107,10 @@ const merchantSlice = createSlice({
       state.verificationPhase = "idle";
       state.error = null;
     },
-    setVerificationPhase(state, action: { payload: MerchantState["verificationPhase"] }) {
+    setVerificationPhase(
+      state,
+      action: { payload: MerchantState["verificationPhase"] }
+    ) {
       state.verificationPhase = action.payload;
     },
     closeBiometricModal(state) {
@@ -64,6 +119,7 @@ const merchantSlice = createSlice({
       state.error = null;
     },
     openBiometricModal(state) {
+      // Only allow capture when InstantPay still requires action
       if (!state.isVerified && !state.isPendingApproval) {
         state.modalOpen = true;
         state.error = null;
@@ -75,23 +131,18 @@ const merchantSlice = createSlice({
       .addCase(loadMerchantBiometricStatus.pending, (state) => {
         state.statusLoading = true;
         state.error = null;
+        if (!state.statusChecked) {
+          state.uiPhase = "loading";
+        }
       })
       .addCase(loadMerchantBiometricStatus.fulfilled, (state, action) => {
         state.statusLoading = false;
         state.statusChecked = true;
-        state.biometricStatus = action.payload.biometricStatus;
-        state.isVerified = action.payload.isVerified;
-        state.isPendingApproval = Boolean(action.payload.isPendingApproval);
-        state.retailerId = action.payload.retailerId ?? state.retailerId;
-        state.outletId = action.payload.outletId ?? state.outletId;
-        state.referenceKey = action.payload.referenceKey ?? state.referenceKey;
-        state.referenceKeyType =
-          action.payload.referenceKeyType ?? state.referenceKeyType;
-        state.spKey = action.payload.spKey ?? state.spKey;
-        state.pidOptionWadh = action.payload.pidOptionWadh ?? state.pidOptionWadh;
-        state.raw = action.payload.raw ?? state.raw;
+        applyStatusFields(state, action.payload);
         if (action.payload.isVerified) {
           state.verificationPhase = "idle";
+          state.modalOpen = false;
+        } else if (action.payload.isPendingApproval) {
           state.modalOpen = false;
         }
       })
@@ -99,9 +150,14 @@ const merchantSlice = createSlice({
         state.statusLoading = false;
         state.statusChecked = true;
         state.error =
-          (action.payload as string) || "Unable to verify merchant biometric status.";
+          (action.payload as string) ||
+          "Unable to verify merchant biometric status.";
         state.isVerified = false;
+        state.isPendingApproval = false;
+        state.actionRequired = true;
         state.biometricStatus = "PENDING";
+        state.action = "ACTION-REQUIRED";
+        state.uiPhase = "action_required";
       })
       .addCase(submitMerchantBiometricVerification.pending, (state) => {
         state.verificationPhase = "verifying";
@@ -110,10 +166,18 @@ const merchantSlice = createSlice({
       .addCase(submitMerchantBiometricVerification.fulfilled, (state, action) => {
         state.verificationPhase = action.payload.isPendingApproval
           ? "pending_approval"
-          : "success";
-        state.biometricStatus = action.payload.biometricStatus;
-        state.isVerified = Boolean(action.payload.isVerified);
-        state.isPendingApproval = Boolean(action.payload.isPendingApproval);
+          : action.payload.isVerified
+            ? "success"
+            : "pending_approval";
+        applyStatusFields(state, {
+          biometricStatus: action.payload.biometricStatus,
+          action: action.payload.action,
+          actionRequired: Boolean(
+            !action.payload.isVerified && !action.payload.isPendingApproval
+          ),
+          isVerified: Boolean(action.payload.isVerified),
+          isPendingApproval: Boolean(action.payload.isPendingApproval),
+        });
         state.error = null;
         if (action.payload.isVerified) {
           state.modalOpen = false;
@@ -135,31 +199,50 @@ export const {
   openBiometricModal,
 } = merchantSlice.actions;
 
-export const selectMerchantStatusLoading = (state: { merchant: MerchantState }) =>
-  state.merchant.statusLoading;
+export const selectMerchantStatusLoading = (state: {
+  merchant: MerchantState;
+}) => state.merchant.statusLoading;
 export const selectMerchantModalOpen = (state: { merchant: MerchantState }) =>
   state.merchant.modalOpen;
-export const selectMerchantVerificationPhase = (state: { merchant: MerchantState }) =>
-  state.merchant.verificationPhase;
+export const selectMerchantVerificationPhase = (state: {
+  merchant: MerchantState;
+}) => state.merchant.verificationPhase;
 export const selectMerchantError = (state: { merchant: MerchantState }) =>
   state.merchant.error;
-export const selectMerchantBiometricStatus = (state: { merchant: MerchantState }) =>
-  state.merchant.biometricStatus;
+export const selectMerchantBiometricStatus = (state: {
+  merchant: MerchantState;
+}) => state.merchant.biometricStatus;
+export const selectMerchantAction = (state: { merchant: MerchantState }) =>
+  state.merchant.action;
+export const selectMerchantUiPhase = (state: { merchant: MerchantState }) =>
+  state.merchant.uiPhase;
 export const selectMerchantIsVerified = (state: { merchant: MerchantState }) =>
   state.merchant.isVerified;
+export const selectMerchantIsPendingApproval = (state: {
+  merchant: MerchantState;
+}) => state.merchant.isPendingApproval;
+export const selectMerchantActionRequired = (state: {
+  merchant: MerchantState;
+}) => state.merchant.actionRequired;
 
-export const selectMerchantIsPendingApproval = (state: { merchant: MerchantState }) =>
-  state.merchant.isPendingApproval;
+/** Services locked until InstantPay biometric is APPROVED */
+export const selectMerchantServicesEnabled = (state: {
+  merchant: MerchantState;
+}) => state.merchant.statusChecked && state.merchant.isVerified;
 
-export const selectMerchantNeedsBiometric = (state: { merchant: MerchantState }) =>
+export const selectMerchantNeedsBiometric = (state: {
+  merchant: MerchantState;
+}) =>
   state.merchant.statusChecked &&
   !state.merchant.isVerified &&
   !state.merchant.isPendingApproval;
 
-export const selectMerchantStatusChecked = (state: { merchant: MerchantState }) =>
-  state.merchant.statusChecked;
+export const selectMerchantStatusChecked = (state: {
+  merchant: MerchantState;
+}) => state.merchant.statusChecked;
 
-export const selectMerchantPidOptionWadh = (state: { merchant: MerchantState }) =>
-  state.merchant.pidOptionWadh;
+export const selectMerchantPidOptionWadh = (state: {
+  merchant: MerchantState;
+}) => state.merchant.pidOptionWadh;
 
 export default merchantSlice.reducer;

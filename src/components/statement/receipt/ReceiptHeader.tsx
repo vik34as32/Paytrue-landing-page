@@ -18,8 +18,8 @@ export default function ReceiptHeader({ receipt }: ReceiptHeaderProps) {
         : "bg-red-50 text-red-600 border-red-200";
 
   return (
-    <header className="border-b border-[#E5E7EB] bg-white px-6 py-8 sm:px-8 lg:px-10">
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+    <header className="receipt-header receipt-no-print border-b border-[#E5E7EB] bg-white px-6 py-8 sm:px-8 lg:px-10">
+      <div className="receipt-header-row flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-start gap-4">
           <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-2 shadow-sm">
             <Image

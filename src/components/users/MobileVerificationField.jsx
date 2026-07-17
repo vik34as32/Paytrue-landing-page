@@ -21,6 +21,7 @@ export default function MobileVerificationField({
   methods,
   isEdit = false,
   originalMobile = "",
+  locked = false,
 }) {
   const {
     register,
@@ -158,9 +159,10 @@ export default function MobileVerificationField({
             maxLength={10}
             inputMode="numeric"
             className={cn("pl-9 pr-24", mobileVerified && "border-emerald-300 bg-emerald-50/40")}
-            disabled={mobileVerified && !mobileUnchanged}
+            disabled={locked || (mobileVerified && !mobileUnchanged)}
             {...registration}
             onChange={(event) => {
+              if (locked) return;
               const digits = event.target.value.replace(/\D/g, "").slice(0, 10);
               event.target.value = digits;
               registration.onChange(event);
@@ -170,10 +172,10 @@ export default function MobileVerificationField({
             }}
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2">
-            {mobileVerified ? (
+            {locked || mobileVerified ? (
               <span className="flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-600">
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                Verified
+                {locked ? "Locked" : "Verified"}
               </span>
             ) : (
               <button

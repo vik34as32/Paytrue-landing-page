@@ -19,7 +19,6 @@ import {
 import SendIcon from "@mui/icons-material/Send";
 import CloseIcon from "@mui/icons-material/Close";
 import { BankLogo } from "@/components/retailer/BankLogo";
-import { maskAccountNumber } from "@/src/lib/dmtUtils";
 import { getCurrentLocation } from "@/src/lib/rdService";
 import type { DmtBeneficiary, DmtTransferMode } from "../../types";
 
@@ -177,16 +176,29 @@ export default function TransferModal({
           </Box>
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 800, lineHeight: 1.3 }}>
-              {beneficiary.bankName}
+              {beneficiary.name}
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-              A/C {maskAccountNumber(beneficiary.accountNumber)} • IFSC {beneficiary.ifscCode}
+              {beneficiary.bankName || "—"}
             </Typography>
-            {beneficiary.mobile ? (
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                Mobile {beneficiary.mobile}
-              </Typography>
-            ) : null}
+            <Typography
+              variant="body2"
+              sx={{
+                display: "block",
+                mt: 0.35,
+                fontWeight: 700,
+                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                letterSpacing: 0.3,
+                color: "text.primary",
+                wordBreak: "break-all",
+              }}
+            >
+              A/C {beneficiary.accountNumber || "—"}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+              IFSC {beneficiary.ifscCode || "—"}
+              {beneficiary.mobile ? ` • Mobile ${beneficiary.mobile}` : ""}
+            </Typography>
           </Box>
           <Chip label="VERIFIED" color="success" size="small" sx={{ fontWeight: 700, flexShrink: 0 }} />
         </Paper>

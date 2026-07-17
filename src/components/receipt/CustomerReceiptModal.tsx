@@ -76,8 +76,11 @@ export default function CustomerReceiptModal({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="flex max-h-[92vh] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
-        <DialogHeader className="receipt-no-print shrink-0 border-b border-slate-100 px-5 py-4">
+      <DialogContent
+        className="!flex h-[90vh] max-h-[90vh] w-[calc(100%-1.5rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
+        style={{ display: "flex" }}
+      >
+        <DialogHeader className="receipt-no-print shrink-0 border-b border-slate-100 px-5 py-4 pr-12">
           <DialogTitle className="flex items-center gap-2 text-lg">
             {isSuccess ? (
               <CheckCircle2 className="h-5 w-5 text-emerald-600" />
@@ -88,7 +91,10 @@ export default function CustomerReceiptModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/60">
+        <div
+          className="receipt-modal-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-50/60"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
           {displayTxn ? (
             <TransactionReceipt
               ref={printRef}

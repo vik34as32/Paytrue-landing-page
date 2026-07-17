@@ -154,7 +154,7 @@ export default function BankDetailsCard({
               {copyable && value ? (
                 <button
                   type="button"
-                  className="shrink-0 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-[#0057D9]"
+                  className="receipt-no-print shrink-0 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-[#0057D9]"
                   onClick={() => void copyValue(label, value)}
                   aria-label={`Copy ${label}`}
                 >
@@ -166,14 +166,14 @@ export default function BankDetailsCard({
         ))}
 
         {showAddressLoader ? (
-          <div className="flex items-center gap-2 px-4 py-3 text-sm text-slate-500">
+          <div className="receipt-no-print flex items-center gap-2 px-4 py-3 text-sm text-slate-500">
             <Loader2 className="h-4 w-4 animate-spin text-[#0057D9]" />
             Fetching branch address from IFSC…
           </div>
         ) : null}
 
         {ifscCode ? (
-          <div className="flex items-start gap-2 bg-[#F8FAFC] px-4 py-3 text-xs text-slate-500">
+          <div className="receipt-no-print flex items-start gap-2 bg-[#F8FAFC] px-4 py-3 text-xs text-slate-500">
             <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#0057D9]" />
             <span className="leading-relaxed">
               Branch details verified via Razorpay IFSC lookup · {ifscCode}

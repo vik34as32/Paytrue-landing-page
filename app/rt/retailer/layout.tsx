@@ -37,11 +37,11 @@ export default function RetailerLayout({
             <div className="rt-portal-bg min-h-screen">
               <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-              <div className="rt-main-shell flex min-h-screen flex-col">
+              <div className="rt-main-shell flex min-h-screen min-w-0 flex-col overflow-x-hidden">
                 <Header onMenuClick={() => setSidebarOpen(true)} />
 
-                <div className="flex-1 overflow-y-auto w-full max-w-none">
-                  <main className="w-full max-w-none px-4 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6">
+                <div className="w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto">
+                  <main className="w-full min-w-0 max-w-full px-4 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6">
                     {children}
                   </main>
                 </div>

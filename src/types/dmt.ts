@@ -20,13 +20,13 @@ export interface DmtSender {
 export interface DmtBeneficiary {
   id: string;
   name: string;
-  mobile: string;
+  mobile?: string;
   bankName: string;
   accountNumber: string;
   ifscCode: string;
-  status: DmtVerificationStatus;
-  isVerified: boolean;
-  createdAt: string;
+  status?: DmtVerificationStatus | string;
+  isVerified?: boolean;
+  createdAt?: string;
   referenceKey?: string;
   externalRef?: string;
 }

@@ -47,6 +47,9 @@ function extractOperator(txn: StatementTransaction): string {
 }
 
 function deriveCommission(txn: StatementTransaction): number {
+  if (typeof txn.commission === "number" && Number.isFinite(txn.commission)) {
+    return txn.commission;
+  }
   if (txn.type !== "credit") return 0;
   const hint = `${txn.remark} ${txn.description} ${txn.senderName}`.toLowerCase();
   if (hint.includes("commission")) return txn.amount;
@@ -56,12 +59,14 @@ function deriveCommission(txn: StatementTransaction): number {
 function getStatusLabel(status: StatementTransaction["status"]): string {
   if (status === "success") return "Payment Successful";
   if (status === "pending") return "Payment Pending";
+  if (status === "expired") return "QR Expired";
   return "Payment Failed";
 }
 
 function getStatusBadgeLabel(status: StatementTransaction["status"]): string {
   if (status === "success") return "Success";
   if (status === "pending") return "Pending";
+  if (status === "expired") return "Expired";
   return "Failed";
 }
 

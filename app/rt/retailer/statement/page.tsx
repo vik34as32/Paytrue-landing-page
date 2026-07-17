@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -67,27 +68,27 @@ import type {
   TransactionType,
 } from "@/types/statementReceipt";
 import { useRetailerStatement } from "@/src/hooks/useRetailerStatement";
+import { useAepsLedger } from "@/src/hooks/useAepsLedger";
 import ReferenceCopyCell from "@/src/components/statement/ReferenceCopyCell";
-import { BankLogo } from "@/components/retailer/BankLogo";
+import StatementBankCell from "@/src/components/statement/StatementBankCell";
+import { buildUpiAtmStatementColumns } from "@/src/components/statement/buildUpiAtmStatementColumns";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
-type ServiceFilter = "All" | "Money Transfer" | "UPI ATM" | "AEPS";
+type ServiceFilter =  "DMT" | "UPI ATM" | "AEPS";
 
-type AepsSubFilter =
-  | "All"
-  | "BALANCE_ENQUIRY"
-  | "CASH_WITHDRAWAL"
-  | "MINI_STATEMENT"
-  | "CASH_DEPOSIT";
+type AepsSubFilter = "CASH_WITHDRAWAL" | "CASH_DEPOSIT";
 
 const AEPS_SUB_FILTERS: { label: string; value: AepsSubFilter }[] = [
-  { label: "All AEPS", value: "All" },
-  { label: "Balance Enquiry", value: "BALANCE_ENQUIRY" },
   { label: "Cash Withdrawal", value: "CASH_WITHDRAWAL" },
-  { label: "Mini Statement", value: "MINI_STATEMENT" },
   { label: "Cash Deposit", value: "CASH_DEPOSIT" },
 ];
+
+const getBankName = async (ifsc: string) => {
+  const res = await fetch(`https://ifsc.razorpay.com/${ifsc}`);
+  const data = await res.json();
+  return data.BANK;
+};
 
 interface ExportRow {
   "Transaction ID": string;
@@ -97,6 +98,9 @@ interface ExportRow {
   Description: string;
   Type: string;
   Status: string;
+  "Transfer Amount": string;
+  "Deduction Amount": string;
+  Commission: string;
   "Previous Balance": string;
   "Credit Amount": string;
   "Debit Amount": string;
@@ -112,24 +116,96 @@ type JsPdfWithAutoTable = jsPDF & {
   lastAutoTable?: { finalY: number };
 };
 
-const SERVICE_FILTERS: ServiceFilter[] = [
-  "All",
-  "Money Transfer",
-  "UPI ATM",
-  "AEPS",
-];
+const SERVICE_FILTERS: ServiceFilter[] = ["DMT", "UPI ATM", "AEPS"];
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 30];
 const RETAILER_NAME = "Amit Kumar";
 
-const STATEMENT_TABLE_MIN_WIDTH = "1960px";
-const STATEMENT_TABLE_SCROLL_HEIGHT = "520px";
+/** Fixed widths keep header cells aligned with body cells while scrolling */
+const COL = {
+  date: "150px",
+  reference: "200px",
+  service: "110px",
+  description: "160px",
+  bank: "140px",
+  aadhaar: "130px",
+  message: "200px",
+  mobile: "110px",
+  type: "88px",
+  status: "100px",
+  amount: "112px",
+  action: "88px",
+} as const;
+
+function getPrincipalAmount(txn: StatementTransaction): number {
+  const aepsType = String(txn.aepsTransactionType || "").toUpperCase();
+
+  if (aepsType === "CASH_WITHDRAWAL") {
+    return txn.withdrawalAmount ?? txn.amount ?? 0;
+  }
+  if (aepsType === "CASH_DEPOSIT") {
+    return txn.transferAmount ?? txn.amount ?? 0;
+  }
+
+  return txn.transferAmount ?? txn.amount ?? 0;
+}
+
+function getDeductionAmount(txn: StatementTransaction): number {
+  // null / undefined → 0
+  return txn.deductionAmount ?? txn.charges ?? 0;
+}
+
+function getCommissionAmount(txn: StatementTransaction): number {
+  return txn.commission ?? 0;
+}
+
+/** Failed / pending / expired must not show Credit / Debit movement. */
+function getCreditDisplayAmount(txn: StatementTransaction): number {
+  if (txn.status !== "success") return 0;
+  if (txn.creditAmount != null && txn.creditAmount > 0) {
+    return txn.creditAmount;
+  }
+  return txn.type === "credit" ? getPrincipalAmount(txn) : 0;
+}
+
+function getDebitDisplayAmount(txn: StatementTransaction): number {
+  if (txn.status !== "success") return 0;
+
+  if (txn.debitAmount != null && txn.debitAmount > 0) {
+    return txn.debitAmount;
+  }
+
+  return txn.type === "debit" ? getPrincipalAmount(txn) : 0;
+}
+
+
+/** Inclusive local-date range filter on createdAt. */
+function matchesDateRange(
+  createdAt: string,
+  startDate: string,
+  endDate: string
+): boolean {
+  if (!startDate && !endDate) return true;
+  const time = new Date(createdAt).getTime();
+  if (!Number.isFinite(time)) return false;
+
+  if (startDate) {
+    const start = new Date(`${startDate}T00:00:00`).getTime();
+    if (time < start) return false;
+  }
+  if (endDate) {
+    const end = new Date(`${endDate}T23:59:59.999`).getTime();
+    if (time > end) return false;
+  }
+  return true;
+}
 
 const tableCustomStyles = {
   table: {
     style: {
       backgroundColor: "transparent",
-      minWidth: STATEMENT_TABLE_MIN_WIDTH,
+      width: "max-content",
+      minWidth: "100%",
     },
   },
   tableWrapper: {
@@ -138,12 +214,17 @@ const tableCustomStyles = {
       overflow: "visible",
     },
   },
+  responsiveWrapper: {
+    style: {
+      overflow: "visible",
+    },
+  },
   headRow: {
     style: {
       backgroundColor: "#f1f5f9",
       borderBottomWidth: "1px",
       borderBottomColor: "#e2e8f0",
-      minHeight: "48px",
+      minHeight: "52px",
     },
   },
   headCells: {
@@ -151,8 +232,11 @@ const tableCustomStyles = {
       fontSize: "11px",
       fontWeight: 700,
       textTransform: "uppercase" as const,
-      letterSpacing: "0.05em",
+      letterSpacing: "0.04em",
       color: "#64748b",
+      paddingLeft: "10px",
+      paddingRight: "10px",
+      boxSizing: "border-box" as const,
     },
   },
   rows: {
@@ -168,7 +252,10 @@ const tableCustomStyles = {
     style: {
       fontSize: "13px",
       color: "#0b1f3a",
-      overflow: "visible",
+      paddingLeft: "10px",
+      paddingRight: "10px",
+      boxSizing: "border-box" as const,
+      overflow: "hidden",
     },
   },
   pagination: {
@@ -177,6 +264,7 @@ const tableCustomStyles = {
       fontSize: "13px",
       color: "#64748b",
       minHeight: "52px",
+      backgroundColor: "#ffffff",
     },
   },
 };
@@ -224,7 +312,9 @@ function matchesServiceFilter(
   service: string,
   filter: ServiceFilter
 ): boolean {
-  if (filter === "All") return true;
+  if (filter === "DMT") {
+    return service === "DMT" || service === "Money Transfer";
+  }
   return service === filter;
 }
 
@@ -242,7 +332,6 @@ function matchesAepsSubFilter(
   txn: StatementTransaction,
   filter: AepsSubFilter
 ): boolean {
-  if (filter === "All") return true;
   return txn.aepsTransactionType === filter;
 }
 
@@ -279,6 +368,7 @@ function StatementBalanceCell({
         tone === "debit" && "text-red-600",
         tone === "balance" && "text-[#001F5B]",
         tone === "neutral" && "text-slate-600"
+        
       )}
     >
       {tone === "credit" ? "+" : tone === "debit" ? "−" : ""}
@@ -293,8 +383,11 @@ function formatBalanceExport(value: number, txn: StatementTransaction): string {
 }
 
 function mapToExportRow(txn: StatementTransaction): ExportRow {
-  const creditAmount = txn.type === "credit" ? txn.amount : 0;
-  const debitAmount = txn.type === "debit" ? txn.amount : 0;
+  const creditAmount = getCreditDisplayAmount(txn);
+  const debitAmount = getDebitDisplayAmount(txn);
+  const transferAmount = getPrincipalAmount(txn);
+  const deductionAmount = getDeductionAmount(txn);
+  const commissionAmount = getCommissionAmount(txn);
 
   return {
     "Transaction ID": formatTransactionId(txn.id),
@@ -304,13 +397,16 @@ function mapToExportRow(txn: StatementTransaction): ExportRow {
     Description: txn.description,
     Type: txn.type,
     Status: txn.status,
+    "Transfer Amount": transferAmount ? formatCurrency(transferAmount) : "—",
+    "Deduction Amount": deductionAmount ? formatCurrency(deductionAmount) : "—",
+    Commission: commissionAmount ? formatCurrency(commissionAmount) : "—",
     "Previous Balance": formatBalanceExport(txn.openingBalance, txn),
     "Credit Amount": creditAmount ? formatCurrency(creditAmount) : "—",
     "Debit Amount": debitAmount ? formatCurrency(debitAmount) : "—",
     "Updated Balance": formatBalanceExport(txn.balanceAfter, txn),
     Amount: txn.amount,
     "Bank Name": txn.bankName ?? txn.receiverName ?? "",
-    "Account Number": txn.accountNumber ?? "",
+    "Account Number": txn.aadhaarMasked || txn.accountNumber || "",
     Mobile: txn.mobile,
     Remark: txn.remark,
   };
@@ -346,9 +442,16 @@ function exportStatementPdf(rows: StatementTransaction[]) {
     txn.description,
     txn.type,
     txn.status,
+    formatCurrency(getPrincipalAmount(txn)),
+    formatCurrency(getDeductionAmount(txn)),
+    formatCurrency(getCommissionAmount(txn)),
     formatBalanceExport(txn.openingBalance, txn),
-    txn.type === "credit" ? formatCurrency(txn.amount) : "—",
-    txn.type === "debit" ? formatCurrency(txn.amount) : "—",
+    getCreditDisplayAmount(txn)
+      ? formatCurrency(getCreditDisplayAmount(txn))
+      : "—",
+    getDebitDisplayAmount(txn)
+      ? formatCurrency(getDebitDisplayAmount(txn))
+      : "—",
     formatBalanceExport(txn.balanceAfter, txn),
     txn.bankName ?? txn.receiverName ?? "",
     txn.accountNumber ?? "",
@@ -368,6 +471,9 @@ function exportStatementPdf(rows: StatementTransaction[]) {
         "Description",
         "Type",
         "Status",
+        "Transfer",
+        "Deduction",
+        "Commission",
         "Previous Bal.",
         "Credit",
         "Debit",
@@ -408,6 +514,10 @@ function StatusBadge({ status }: { status: TransactionStatus }) {
       <Badge variant="success">Success</Badge>
     ) : status === "pending" ? (
       <Badge variant="warning">Pending</Badge>
+    ) : status === "expired" ? (
+      <Badge className="border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-50">
+        Expired
+      </Badge>
     ) : (
       <Badge variant="destructive">Failed</Badge>
     );
@@ -428,8 +538,11 @@ const ReceiptContent = forwardRef<HTMLDivElement, ReceiptContentProps>(
 
 export default function StatementPage() {
   const [search, setSearch] = useState("");
-  const [serviceFilter, setServiceFilter] = useState<ServiceFilter>("All");
-  const [aepsSubFilter, setAepsSubFilter] = useState<AepsSubFilter>("All");
+  const [serviceFilter, setServiceFilter] = useState<ServiceFilter>("DMT");
+  const [aepsSubFilter, setAepsSubFilter] =
+    useState<AepsSubFilter>("CASH_WITHDRAWAL");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [sortState, setSortState] = useState<StatementSortState>({
     field: "createdAt",
@@ -446,21 +559,47 @@ export default function StatementPage() {
   const user = useSelector(selectUser);
   const {
     data: statementData,
-    isLoading,
-    isError,
-    isFetching,
-    refetch,
+    isLoading: statementLoading,
+    isError: statementError,
+    isFetching: statementFetching,
+    refetch: refetchStatement,
   } = useRetailerStatement();
 
-  const allTransactions = useMemo(
-    () => statementData?.transactions ?? [],
-    [statementData]
+  const {
+    data: aepsLedgerData,
+    isLoading: aepsLoading,
+    isError: aepsError,
+    isFetching: aepsFetching,
+    refetch: refetchAeps,
+  } = useAepsLedger(
+    {
+      transactionType: aepsSubFilter,
+      page: 1,
+      limit: 100,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+    },
+    { enabled: serviceFilter === "AEPS" }
   );
-  const fetchErrors = statementData?.errors ?? [];
+
+  const isAepsView = serviceFilter === "AEPS";
+  const isLoading = isAepsView ? aepsLoading : statementLoading;
+  const isError = isAepsView ? aepsError : statementError;
+  const isFetching = isAepsView ? aepsFetching : statementFetching;
+  const refetch = isAepsView ? refetchAeps : refetchStatement;
+
+  const allTransactions = useMemo(() => {
+    if (isAepsView) {
+      return aepsLedgerData?.transactions ?? [];
+    }
+    return statementData?.transactions ?? [];
+  }, [isAepsView, aepsLedgerData?.transactions, statementData?.transactions]);
+
+  const fetchErrors = isAepsView ? [] : (statementData?.errors ?? []);
 
   useEffect(() => {
     if (serviceFilter !== "AEPS") {
-      setAepsSubFilter("All");
+      setAepsSubFilter("CASH_WITHDRAWAL");
     }
   }, [serviceFilter]);
 
@@ -529,6 +668,11 @@ export default function StatementPage() {
       if (serviceFilter === "AEPS" && !matchesAepsSubFilter(txn, aepsSubFilter)) {
         return false;
       }
+      // UPI ATM statement: hide PENDING (QR still open / not settled)
+      if (serviceFilter === "UPI ATM" && txn.status === "pending") {
+        return false;
+      }
+      if (!matchesDateRange(txn.createdAt, startDate, endDate)) return false;
       if (!query) return true;
 
       return (
@@ -539,10 +683,13 @@ export default function StatementPage() {
         txn.service.toLowerCase().includes(query) ||
         (txn.bankName ?? "").toLowerCase().includes(query) ||
         (txn.accountNumber ?? "").toLowerCase().includes(query) ||
+        (txn.aadhaarMasked ?? "").toLowerCase().includes(query) ||
+        (txn.remark ?? "").toLowerCase().includes(query) ||
+        (txn.vpa ?? "").toLowerCase().includes(query) ||
         txn.mobile.toLowerCase().includes(query)
       );
     });
-  }, [search, serviceFilter, aepsSubFilter, allTransactions]);
+  }, [search, serviceFilter, aepsSubFilter, startDate, endDate, allTransactions]);
 
   const handleExportExcel = useCallback(async () => {
     setExportingExcel(true);
@@ -556,14 +703,32 @@ export default function StatementPage() {
     }
   }, [filteredTransactions, sortState, user]);
 
-  const columns: TableColumn<StatementTransaction>[] = useMemo(
-    () => [
+  const columns: TableColumn<StatementTransaction>[] = useMemo(() => {
+    if (serviceFilter === "UPI ATM") {
+      return buildUpiAtmStatementColumns({
+        openReceipt,
+        downloadReceipt: (row) => void handleDownloadReceipt(row),
+        printReceipt: (row) => void printReceipt(row),
+      });
+    }
+
+    const isAeps = serviceFilter === "AEPS";
+    const principalHeader =
+      isAeps && aepsSubFilter === "CASH_WITHDRAWAL" ? (
+        <StackedHeader lines={["Withdrawal", "Amount"]} />
+      ) : isAeps && aepsSubFilter === "CASH_DEPOSIT" ? (
+        <StackedHeader lines={["Transfer", "Amount"]} />
+      ) : (
+        <StackedHeader lines={["Transfer", "Amount"]} />
+      );
+
+    const baseBeforeAmount: TableColumn<StatementTransaction>[] = [
       {
         id: "createdAt",
         name: "Date",
         selector: (row) => row.createdAt,
         sortable: true,
-        minWidth: "160px",
+        width: COL.date,
         cell: (row) => (
           <span className="whitespace-nowrap text-slate-600">
             {formatStatementDate(row.createdAt)}
@@ -575,8 +740,7 @@ export default function StatementPage() {
         name: "Reference No.",
         selector: (row) => row.referenceNumber,
         sortable: true,
-        minWidth: "220px",
-        grow: 1,
+        width: COL.reference,
         cell: (row) => <ReferenceCopyCell value={row.referenceNumber} />,
       },
       {
@@ -584,7 +748,7 @@ export default function StatementPage() {
         name: "Service",
         selector: (row) => row.service,
         sortable: true,
-        minWidth: "150px",
+        width: COL.service,
         cell: (row) => (
           <span className="whitespace-nowrap text-slate-700">{row.service}</span>
         ),
@@ -594,53 +758,74 @@ export default function StatementPage() {
         name: "Description",
         selector: (row) => row.description,
         sortable: true,
-        grow: 2,
-        minWidth: "180px",
+        width: COL.description,
         wrap: true,
       },
       {
         id: "bankName",
         name: "Bank",
-        selector: (row) => row.bankName ?? row.receiverName,
+        selector: (row) => row.bankName ?? row.receiverName ?? row.ifscCode ?? "",
         sortable: true,
-        minWidth: "140px",
+        width: COL.bank,
         wrap: true,
         cell: (row) => (
-          <div className="flex min-w-0 items-center gap-2">
-            {(row.bankName || row.ifscCode) && (
-              <BankLogo
-                bank={{
-                  name: row.bankName || row.receiverName,
-                  shortName: row.bankName || row.receiverName,
-                  ifscPrefix: row.ifscCode?.slice(0, 4) || "",
-                }}
-                size={24}
-              />
-            )}
-            <span className="truncate text-slate-700">
-              {row.bankName || row.receiverName || "—"}
-            </span>
-          </div>
+          <StatementBankCell
+            bankName={row.bankName}
+            receiverName={row.receiverName}
+            ifscCode={row.ifscCode}
+          />
         ),
       },
       {
         id: "accountNumber",
-        name: "Account",
-        selector: (row) => row.accountNumber ?? "",
+        name: isAeps ? "Aadhaar" : "Account",
+        selector: (row) =>
+          isAeps
+            ? row.aadhaarMasked || row.accountNumber || ""
+            : row.accountNumber ?? "",
         sortable: true,
-        minWidth: "130px",
+        width: COL.aadhaar,
         cell: (row) => (
           <span className="font-mono text-xs text-slate-700">
-            {row.accountNumber || "—"}
+            {isAeps
+              ? row.aadhaarMasked || row.accountNumber || "—"
+              : row.accountNumber || "—"}
           </span>
         ),
       },
+    ];
+
+    const messageColumn: TableColumn<StatementTransaction> = {
+      id: "message",
+      name: "Message",
+      selector: (row) => row.remark ?? "",
+      sortable: true,
+      width: COL.message,
+      wrap: true,
+      cell: (row) => (
+        <span
+          className={cn(
+            "line-clamp-2 text-xs leading-snug",
+            row.status === "failed"
+              ? "font-medium text-red-600"
+              : row.status === "success"
+                ? "text-emerald-700"
+                : "text-slate-600"
+          )}
+          title={row.remark || undefined}
+        >
+          {row.remark?.trim() ? row.remark : "—"}
+        </span>
+      ),
+    };
+
+    const amountColumns: TableColumn<StatementTransaction>[] = [
       {
         id: "mobile",
         name: "Mobile",
         selector: (row) => row.mobile,
         sortable: true,
-        minWidth: "120px",
+        width: COL.mobile,
         cell: (row) => (
           <span className="tabular-nums text-slate-700">{row.mobile || "—"}</span>
         ),
@@ -650,7 +835,7 @@ export default function StatementPage() {
         name: "Type",
         selector: (row) => row.type,
         sortable: true,
-        minWidth: "90px",
+        width: COL.type,
         cell: (row) => (
           <Badge
             variant={row.type === "debit" ? "destructive" : "success"}
@@ -665,8 +850,50 @@ export default function StatementPage() {
         name: "Status",
         selector: (row) => row.status,
         sortable: true,
-        minWidth: "108px",
+        width: COL.status,
         cell: (row) => <StatusBadge status={row.status} />,
+      },
+      {
+        id: "principalAmount",
+        name: principalHeader,
+        selector: (row) => getPrincipalAmount(row),
+        sortable: true,
+        right: true,
+        width: COL.amount,
+        cell: (row) => (
+          <StatementBalanceCell
+            value={getPrincipalAmount(row)}
+            tone="neutral"
+          />
+        ),
+      },
+      {
+        id: "deductionAmount",
+        name: <StackedHeader lines={["Chargeable", "Amount"]} />,
+        selector: (row) => getDeductionAmount(row),
+        sortable: true,
+        right: true,
+        width: COL.amount,
+        cell: (row) => (
+          <StatementBalanceCell
+            value={getDeductionAmount(row)}
+            tone={getDeductionAmount(row) > 0 ? "debit" : "neutral"}
+          />
+        ),
+      },
+      {
+        id: "commission",
+        name: "Commission",
+        selector: (row) => getCommissionAmount(row),
+        sortable: true,
+        right: true,
+        width: COL.amount,
+        cell: (row) => (
+          <StatementBalanceCell
+            value={getCommissionAmount(row)}
+            tone={getCommissionAmount(row) > 0 ? "credit" : "neutral"}
+          />
+        ),
       },
       {
         id: "openingBalance",
@@ -674,7 +901,7 @@ export default function StatementPage() {
         selector: (row) => row.openingBalance,
         sortable: true,
         right: true,
-        minWidth: "118px",
+        width: COL.amount,
         cell: (row) =>
           hasStatementBalance(row) ? (
             <StatementBalanceCell value={row.openingBalance} tone="neutral" />
@@ -685,13 +912,13 @@ export default function StatementPage() {
       {
         id: "creditAmount",
         name: <StackedHeader lines={["Credit", "Amount"]} />,
-        selector: (row) => (row.type === "credit" ? row.amount : 0),
+        selector: (row) => getCreditDisplayAmount(row),
         sortable: true,
         right: true,
-        minWidth: "108px",
+        width: COL.amount,
         cell: (row) => (
           <StatementBalanceCell
-            value={row.type === "credit" ? row.amount : 0}
+            value={getCreditDisplayAmount(row)}
             tone="credit"
           />
         ),
@@ -699,13 +926,13 @@ export default function StatementPage() {
       {
         id: "debitAmount",
         name: <StackedHeader lines={["Debit", "Amount"]} />,
-        selector: (row) => (row.type === "debit" ? row.amount : 0),
+        selector: (row) => getDebitDisplayAmount(row),
         sortable: true,
         right: true,
-        minWidth: "108px",
+        width: COL.amount,
         cell: (row) => (
           <StatementBalanceCell
-            value={row.type === "debit" ? row.amount : 0}
+            value={getDebitDisplayAmount(row)}
             tone="debit"
           />
         ),
@@ -716,7 +943,7 @@ export default function StatementPage() {
         selector: (row) => row.balanceAfter,
         sortable: true,
         right: true,
-        minWidth: "118px",
+        width: COL.amount,
         cell: (row) =>
           hasStatementBalance(row) ? (
             <StatementBalanceCell value={row.balanceAfter} tone="balance" />
@@ -725,8 +952,9 @@ export default function StatementPage() {
           ),
       },
       {
+        id: "action",
         name: "Action",
-        minWidth: "100px",
+        width: COL.action,
         center: true,
         cell: (row) => (
           <DropdownMenu>
@@ -753,12 +981,23 @@ export default function StatementPage() {
           </DropdownMenu>
         ),
         ignoreRowClick: true,
-        allowOverflow: true,
+        allowOverflow: false,
         button: true,
       },
-    ],
-    [handleDownloadReceipt, openReceipt, printReceipt]
-  );
+    ];
+
+    return [
+      ...baseBeforeAmount,
+      ...(isAeps ? [messageColumn] : []),
+      ...amountColumns,
+    ];
+  }, [
+    handleDownloadReceipt,
+    openReceipt,
+    printReceipt,
+    serviceFilter,
+    aepsSubFilter,
+  ]);
 
   return (
     <>
@@ -870,14 +1109,65 @@ export default function StatementPage() {
                 </div>
               ) : null}
 
-              <div className="relative w-full lg:max-w-sm">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  placeholder="Search ID, reference, description, service..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9"
-                />
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div className="relative w-full lg:max-w-sm">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="Search ID, reference, description, service..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="w-[148px]">
+                    <Label
+                      htmlFor="statement-start-date"
+                      className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-400"
+                    >
+                      Start Date
+                    </Label>
+                    <Input
+                      id="statement-start-date"
+                      type="date"
+                      value={startDate}
+                      max={endDate || undefined}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="h-9 rounded-lg border-slate-200 text-sm"
+                    />
+                  </div>
+                  <div className="w-[148px]">
+                    <Label
+                      htmlFor="statement-end-date"
+                      className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-400"
+                    >
+                      End Date
+                    </Label>
+                    <Input
+                      id="statement-end-date"
+                      type="date"
+                      value={endDate}
+                      min={startDate || undefined}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="h-9 rounded-lg border-slate-200 text-sm"
+                    />
+                  </div>
+                  {startDate || endDate ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9"
+                      onClick={() => {
+                        setStartDate("");
+                        setEndDate("");
+                      }}
+                    >
+                      Clear dates
+                    </Button>
+                  ) : null}
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -934,12 +1224,23 @@ export default function StatementPage() {
                     <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
                       ↕ Vertical scroll
                     </span>
-                    <span>Drag or use scrollbars to view all columns and rows.</span>
+                    <span>
+                      {serviceFilter === "UPI ATM"
+                        ? "UPI ATM — PENDING hide; QR, Response, VPA alag table."
+                        : "Scroll karne par header aur data saath move karenge — columns aligned rahenge."}
+                    </span>
                   </p>
-                  <div className="statement-datatable rounded-xl border border-slate-200 bg-white">
+                  <div
+                    className={cn(
+                      "statement-datatable max-h-[520px] overflow-auto rounded-xl border border-slate-200 bg-white",
+                      serviceFilter === "UPI ATM" && "statement-upi-atm"
+                    )}
+                  >
                     <DataTable
+                      key={`statement-${serviceFilter}-${aepsSubFilter}`}
                       columns={columns}
                       data={filteredTransactions}
+                      responsive={false}
                       pagination
                       paginationPerPage={rowsPerPage}
                       paginationRowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
@@ -961,9 +1262,7 @@ export default function StatementPage() {
                       }}
                       highlightOnHover
                       striped
-                      fixedHeader
-                      fixedHeaderScrollHeight={STATEMENT_TABLE_SCROLL_HEIGHT}
-                      persistTableHead
+                      dense
                       customStyles={tableCustomStyles}
                       noDataComponent={
                         <div className="py-16 text-center">

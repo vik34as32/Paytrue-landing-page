@@ -6,6 +6,7 @@ import { useSelector } from "react-redux";
 import {
   Bell,
   User,
+  UserPen,
   Wallet,
   CreditCard,
   LogOut,
@@ -86,7 +87,17 @@ export default function ProfileDropdown() {
           <DropdownMenuItem asChild>
             <Link href="/rt/retailer/profile" className="cursor-pointer rounded-lg">
               <User className="h-4 w-4 text-[#1565d8]" />
-              My Profile
+              View Profile
+            </Link>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem asChild>
+            <Link
+              href="/rt/retailer/profile/edit"
+              className="cursor-pointer rounded-lg"
+            >
+              <UserPen className="h-4 w-4 text-[#f57c00]" />
+              Edit Profile
             </Link>
           </DropdownMenuItem>
 

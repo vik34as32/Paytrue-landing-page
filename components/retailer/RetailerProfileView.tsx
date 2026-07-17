@@ -269,7 +269,15 @@ export default function RetailerProfileView() {
             Complete retailer identity, KYC & settlement details
           </p>
         </div>
-        <StatusBadge status={data.kycStatus ?? kyc.status} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/rt/retailer/profile/edit"
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#1565d8] px-4 text-sm font-bold text-white shadow-md transition hover:bg-[#0d47a1]"
+          >
+            Edit Profile
+          </Link>
+          <StatusBadge status={data.kycStatus ?? kyc.status} />
+        </div>
       </motion.div>
 
       {error ? (

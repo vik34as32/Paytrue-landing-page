@@ -168,21 +168,34 @@ export function dedupeBeneficiariesByAccount<T extends BeneficiaryAccountKeyFiel
 export function normalizeBeneficiary(raw: Record<string, unknown> = {}): DmtBeneficiary {
   const metadata = asRecord(raw.metadata);
   const instantPay = asRecord(metadata.instantPay);
-  const bankObj = asRecord(raw.bank);
+  const bankObj = typeof raw.bank === "object" && raw.bank ? asRecord(raw.bank) : {};
+  const bankAsString = typeof raw.bank === "string" ? String(raw.bank).trim() : "";
   const ifscCode = (pickString(raw.ifscCode, raw.ifsc) ?? "").toUpperCase();
   const bankName =
-    pickString(bankObj.name, bankObj.bankName, raw.bankName) ||
+    pickString(bankObj.name, bankObj.bankName, raw.bankName, bankAsString) ||
     (ifscCode ? `${ifscCode.slice(0, 4)} Bank` : "Bank");
+  const verificationDt = pickString(raw.verificationDt, raw.verifiedAt, raw.verified_at);
+  const statusRaw = pickString(raw.status, raw.verificationStatus);
+  const isVerified = Boolean(
+    raw.isVerified ||
+      raw.verified ||
+      statusRaw?.toLowerCase() === "verified" ||
+      verificationDt
+  );
 
   return {
     id: pickString(raw.id, raw.beneficiaryId, raw._id) ?? "",
     name: pickString(raw.name, raw.beneficiaryName) ?? "Beneficiary",
-    mobile: pickString(raw.mobile, raw.beneficiaryMobileNumber, raw.mobileNumber),
+    mobile: pickString(
+      raw.mobile,
+      raw.beneficiaryMobileNumber,
+      raw.mobileNumber
+    ),
     bankName,
     accountNumber: pickString(raw.accountNumber, raw.accountNo, raw.account) ?? "",
     ifscCode,
-    isVerified: Boolean(raw.isVerified ?? raw.verified ?? raw.status === "verified"),
-    status: pickString(raw.status, raw.verificationStatus),
+    isVerified,
+    status: isVerified ? "verified" : statusRaw || "unverified",
     referenceKey: pickString(
       raw.referenceKey,
       metadata.referenceKey,

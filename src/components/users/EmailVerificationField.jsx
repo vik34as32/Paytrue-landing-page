@@ -17,6 +17,7 @@ export default function EmailVerificationField({
   methods,
   isEdit = false,
   originalEmail = "",
+  locked = false,
 }) {
   const {
     register,
@@ -141,9 +142,10 @@ export default function EmailVerificationField({
             type="email"
             placeholder="Enter email"
             className={cn("pl-9 pr-24", emailVerified && "border-emerald-300 bg-emerald-50/40")}
-            disabled={emailVerified && !emailUnchanged}
+            disabled={locked || (emailVerified && !emailUnchanged)}
             {...registration}
             onChange={(event) => {
+              if (locked) return;
               registration.onChange(event);
               if (emailVerified) {
                 setValue("emailVerified", false, { shouldValidate: true });
@@ -151,10 +153,10 @@ export default function EmailVerificationField({
             }}
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2">
-            {emailVerified ? (
+            {locked || emailVerified ? (
               <span className="flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-600">
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                Verified
+                {locked ? "Locked" : "Verified"}
               </span>
             ) : (
               <button

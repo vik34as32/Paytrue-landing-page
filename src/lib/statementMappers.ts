@@ -1,6 +1,7 @@
 import type {
   StatementTransaction,
   TransactionStatus,
+  TransactionType,
 } from "@/types/statementReceipt";
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -38,6 +39,10 @@ function normalizeStatus(status: unknown): TransactionStatus {
     return "pending";
   }
 
+  if (normalized === "expired" || normalized === "timeout") {
+    return "expired";
+  }
+
   return "failed";
 }
 
@@ -46,6 +51,62 @@ function formatAepsTransactionType(value: string): string {
     .replace(/_/g, " ")
     .toLowerCase()
     .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+/** Pull transfer / deduction / commission from txn + nested walletSummary. */
+function extractAmountBreakdown(
+  raw: Record<string, unknown>,
+  walletSummary: Record<string, unknown>
+): {
+  amount: number;
+  transferAmount: number;
+  deductionAmount: number;
+  commission: number;
+  charges: number;
+} {
+  const amount = toNumber(raw.amount ?? walletSummary.amount);
+  const transferAmount = toNumber(
+    walletSummary.transferAmount ??
+      walletSummary.txnAmount ??
+      raw.transferAmount ??
+      raw.txnAmount ??
+      amount
+  );
+  const deductionAmount = toNumber(
+    walletSummary.charge ??
+      walletSummary.deduction ??
+      walletSummary.deductionAmount ??
+      walletSummary.deductAmount ??
+      raw.chargeAmount ??
+      raw.charges ??
+      raw.charge ??
+      raw.deductionAmount ??
+      raw.deduction
+  );
+  const commission = toNumber(
+    walletSummary.commission ??
+      walletSummary.commissionAmount ??
+      walletSummary.retailerCommission ??
+      raw.commission ??
+      raw.commissionAmount ??
+      raw.retailerCommission
+  );
+
+  return {
+    amount,
+    transferAmount,
+    deductionAmount,
+    commission,
+    charges: deductionAmount,
+  };
+}
+
+function resolveAepsType(transactionType: string): TransactionType {
+  // Cash withdrawal → money in for retailer (Credit)
+  // Cash deposit → money out for retailer (Debit)
+  if (transactionType === "CASH_WITHDRAWAL") return "credit";
+  if (transactionType === "CASH_DEPOSIT") return "debit";
+  return "debit";
 }
 
 export function mapDmtToStatement(raw: Record<string, unknown>): StatementTransaction {
@@ -65,8 +126,13 @@ export function mapDmtToStatement(raw: Record<string, unknown>): StatementTransa
     beneficiary.name ?? raw.beneficiaryAccount ?? "Beneficiary"
   );
   const transferMode = String(raw.transferMode ?? "IMPS");
-  const amount = toNumber(raw.amount);
-  const charges = toNumber(walletSummary.charge ?? raw.charges);
+  const {
+    amount,
+    transferAmount,
+    deductionAmount,
+    commission,
+    charges,
+  } = extractAmountBreakdown(raw, walletSummary);
 
   return {
     id: String(raw.id ?? raw.reference ?? ""),
@@ -74,11 +140,14 @@ export function mapDmtToStatement(raw: Record<string, unknown>): StatementTransa
       raw.reference ?? raw.walletReference ?? raw.externalRef ?? raw.id ?? ""
     ),
     createdAt: String(raw.createdAt ?? new Date().toISOString()),
-    service: "Money Transfer",
+    service: "DMT",
     description: `DMT · ${beneficiaryName} · ${transferMode}`,
     type: "debit",
     status: normalizeStatus(raw.status),
     amount,
+    transferAmount,
+    deductionAmount,
+    commission,
     openingBalance: toNumber(raw.openingBalance),
     balanceAfter: toNumber(raw.closingBalance),
     senderName,
@@ -109,17 +178,41 @@ export function mapUpiAtmToStatement(
 ): StatementTransaction {
   const payer = asRecord(raw.payerDetails);
   const customerMobile = String(raw.customerMobile ?? payer.mobile ?? "");
-  const payerName = String(payer.name ?? raw.customerName ?? "Customer");
+  const payerName = String(payer.name ?? raw.customerName ?? "").trim() || "—";
   const metadata = asRecord(raw.metadata);
   const walletSummary = asRecord(metadata.walletSummary);
-  const amount = toNumber(raw.amount);
-  const charges = toNumber(walletSummary.charge ?? raw.charges);
+  const {
+    amount,
+    transferAmount,
+    deductionAmount,
+    commission,
+    charges,
+  } = extractAmountBreakdown(raw, walletSummary);
+
+  const withdrawalAmount = toNumber(
+    raw.withdrawalAmount ?? walletSummary.withdrawalAmount ?? amount
+  );
+  const creditAmount = toNumber(
+    raw.creditAmount ?? raw.creditedAmount ?? raw.netCreditedAmount
+  );
+  const debitAmount = toNumber(raw.debitAmount ?? raw.totalDebitAmount);
   const openingBalance = toNumber(
     raw.openingBalance ?? walletSummary.openingBalance
   );
   const balanceAfter = toNumber(
-    raw.closingBalance ?? walletSummary.closingBalance
+    raw.closingBalance ??
+      raw.updatedBalance ??
+      walletSummary.closingBalance
   );
+  const responseMessage = String(
+    raw.responseMessage ?? raw.message ?? ""
+  ).trim();
+  const vpa = String(payer.vpa ?? "").trim();
+  const upiTxnId = String(
+    raw.txnId ?? raw.providerReference ?? ""
+  ).trim();
+  const qrImage = String(raw.qrImage ?? "").trim();
+  const qrString = String(raw.qrString ?? "").trim();
 
   return {
     id: String(raw.id ?? raw.referenceId ?? ""),
@@ -128,46 +221,104 @@ export function mapUpiAtmToStatement(
     ),
     createdAt: String(raw.createdAt ?? new Date().toISOString()),
     service: "UPI ATM",
-    description: `UPI ATM cash withdrawal · ${customerMobile || "Customer"}`,
-    type: "debit",
+    description:
+      payerName !== "—"
+        ? `UPI ATM · ${payerName}`
+        : `UPI ATM cash withdrawal · ${customerMobile || "Customer"}`,
+    type: "credit",
     status: normalizeStatus(raw.status),
-    amount,
+    amount: withdrawalAmount || amount,
+    transferAmount: transferAmount || withdrawalAmount || amount,
+    withdrawalAmount,
+    deductionAmount,
+    commission,
     openingBalance,
     balanceAfter,
+    creditAmount,
+    debitAmount,
     senderName: payerName,
     receiverName: "UPI ATM",
     mobile: customerMobile,
-    remark: String(raw.responseMessage ?? raw.message ?? ""),
+    remark: responseMessage,
     source: "upi-atm",
-    bankReference: String(raw.rrn ?? raw.bankReference ?? raw.txnId ?? ""),
-    bankName: String(payer.bankName ?? ""),
-    accountNumber: String(payer.accountNumber ?? ""),
+    bankReference: String(raw.rrn ?? raw.bankReference ?? upiTxnId ?? ""),
+    bankName: String(payer.bankName ?? "").trim(),
+    accountNumber: String(payer.accountNumber ?? "").trim(),
     accountHolderName: payerName,
+    vpa,
+    upiTxnId,
+    qrImage: qrImage || undefined,
+    qrString: qrString || undefined,
     ifscCode: String(
       payer.ifscCode ?? payer.ifsc ?? raw.ifscCode ?? raw.ifsc ?? ""
     )
       .trim()
       .toUpperCase(),
+    charges,
   };
 }
 
 export function mapAepsToStatement(raw: Record<string, unknown>): StatementTransaction {
-  const transactionType = String(raw.transactionType ?? "AEPS");
+  const transactionType = String(raw.transactionType ?? "AEPS").toUpperCase();
   const label = formatAepsTransactionType(transactionType);
   const bankName = String(raw.bankName ?? "Bank");
-  const amount = raw.amount == null ? 0 : toNumber(raw.amount);
-  const isCashMovement =
-    transactionType === "CASH_WITHDRAWAL" ||
-    transactionType === "AADHAAR_PAY" ||
-    transactionType === "CASH_DEPOSIT";
   const metadata = asRecord(raw.metadata);
   const walletSummary = asRecord(metadata.walletSummary);
+
+  const amount = toNumber(raw.amount ?? walletSummary.amount);
+  const withdrawalAmount = toNumber(
+    raw.withdrawalAmount ?? walletSummary.withdrawalAmount
+  );
+  const transferAmount = toNumber(
+    raw.transferAmount ??
+      walletSummary.transferAmount ??
+      walletSummary.txnAmount ??
+      raw.txnAmount
+  );
+
+  // Cash Withdrawal → show withdrawalAmount (not transferAmount)
+  // Cash Deposit → show transferAmount (not withdrawalAmount)
+  const principalAmount =
+    transactionType === "CASH_WITHDRAWAL"
+      ? withdrawalAmount || amount
+      : transactionType === "CASH_DEPOSIT"
+        ? transferAmount || amount
+        : amount || transferAmount || withdrawalAmount;
+
+  // null / missing charge & commission → 0
+  const deductionAmount = toNumber(
+    raw.chargeAmount ??
+      raw.charges ??
+      raw.charge ??
+      raw.deductionAmount ??
+      raw.deduction ??
+      walletSummary.charge ??
+      walletSummary.deduction ??
+      walletSummary.deductionAmount ??
+      walletSummary.deductAmount,
+    0
+  );
+  const commission = toNumber(
+    raw.commission ??
+      raw.commissionAmount ??
+      raw.retailerCommission ??
+      walletSummary.commission ??
+      walletSummary.commissionAmount ??
+      walletSummary.retailerCommission,
+    0
+  );
+
   const openingBalance = toNumber(
     raw.openingBalance ?? walletSummary.openingBalance
   );
   const balanceAfter = toNumber(
-    raw.closingBalance ?? walletSummary.closingBalance
+    raw.closingBalance ??
+      raw.updatedBalance ??
+      walletSummary.closingBalance
   );
+
+  const creditAmount = toNumber(raw.creditAmount ?? raw.creditedAmount ?? raw.netCreditedAmount);
+  const debitAmount = toNumber(raw.debitAmount ?? raw.totalDebitAmount);
 
   return {
     id: String(raw.id ?? raw.referenceId ?? ""),
@@ -175,11 +326,23 @@ export function mapAepsToStatement(raw: Record<string, unknown>): StatementTrans
     createdAt: String(raw.createdAt ?? new Date().toISOString()),
     service: "AEPS",
     description: `${label} · ${bankName}`,
-    type: transactionType === "CASH_DEPOSIT" ? "credit" : isCashMovement ? "debit" : "debit",
+    type: resolveAepsType(transactionType),
     status: normalizeStatus(raw.status),
-    amount,
+    amount: principalAmount,
+    transferAmount:
+      transactionType === "CASH_DEPOSIT"
+        ? transferAmount || amount
+        : transferAmount,
+    withdrawalAmount:
+      transactionType === "CASH_WITHDRAWAL"
+        ? withdrawalAmount || amount
+        : withdrawalAmount,
+    deductionAmount,
+    commission,
     openingBalance,
     balanceAfter,
+    debitAmount,
+    creditAmount,
     senderName: String(raw.customerName ?? "Customer"),
     receiverName: bankName,
     mobile: String(raw.customerMobile ?? ""),
@@ -187,7 +350,8 @@ export function mapAepsToStatement(raw: Record<string, unknown>): StatementTrans
     source: "aeps",
     bankReference: String(raw.rrn ?? raw.bankRRN ?? raw.txnId ?? ""),
     bankName: bankName === "Bank" ? "" : bankName,
-    accountNumber: String(raw.accountNumber ?? raw.aadhaarMasked ?? ""),
+    accountNumber: String(raw.accountNumber ?? ""),
+    aadhaarMasked: String(raw.aadhaarMasked ?? raw.aadhaar ?? ""),
     accountHolderName: String(
       raw.customerName ?? raw.accountHolderName ?? raw.accountHolder ?? "Customer"
     ),
@@ -195,6 +359,7 @@ export function mapAepsToStatement(raw: Record<string, unknown>): StatementTrans
       .trim()
       .toUpperCase(),
     aepsTransactionType: transactionType,
+    charges: deductionAmount,
   };
 }
 

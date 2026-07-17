@@ -2,7 +2,11 @@ import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 
 export type StatementExportType = "debit" | "credit";
-export type StatementExportStatus = "success" | "pending" | "failed";
+export type StatementExportStatus =
+  | "success"
+  | "pending"
+  | "failed"
+  | "expired";
 
 export interface StatementExportTransaction {
   id: string;
@@ -13,6 +17,13 @@ export interface StatementExportTransaction {
   type: StatementExportType;
   status: StatementExportStatus;
   amount: number;
+  transferAmount?: number;
+  /** AEPS cash withdrawal principal */
+  withdrawalAmount?: number;
+  aepsTransactionType?: string;
+  deductionAmount?: number;
+  charges?: number;
+  commission?: number;
   openingBalance: number;
   balanceAfter: number;
   senderName: string;
@@ -34,7 +45,7 @@ export interface StatementExcelExportOptions {
 const WORKSHEET_NAME = "Transaction Statement";
 const HEADER_FILL = "FFFFD966";
 const TOTAL_FILL = "FFFFD966";
-const COLUMN_COUNT = 17;
+const COLUMN_COUNT = 20;
 
 const COLUMN_HEADERS = [
   "Sr No",
@@ -49,6 +60,9 @@ const COLUMN_HEADERS = [
   "Mobile",
   "Type",
   "Status",
+  "Transfer Amount",
+  "Deduction Amount",
+  "Commission",
   "Opening Balance",
   "Debit",
   "Credit",
@@ -69,11 +83,14 @@ const MIN_COLUMN_WIDTHS: Record<number, number> = {
   10: 16,
   11: 12,
   12: 15,
-  13: 18,
-  14: 18,
-  15: 18,
+  13: 16,
+  14: 16,
+  15: 14,
   16: 18,
-  17: 28,
+  17: 18,
+  18: 18,
+  19: 18,
+  20: 28,
 };
 
 const CURRENCY_FORMAT = '"₹"#,##0.00';
@@ -109,6 +126,7 @@ function splitDateTime(iso: string): { date: Date; dateOnly: Date; timeOnly: Dat
 function statusFontColor(status: StatementExportStatus): string {
   if (status === "success") return "FF16A34A";
   if (status === "pending") return "FFEA580C";
+  if (status === "expired") return "FF64748B";
   return "FFDC2626";
 }
 
@@ -268,12 +286,22 @@ export async function exportStatementToExcel(
     const rowIndex = headerRowIndex + 1 + index;
     const row = sheet.getRow(rowIndex);
     const { dateOnly, timeOnly } = splitDateTime(txn.createdAt);
-    const debit = txn.type === "debit" ? txn.amount : 0;
-    const credit = txn.type === "credit" ? txn.amount : 0;
+    const debit =
+      txn.status === "failed" ? 0 : txn.type === "debit" ? txn.amount : 0;
+    const credit =
+      txn.status === "failed" ? 0 : txn.type === "credit" ? txn.amount : 0;
 
     totalDebit += debit;
     totalCredit += credit;
     closingBalance = txn.balanceAfter;
+
+    const transferAmount = txn.withdrawalAmount != null && String(txn.aepsTransactionType || "").toUpperCase() === "CASH_WITHDRAWAL"
+      ? (txn.withdrawalAmount ?? txn.amount ?? 0)
+      : String(txn.aepsTransactionType || "").toUpperCase() === "CASH_DEPOSIT"
+        ? (txn.transferAmount ?? txn.amount ?? 0)
+        : (txn.transferAmount ?? txn.amount ?? 0);
+    const deductionAmount = txn.deductionAmount ?? txn.charges ?? 0;
+    const commissionAmount = txn.commission ?? 0;
 
     const values: (string | number | Date)[] = [
       index + 1,
@@ -288,6 +316,9 @@ export async function exportStatementToExcel(
       txn.mobile,
       txn.type.toUpperCase(),
       txn.status.toUpperCase(),
+      transferAmount,
+      deductionAmount,
+      commissionAmount,
       txn.openingBalance,
       debit || "",
       credit || "",
@@ -301,13 +332,13 @@ export async function exportStatementToExcel(
       cell.alignment = {
         horizontal: colIndex === 0 ? "center" : "left",
         vertical: "middle",
-        wrapText: colIndex === 6 || colIndex === 16,
+        wrapText: colIndex === 6 || colIndex === 19,
       };
       applyBorder(cell);
 
       if (colIndex === 3) cell.numFmt = DATE_FORMAT;
       if (colIndex === 4) cell.numFmt = TIME_FORMAT;
-      if ([12, 13, 14, 15].includes(colIndex)) {
+      if ([12, 13, 14, 15, 16, 17, 18].includes(colIndex)) {
         cell.numFmt = CURRENCY_FORMAT;
         cell.alignment = { horizontal: "right", vertical: "middle" };
       }
@@ -335,6 +366,9 @@ export async function exportStatementToExcel(
     "",
     "TOTAL",
     "",
+    "",
+    "",
+    "",
     totalDebit,
     totalCredit,
     closingBalance,
@@ -351,11 +385,13 @@ export async function exportStatementToExcel(
       fgColor: { argb: TOTAL_FILL },
     };
     cell.alignment = {
-      horizontal: [12, 13, 14, 15].includes(colIndex) ? "right" : "center",
+      horizontal: [12, 13, 14, 15, 16, 17, 18].includes(colIndex)
+        ? "right"
+        : "center",
       vertical: "middle",
     };
     applyBorder(cell);
-    if ([13, 14, 15].includes(colIndex)) {
+    if ([16, 17, 18].includes(colIndex)) {
       cell.numFmt = CURRENCY_FORMAT;
     }
   });

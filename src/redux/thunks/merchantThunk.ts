@@ -24,6 +24,10 @@ type MerchantThunkState = {
     spKey: string | null;
     outletId: string | null;
     raw: Record<string, unknown> | null;
+    isVerified: boolean;
+    isPendingApproval: boolean;
+    biometricStatus: string;
+    action: string | null;
   };
 };
 
@@ -122,9 +126,17 @@ export const submitMerchantBiometricVerification = createAsyncThunk(
         return rejectWithValue(result.message || "Biometric verification failed.");
       }
 
+      // Re-fetch biometric-status so UI follows InstantPay truth (APPROVAL_PENDING / APPROVED)
       await dispatch(loadMerchantBiometricStatus());
+      const after = getState() as MerchantThunkState;
 
-      return result;
+      return {
+        ...result,
+        isVerified: after.merchant.isVerified,
+        isPendingApproval: after.merchant.isPendingApproval,
+        biometricStatus: after.merchant.biometricStatus,
+        action: after.merchant.action ?? result.action,
+      };
     } catch (error) {
       return rejectWithValue(
         error instanceof Error ? error.message : "Biometric verification failed."

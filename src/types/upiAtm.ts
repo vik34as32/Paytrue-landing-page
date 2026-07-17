@@ -30,6 +30,12 @@ export interface UpiAtmTransaction {
   message?: string;
   paidAt?: string;
   createdAt?: string;
+  /** Raw API expiry datetime, e.g. "2026-07-16 19:01:13" */
+  expiryDt?: string;
+  /** Seconds until QR expires from generation (API may send string) */
+  displayExpirySec?: number | string;
+  /** Resolved absolute expiry timestamp (ms) for countdown UI */
+  expiresAtMs?: number;
   [key: string]: unknown;
 }
 

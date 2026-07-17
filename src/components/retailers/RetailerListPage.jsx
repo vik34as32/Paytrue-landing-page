@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Link from "next/link";
 import DataTable from "react-data-table-component";
 import { Store, Plus, Eye, Pencil, Search } from "lucide-react";
 import PageHeader from "@/src/components/common/PageHeader";
 import StatusBadge from "@/src/components/common/StatusBadge";
-import RetailerViewModal from "@/src/components/retailers/RetailerViewModal";
+import { BankLogo } from "@/components/retailer/BankLogo";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Card,
@@ -17,15 +18,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  fetchRetailers,
-  fetchRetailerById,
-} from "@/src/redux/thunks/retailerThunk";
+import { fetchRetailers } from "@/src/redux/thunks/retailerThunk";
 import {
   selectRetailers,
   selectRetailerLoading,
-  selectSelectedRetailer,
-  selectRetailerDetailLoading,
 } from "@/src/redux/slices/retailerSlice";
 import { updateDdRetailerCount } from "@/src/redux/slices/dashboardSlice";
 import {
@@ -34,11 +30,11 @@ import {
 } from "@/src/components/common/cyanDataTableStyles";
 import {
   getRetailerInitials,
-  maskRetailerAadhaar,
-  maskRetailerPan,
+  maskRetailerAccount,
 } from "@/src/lib/retailerListUtils";
+import { formatCurrency } from "@/lib/utils";
 
-const TABLE_MIN_WIDTH = "1680px";
+const TABLE_MIN_WIDTH = "1100px";
 
 function RetailerAvatar({ row }) {
   return (
@@ -61,11 +57,8 @@ export default function RetailerListPage() {
   const dispatch = useDispatch();
   const retailers = useSelector(selectRetailers);
   const loading = useSelector(selectRetailerLoading);
-  const selectedRetailer = useSelector(selectSelectedRetailer);
-  const detailLoading = useSelector(selectRetailerDetailLoading);
 
   const [search, setSearch] = useState("");
-  const [viewOpen, setViewOpen] = useState(false);
 
   useEffect(() => {
     dispatch(fetchRetailers({ page: 1, limit: 100 }));
@@ -86,10 +79,11 @@ export default function RetailerListPage() {
         row.alternateMobileNumber,
         row.outletName,
         row.outletId,
+        row.bankName,
+        row.accountNumber,
+        row.accountHolderName,
         row.address,
         row.pincode,
-        row.aadhaarNumber,
-        row.panNumber,
         row.city,
         row.state,
       ]
@@ -98,122 +92,78 @@ export default function RetailerListPage() {
     );
   }, [retailers, search]);
 
-  const handleView = useCallback(
-    async (row) => {
-      setViewOpen(true);
-      await dispatch(fetchRetailerById(row.id));
-    },
-    [dispatch]
-  );
-
   const columns = useMemo(
     () => [
       {
-        id: "image",
-        name: "Image",
-        width: "72px",
-        center: true,
-        cell: (row) => <RetailerAvatar row={row} />,
+        id: "bank",
+        name: "Bank",
+        selector: (row) => row.bankName || row.name,
+        sortable: true,
+        minWidth: "220px",
+        grow: 1,
+        cell: (row) => (
+          <div className="flex min-w-0 items-center gap-2.5 py-1">
+            {row.bankName || row.ifscCode ? (
+              <BankLogo
+                bank={{
+                  name: row.bankName || row.name,
+                  shortName: row.bankName || row.name,
+                  ifscPrefix: row.ifscCode?.slice(0, 4) || "",
+                }}
+                size={28}
+              />
+            ) : (
+              <RetailerAvatar row={row} />
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-[#0b1f3a]">
+                {row.accountHolderName || row.name || "—"}
+              </p>
+              <p className="truncate text-[11px] text-slate-500">
+                {row.bankName || row.outletName || "—"}
+              </p>
+            </div>
+          </div>
+        ),
       },
       {
-        id: "name",
-        name: "Name",
-        selector: (row) => row.name,
+        id: "account",
+        name: "Account",
+        selector: (row) => row.accountNumber,
         sortable: true,
         minWidth: "140px",
-        cell: (row) => <span className="font-semibold text-[#0b1f3a]">{row.name}</span>,
-      },
-      {
-        id: "email",
-        name: "Email",
-        selector: (row) => row.email,
-        sortable: true,
-        minWidth: "180px",
-        cell: (row) => <span className="text-slate-600">{row.email || "—"}</span>,
+        cell: (row) => (
+          <span className="font-mono text-xs font-medium text-slate-700">
+            {row.accountNumber ? maskRetailerAccount(row.accountNumber) : "—"}
+          </span>
+        ),
       },
       {
         id: "mobile",
-        name: "Phone",
+        name: "Mobile",
         selector: (row) => row.mobile,
         sortable: true,
         minWidth: "120px",
-        cell: (row) => <span className="whitespace-nowrap font-mono text-sm">{row.mobile || "—"}</span>,
-      },
-      {
-        id: "alternateMobileNumber",
-        name: "Alt. Phone",
-        selector: (row) => row.alternateMobileNumber,
-        sortable: true,
-        minWidth: "120px",
         cell: (row) => (
-          <span className="whitespace-nowrap font-mono text-sm">
-            {row.alternateMobileNumber || "—"}
+          <span className="tabular-nums text-sm text-slate-700">
+            {row.mobile || "—"}
           </span>
         ),
       },
       {
-        id: "outletName",
-        name: "Outlet Name",
-        selector: (row) => row.outletName,
-        sortable: true,
-        minWidth: "150px",
-        cell: (row) => <span className="text-slate-700">{row.outletName || "—"}</span>,
-      },
-      {
-        id: "outletId",
-        name: "Outlet ID",
-        selector: (row) => row.outletId,
-        sortable: true,
-        minWidth: "130px",
-        cell: (row) => (
-          <span className="whitespace-nowrap font-mono text-xs text-slate-600">
-            {row.outletId || "—"}
-          </span>
-        ),
-      },
-      {
-        id: "address",
-        name: "Address",
-        selector: (row) => row.address,
-        sortable: true,
-        minWidth: "180px",
-        cell: (row) => (
-          <span className="block max-w-[220px] truncate text-slate-600" title={row.address || ""}>
-            {row.address || "—"}
-          </span>
-        ),
-      },
-      {
-        id: "pincode",
-        name: "Pincode",
-        selector: (row) => row.pincode,
-        sortable: true,
-        minWidth: "90px",
+        id: "type",
+        name: "Type",
+        selector: () => "Debit",
+        sortable: false,
+        minWidth: "100px",
         center: true,
-        cell: (row) => <span className="font-mono text-sm">{row.pincode || "—"}</span>,
-      },
-      {
-        id: "aadhaarNumber",
-        name: "Aadhaar",
-        selector: (row) => row.aadhaarNumber,
-        sortable: true,
-        minWidth: "150px",
-        cell: (row) => (
-          <span className="whitespace-nowrap font-mono text-xs">
-            {maskRetailerAadhaar(row.aadhaarNumber)}
-          </span>
-        ),
-      },
-      {
-        id: "panNumber",
-        name: "PAN",
-        selector: (row) => row.panNumber,
-        sortable: true,
-        minWidth: "110px",
-        cell: (row) => (
-          <span className="whitespace-nowrap font-mono text-xs">
-            {maskRetailerPan(row.panNumber)}
-          </span>
+        cell: () => (
+          <Badge
+            variant="destructive"
+            className="rounded-full px-3 py-0.5 text-[11px] font-bold"
+          >
+            Debit
+          </Badge>
         ),
       },
       {
@@ -223,12 +173,34 @@ export default function RetailerListPage() {
         sortable: true,
         minWidth: "110px",
         center: true,
-        cell: (row) => <StatusBadge status={row.status} />,
+        cell: (row) => {
+          const normalized = String(row.status || "").toLowerCase();
+          const mapped =
+            normalized === "active"
+              ? "success"
+              : normalized === "inactive"
+                ? "failed"
+                : row.status;
+          return <StatusBadge status={mapped} />;
+        },
+      },
+      {
+        id: "previousBalance",
+        name: "Previous Balance",
+        selector: (row) => row.walletBalance ?? 0,
+        sortable: true,
+        right: true,
+        minWidth: "140px",
+        cell: (row) => (
+          <span className="font-bold tabular-nums text-slate-800">
+            {formatCurrency(row.walletBalance ?? 0)}
+          </span>
+        ),
       },
       {
         id: "actions",
         name: "Actions",
-        minWidth: "100px",
+        minWidth: "110px",
         center: true,
         cell: (row) => (
           <div className="flex items-center justify-center gap-1.5">
@@ -238,9 +210,11 @@ export default function RetailerListPage() {
               className="h-8 w-8 shrink-0"
               title="View retailer"
               aria-label="View retailer"
-              onClick={() => void handleView(row)}
+              asChild
             >
-              <Eye className="h-4 w-4" />
+              <Link href={`/dd/retailers/${row.id}`}>
+                <Eye className="h-4 w-4" />
+              </Link>
             </Button>
             <Button
               size="icon"
@@ -258,7 +232,7 @@ export default function RetailerListPage() {
         ),
       },
     ],
-    [handleView]
+    []
   );
 
   return (
@@ -292,7 +266,7 @@ export default function RetailerListPage() {
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search name, email, phone, outlet, address..."
+                placeholder="Search name, bank, mobile, account..."
                 className="h-10 pl-9"
               />
             </div>
@@ -308,9 +282,9 @@ export default function RetailerListPage() {
               paginationPerPage={10}
               paginationRowsPerPageOptions={[10, 25, 50, 100]}
               sortIcon={<CyanDataTableSortIcon />}
-              defaultSortFieldId="name"
+              defaultSortFieldId="bank"
               highlightOnHover
-              striped
+              dense
               responsive={false}
               customStyles={{
                 ...cyanDataTableStyles,
@@ -318,6 +292,16 @@ export default function RetailerListPage() {
                   style: {
                     ...cyanDataTableStyles.table.style,
                     minWidth: TABLE_MIN_WIDTH,
+                  },
+                },
+                headCells: {
+                  style: {
+                    ...cyanDataTableStyles.headCells.style,
+                    justifyContent: "flex-start",
+                    textAlign: "left",
+                    textTransform: "uppercase",
+                    fontSize: "11px",
+                    letterSpacing: "0.04em",
                   },
                 },
               }}
@@ -330,13 +314,6 @@ export default function RetailerListPage() {
           </div>
         </CardContent>
       </Card>
-
-      <RetailerViewModal
-        open={viewOpen}
-        onOpenChange={setViewOpen}
-        retailer={selectedRetailer}
-        loading={detailLoading}
-      />
     </div>
   );
 }

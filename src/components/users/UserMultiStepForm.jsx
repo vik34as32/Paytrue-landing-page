@@ -33,6 +33,7 @@ import {
 } from "@/src/validation/schemas";
 import {
   buildUserFormData,
+  buildUserJsonBody,
   mapApiUserToFormValues,
   mapApiUserToExistingUrls,
 } from "@/src/lib/buildUserFormData";
@@ -132,10 +133,15 @@ export default function UserMultiStepForm({
   backHref,
   successRedirect,
   icon: Icon = Users,
+  lockIdentityFields = false,
+  forceCurrentLocation = false,
+  hidePassword = false,
 }) {
   const dispatch = useDispatch();
   const router = useRouter();
   const isEdit = mode === "edit";
+  const identityLocked =
+    lockIdentityFields || (isEdit && userType === "RETAILER");
   const distributorLoading = useSelector(selectDistributorActionLoading);
   const retailerLoading = useSelector(selectRetailerActionLoading);
   const actionLoading =
@@ -287,17 +293,29 @@ export default function UserMultiStepForm({
     }
 
     const files = extractFiles(data);
-    const formData = buildUserFormData(data, files, {
+    const hasNewFiles = Object.keys(files).length > 0;
+    const payloadOptions = {
       userType,
       includePassword: !isEdit || Boolean(data.password),
-    });
+    };
+
+    // PUT /users/:id validates body as a JSON object.
+    // Multipart FormData fails with: { field: "body", message: "must be object" }.
+    const payload = isEdit
+      ? buildUserJsonBody(data, payloadOptions)
+      : buildUserFormData(data, files, payloadOptions);
 
     try {
       if (isEdit && userId) {
+        if (hasNewFiles) {
+          toast.message(
+            "Details will be saved. New document files are skipped on update (API expects JSON)."
+          );
+        }
         if (userType === "DISTRIBUTOR") {
-          await dispatch(updateDistributor({ id: userId, formData })).unwrap();
+          await dispatch(updateDistributor({ id: userId, formData: payload })).unwrap();
         } else {
-          await dispatch(updateRetailer({ id: userId, formData })).unwrap();
+          await dispatch(updateRetailer({ id: userId, formData: payload })).unwrap();
         }
         clearDraft();
         toast.success("Updated successfully");
@@ -306,9 +324,9 @@ export default function UserMultiStepForm({
       }
 
       if (userType === "DISTRIBUTOR") {
-        await dispatch(createDistributor(formData)).unwrap();
+        await dispatch(createDistributor(payload)).unwrap();
       } else {
-        await dispatch(createRetailer(formData)).unwrap();
+        await dispatch(createRetailer(payload)).unwrap();
       }
 
       clearDraft();
@@ -389,6 +407,8 @@ export default function UserMultiStepForm({
                   originalEmail={initialUser?.email || ""}
                   originalMobile={initialUser?.mobile || ""}
                   userType={userType}
+                  lockIdentityFields={identityLocked}
+                  hidePassword={hidePassword}
                 />
               )}
 
@@ -399,6 +419,8 @@ export default function UserMultiStepForm({
                   setOutletCityOptions={setOutletCityOptions}
                   values={values}
                   setValue={setValue}
+                  lockIdentityFields={identityLocked}
+                  forceCurrentLocation={forceCurrentLocation}
                 />
               )}
 
@@ -409,6 +431,7 @@ export default function UserMultiStepForm({
                   values={values}
                   existingUrls={existingUrls}
                   setFile={setFile}
+                  lockIdentityFields={identityLocked}
                 />
               )}
 

@@ -1,5 +1,6 @@
 import type {
   BiometricStatusValue,
+  MerchantBiometricUiPhase,
   MerchantReferenceDetails,
   MerchantStatusResult,
   SubmitBiometricKycResult,
@@ -13,7 +14,11 @@ const VERIFIED_STATUSES = new Set([
   "approved",
 ]);
 
-const PENDING_STATUSES = new Set(["pending", "action-required", "action_required"]);
+const ACTION_REQUIRED_ACTIONS = new Set([
+  "ACTION-REQUIRED",
+  "ACTION_REQUIRED",
+  "REQUIRED",
+]);
 
 const REFERENCE_KEY_ALIASES = [
   "referenceKey",
@@ -140,30 +145,92 @@ export function buildMerchantStatusRequest(
 }
 
 function readInnerBiometricStatus(inner: Record<string, unknown>): string {
-  const status = pickString(inner, ["status", "biometricStatus", "biometricKycStatus"]);
+  const status = pickString(inner, [
+    "status",
+    "biometricStatus",
+    "biometricKycStatus",
+  ]);
   return status ? status.toUpperCase() : "";
 }
 
-function isApprovalPendingStatus(status: string): boolean {
-  const normalized = status.trim().toLowerCase().replace(/[\s_-]+/g, " ");
+function readInnerAction(inner: Record<string, unknown>): string {
+  const action = pickString(inner, ["action", "nextAction", "next_action"]);
+  return action ? action.toUpperCase().replace(/_/g, "-") : "";
+}
+
+function normalizeStatusToken(status: string): string {
+  return status.trim().toLowerCase().replace(/[\s_-]+/g, " ");
+}
+
+/**
+ * True when InstantPay still requires biometric capture.
+ * Example: status=PENDING + action=ACTION-REQUIRED
+ */
+export function isBiometricActionRequired(
+  status: string,
+  action: string
+): boolean {
+  const actionToken = action.toUpperCase().replace(/_/g, "-");
+  if (ACTION_REQUIRED_ACTIONS.has(actionToken)) {
+    return true;
+  }
+
+  const statusToken = normalizeStatusToken(status);
+  if (
+    statusToken === "action required" ||
+    statusToken === "not started" ||
+    statusToken === "notstarted"
+  ) {
+    return true;
+  }
+
+  // Bare PENDING (without approval wording) still means capture is required
+  return statusToken === "pending";
+}
+
+/**
+ * True when biometric was submitted and InstantPay/PayTrue approval is pending.
+ * Never true when action is still ACTION-REQUIRED.
+ */
+export function isApprovalPendingStatus(
+  status: string,
+  action = ""
+): boolean {
+  if (isBiometricActionRequired(status, action)) {
+    return false;
+  }
+
+  const normalized = normalizeStatusToken(status);
   return (
+    normalized === "approval pending" ||
     normalized.includes("approval pending") ||
     normalized.includes("pending approval") ||
     normalized === "submitted" ||
-    normalized === "under review"
+    normalized === "under review" ||
+    normalized === "review" ||
+    normalized === "processing"
   );
 }
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const AUTH_RETAILER_UUID_KEYS = ["id", "_id", "retailerId", "retailer_id", "userId", "user_id"];
+const AUTH_RETAILER_UUID_KEYS = [
+  "id",
+  "_id",
+  "retailerId",
+  "retailer_id",
+  "userId",
+  "user_id",
+];
 
 function isUuid(value: string): boolean {
   return UUID_REGEX.test(value.trim());
 }
 
-function pickAuthRetailerUuid(record: Record<string, unknown>): string | undefined {
+function pickAuthRetailerUuid(
+  record: Record<string, unknown>
+): string | undefined {
   for (const key of AUTH_RETAILER_UUID_KEYS) {
     const value = pickString(record, [key]);
     if (value && isUuid(value)) return value;
@@ -203,7 +270,9 @@ export function resolveAuthRetailerId(...sources: unknown[]): string {
 
     const outlet = record.outlet;
     if (outlet && typeof outlet === "object") {
-      const fromOutlet = pickAuthRetailerUuid(outlet as Record<string, unknown>);
+      const fromOutlet = pickAuthRetailerUuid(
+        outlet as Record<string, unknown>
+      );
       if (fromOutlet) return fromOutlet;
     }
   }
@@ -229,7 +298,8 @@ export function extractMerchantReferenceDetails(
     }
     if (!merged.spKey) {
       merged.spKey =
-        pickString(raw, SP_KEY_ALIASES) ?? deepFindString(source, SP_KEY_ALIASES);
+        pickString(raw, SP_KEY_ALIASES) ??
+        deepFindString(source, SP_KEY_ALIASES);
     }
     if (!merged.outletId) {
       merged.outletId =
@@ -237,7 +307,11 @@ export function extractMerchantReferenceDetails(
         deepFindString(source, OUTLET_ID_ALIASES);
     }
     if (!merged.pidOptionWadh) {
-      merged.pidOptionWadh = pickString(raw, ["pidOptionWadh", "pid_option_wadh", "wadh"]);
+      merged.pidOptionWadh = pickString(raw, [
+        "pidOptionWadh",
+        "pid_option_wadh",
+        "wadh",
+      ]);
     }
   }
 
@@ -246,6 +320,12 @@ export function extractMerchantReferenceDetails(
 
 export function isBiometricVerified(raw: unknown): boolean {
   const inner = extractInstantPayKycPayload(raw);
+  const action = readInnerAction(inner);
+  const status = readInnerBiometricStatus(inner);
+
+  if (isBiometricActionRequired(status, action)) {
+    return false;
+  }
 
   if (
     inner.isVerified === true ||
@@ -255,14 +335,30 @@ export function isBiometricVerified(raw: unknown): boolean {
     return true;
   }
 
-  const action = pickString(inner, ["action"]);
-  if (action && action.toUpperCase() !== "ACTION-REQUIRED") {
-    const status = readInnerBiometricStatus(inner).toLowerCase();
-    if (VERIFIED_STATUSES.has(status)) return true;
-  }
+  const statusToken = normalizeStatusToken(status);
+  return VERIFIED_STATUSES.has(statusToken);
+}
 
-  const status = readInnerBiometricStatus(inner).toLowerCase();
-  return VERIFIED_STATUSES.has(status);
+/** Derive dashboard / gate UI phase strictly from normalized status fields. */
+export function deriveMerchantBiometricUiPhase(
+  result: Pick<
+    MerchantStatusResult,
+    | "isVerified"
+    | "isPendingApproval"
+    | "actionRequired"
+    | "biometricStatus"
+    | "action"
+  >
+): MerchantBiometricUiPhase {
+  if (result.isVerified) return "approved";
+  if (result.isPendingApproval) return "approval_pending";
+  if (
+    result.actionRequired ||
+    isBiometricActionRequired(result.biometricStatus, result.action ?? "")
+  ) {
+    return "action_required";
+  }
+  return "action_required";
 }
 
 export function normalizeMerchantStatus(payload: unknown): MerchantStatusResult {
@@ -274,26 +370,27 @@ export function normalizeMerchantStatus(payload: unknown): MerchantStatusResult 
   const refs = extractMerchantReferenceDetails(payload, inner, top);
 
   const innerStatus = readInnerBiometricStatus(inner);
+  const action = readInnerAction(inner);
+  const actionRequired = isBiometricActionRequired(innerStatus, action);
   const isVerified = isBiometricVerified(payload);
   const isPendingApproval =
     !isVerified &&
-    (isApprovalPendingStatus(innerStatus) ||
-      PENDING_STATUSES.has(innerStatus.toLowerCase()));
-  const isPending =
-    !isVerified &&
-    (isPendingApproval ||
-      PENDING_STATUSES.has(innerStatus.toLowerCase()) ||
-      pickString(inner, ["action"])?.toUpperCase() === "ACTION-REQUIRED" ||
-      innerStatus === "PENDING");
+    !actionRequired &&
+    isApprovalPendingStatus(innerStatus, action);
 
-  const biometricStatus: BiometricStatusValue = isVerified
-    ? "VERIFIED"
-    : isPendingApproval
-      ? "APPROVAL_PENDING"
-      : innerStatus || (isPending ? "PENDING" : "PENDING");
+  let biometricStatus: BiometricStatusValue;
+  if (isVerified) {
+    biometricStatus = "APPROVED";
+  } else if (isPendingApproval) {
+    biometricStatus = "APPROVAL_PENDING";
+  } else {
+    biometricStatus = innerStatus || "PENDING";
+  }
 
-  return {
+  const result: MerchantStatusResult = {
     biometricStatus,
+    action: action || undefined,
+    actionRequired,
     isVerified,
     isPending: !isVerified,
     isPendingApproval,
@@ -303,13 +400,18 @@ export function normalizeMerchantStatus(payload: unknown): MerchantStatusResult 
     spKey: refs.spKey,
     pidOptionWadh: refs.pidOptionWadh,
     message:
-      pickString(inner, ["status"]) ??
+      pickString(inner, ["status", "message", "responseMessage"]) ??
       (top.message ? String(top.message) : undefined),
     raw: { top, inner },
   };
+
+  result.uiPhase = deriveMerchantBiometricUiPhase(result);
+  return result;
 }
 
-export function normalizeBiometricKycSubmit(payload: unknown): SubmitBiometricKycResult {
+export function normalizeBiometricKycSubmit(
+  payload: unknown
+): SubmitBiometricKycResult {
   const inner = extractInstantPayKycPayload(payload);
   const top =
     unwrapMerchantData<Record<string, unknown>>(payload) ??
@@ -317,23 +419,29 @@ export function normalizeBiometricKycSubmit(payload: unknown): SubmitBiometricKy
     {};
 
   const apiSuccess = top.success === true;
-  const isVerified = isBiometricVerified(payload);
   const innerStatus = readInnerBiometricStatus(inner);
+  const action = readInnerAction(inner);
+  const actionRequired = isBiometricActionRequired(innerStatus, action);
+  const isVerified = isBiometricVerified(payload);
+
   const isPendingApproval =
     !isVerified &&
-    (apiSuccess || isApprovalPendingStatus(innerStatus));
+    !actionRequired &&
+    (apiSuccess || isApprovalPendingStatus(innerStatus, action));
+
   const biometricStatus: BiometricStatusValue = isVerified
-    ? "VERIFIED"
+    ? "APPROVED"
     : isPendingApproval
       ? "APPROVAL_PENDING"
       : innerStatus || "PENDING";
 
   return {
-    success: apiSuccess || isVerified,
+    success: apiSuccess || isVerified || isPendingApproval,
     isVerified,
     isPendingApproval,
     message: String(top.message ?? "Biometric verification submitted."),
     biometricStatus,
+    action: action || undefined,
     raw: { top, inner },
   };
 }
@@ -362,7 +470,9 @@ export function mapMerchantError(error: unknown): Error {
 
     const validationErrors = err.data?.errors;
     if (Array.isArray(validationErrors) && validationErrors.length > 0) {
-      const retailerIdError = validationErrors.find((item) => item.field === "retailerId");
+      const retailerIdError = validationErrors.find(
+        (item) => item.field === "retailerId"
+      );
       if (retailerIdError) {
         return new Error(
           "Invalid retailer session. Please logout and login again, then retry biometric verification."
@@ -371,21 +481,29 @@ export function mapMerchantError(error: unknown): Error {
 
       const details = validationErrors
         .map((item) =>
-          item.field ? `${item.field}: ${item.message || "invalid"}` : item.message
+          item.field
+            ? `${item.field}: ${item.message || "invalid"}`
+            : item.message
         )
         .filter(Boolean)
         .join("; ");
       const spKeyHint = details ? formatProviderSpKeyError(details) : null;
       if (spKeyHint) return new Error(spKeyHint);
-      return new Error(details || err.data?.message || err.message || "Validation failed.");
+      return new Error(
+        details || err.data?.message || err.message || "Validation failed."
+      );
     }
 
-    const combined = [err.data?.message, err.message].filter(Boolean).join(" ");
+    const combined = [err.data?.message, err.message]
+      .filter(Boolean)
+      .join(" ");
     const spKeyHint = formatProviderSpKeyError(combined);
     if (spKeyHint) return new Error(spKeyHint);
 
     return new Error(
-      err.data?.message || err.message || "Merchant request failed. Please try again."
+      err.data?.message ||
+        err.message ||
+        "Merchant request failed. Please try again."
     );
   }
 
@@ -408,4 +526,12 @@ export function hasRequiredBiometricReferences(
   refs: MerchantReferenceDetails
 ): boolean {
   return Boolean(refs.referenceKey?.trim() && refs.referenceKeyType?.trim());
+}
+
+/** Paths that require InstantPay merchant biometric APPROVED status. */
+export function isBiometricProtectedPath(pathname: string): boolean {
+  return (
+    pathname.startsWith("/rt/retailer/aeps") ||
+    pathname.startsWith("/rt/retailer/dmt")
+  );
 }

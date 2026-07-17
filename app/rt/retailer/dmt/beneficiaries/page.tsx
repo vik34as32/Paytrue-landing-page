@@ -2,8 +2,8 @@
 
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Plus, Search, Send, ShieldCheck, Trash2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,18 +23,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import DmtPageHeader from "@/src/components/dmt/DmtPageHeader";
-import DmtStatusBadge from "@/src/components/dmt/DmtStatusBadge";
 import DmtErrorState from "@/src/components/dmt/DmtErrorState";
 import OtpInput from "@/src/components/dmt/OtpInput";
+import BeneficiaryList from "@/src/modules/dmt/components/BeneficiaryList";
 import {
   useBeneficiaries,
   useDeleteBeneficiary,
   useVerifyBeneficiaryDelete,
 } from "@/src/hooks/useDmt";
-import { maskAccountNumber } from "@/src/lib/dmtUtils";
 import { resolveSenderMobile } from "@/src/lib/dmtSession";
+import type { DmtBeneficiary } from "@/src/modules/dmt/types";
 
 function BeneficiaryListContent() {
+  const router = useRouter();
   const params = useSearchParams();
   const mobileFromUrl = params?.get("mobile") ?? "";
   const senderMobile = resolveSenderMobile(mobileFromUrl);
@@ -53,11 +54,15 @@ function BeneficiaryListContent() {
     return data.filter(
       (item) =>
         item.name.toLowerCase().includes(q) ||
-        item.mobile.includes(q) ||
+        (item.mobile ?? "").includes(q) ||
         item.accountNumber.includes(q) ||
         item.ifscCode.toLowerCase().includes(q)
     );
   }, [data, search]);
+
+  const addHref = `/rt/retailer/dmt/beneficiaries/add${
+    senderMobile ? `?mobile=${encodeURIComponent(senderMobile)}` : ""
+  }`;
 
   const initiateDelete = async () => {
     if (!deleteId) return;
@@ -105,6 +110,18 @@ function BeneficiaryListContent() {
     setDeleteReferenceKey("");
   };
 
+  const handleVerify = (ben: DmtBeneficiary) => {
+    router.push(`/rt/retailer/dmt/beneficiaries/${ben.id}/verify`);
+  };
+
+  const handleTransfer = (ben: DmtBeneficiary) => {
+    const qs = new URLSearchParams({
+      beneficiaryId: ben.id,
+      ...(senderMobile ? { mobile: senderMobile } : {}),
+    });
+    router.push(`/rt/retailer/dmt/transfer?${qs.toString()}`);
+  };
+
   return (
     <div className="space-y-6">
       <DmtPageHeader
@@ -116,12 +133,7 @@ function BeneficiaryListContent() {
         }
         actions={
           <Button asChild className="bg-gradient-to-r from-[#0A84FF] to-[#0057D9]">
-            <Link
-              href={`/rt/retailer/dmt/beneficiaries/add${senderMobile ? `?mobile=${encodeURIComponent(senderMobile)}` : ""}`}
-            >
-              <Plus className="h-4 w-4" />
-              Add Beneficiary
-            </Link>
+            <Link href={addHref}>Add Beneficiary</Link>
           </Button>
         }
       />
@@ -141,14 +153,6 @@ function BeneficiaryListContent() {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {isLoading && (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-20 animate-pulse rounded-xl bg-slate-100" />
-              ))}
-            </div>
-          )}
-
           {isError && (
             <DmtErrorState
               message={(error as Error)?.message}
@@ -166,55 +170,18 @@ function BeneficiaryListContent() {
             </p>
           )}
 
-          {!isLoading && !isError && senderMobile && filtered.length === 0 && (
-            <p className="py-10 text-center text-sm text-slate-500">
-              No beneficiaries found
-            </p>
-          )}
-
-          {filtered.map((ben) => (
-            <div
-              key={ben.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-4"
-            >
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold text-[#001F5B]">{ben.name}</p>
-                  <DmtStatusBadge status={ben.status} />
-                </div>
-                <p className="text-xs text-slate-500">
-                  {ben.bankName} • {maskAccountNumber(ben.accountNumber)} • {ben.ifscCode}
-                </p>
-                <p className="text-xs text-slate-400">{ben.mobile}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {!ben.isVerified && (
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={`/rt/retailer/dmt/beneficiaries/${ben.id}/verify`}>
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                      Verify
-                    </Link>
-                  </Button>
-                )}
-                <Button asChild size="sm">
-                  <Link
-                    href={`/rt/retailer/dmt/transfer?beneficiaryId=${encodeURIComponent(ben.id)}${senderMobile ? `&mobile=${encodeURIComponent(senderMobile)}` : ""}`}
-                  >
-                    <Send className="h-3.5 w-3.5" />
-                    Transfer
-                  </Link>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-red-500"
-                  onClick={() => setDeleteId(ben.id)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          ))}
+          {senderMobile || isLoading ? (
+            <BeneficiaryList
+              beneficiaries={filtered}
+              loading={isLoading}
+              error={null}
+              showHeader={false}
+              onAdd={() => router.push(addHref)}
+              onVerify={handleVerify}
+              onTransfer={handleTransfer}
+              onDelete={(item) => setDeleteId(item.id)}
+            />
+          ) : null}
         </CardContent>
       </Card>
 

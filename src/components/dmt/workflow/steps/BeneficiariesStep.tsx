@@ -6,15 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import Box from "@mui/material/Box";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
-import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
-import IconButton from "@mui/material/IconButton";
-import Chip from "@mui/material/Chip";
-import Skeleton from "@mui/material/Skeleton";
-import Alert from "@mui/material/Alert";
-import Divider from "@mui/material/Divider";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -22,9 +14,6 @@ import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import CircularProgress from "@mui/material/CircularProgress";
-import AddIcon from "@mui/icons-material/Add";
-import DeleteIcon from "@mui/icons-material/Delete";
-import SendIcon from "@mui/icons-material/Send";
 import {
   useBeneficiaries,
   useDmtBanks,
@@ -35,10 +24,12 @@ import {
   useVerifyBankAccount,
 } from "@/src/hooks/useDmt";
 import BankAccountVerifyField from "@/src/modules/dmt/components/BankAccountVerifyField";
-import { maskAccountNumber, normalizeIndianMobile } from "@/src/lib/dmtUtils";
+import BeneficiaryList from "@/src/modules/dmt/components/BeneficiaryList";
+import { normalizeIndianMobile } from "@/src/lib/dmtUtils";
 import { useDmtWorkflow, STEP } from "../DmtWorkflowContext";
 import OtpDialog from "../OtpDialog";
-import type { DmtApiError, DmtBeneficiary } from "@/src/types/dmt";
+import type { DmtBeneficiary } from "@/src/modules/dmt/types";
+import type { DmtApiError } from "@/src/types/dmt";
 
 const addSchema = z
   .object({
@@ -157,89 +148,32 @@ export default function BeneficiariesStep() {
     goToStep(STEP.TRANSFER);
   };
 
+  const handleVerifyBeneficiary = (beneficiary: DmtBeneficiary) => {
+    const referenceKey = (beneficiary.referenceKey || "").trim();
+    if (!referenceKey) {
+      toast.error(
+        "Reference key missing. Re-add beneficiary or search sender again."
+      );
+      return;
+    }
+    setVerifyState({ id: beneficiary.id, referenceKey });
+  };
+
   return (
     <Box>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, flexWrap: "wrap", gap: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 800 }}>
-          Beneficiaries
-        </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
-          Add Beneficiary
-        </Button>
-      </Box>
-
-      {isLoading ? (
-        <Skeleton variant="rounded" height={200} />
-      ) : isError ? (
-        <Alert
-          severity="error"
-          action={<Button color="inherit" size="small" onClick={() => refetch()}>Retry</Button>}
-        >
-          {(error as Error)?.message || "Unable to load beneficiaries"}
-        </Alert>
-      ) : beneficiaries.length === 0 ? (
-        <Card elevation={0} sx={{ border: "1px dashed", borderColor: "divider" }}>
-          <CardContent sx={{ textAlign: "center", py: 5 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-              No beneficiaries yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Add a beneficiary to start transferring money.
-            </Typography>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
-              Add Beneficiary
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" } }}>
-          {beneficiaries.map((b) => (
-            <Card key={b.id} elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
-              <CardContent>
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <Box>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                      {b.name}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {b.bankName} • {b.ifscCode}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      A/C {maskAccountNumber(b.accountNumber)}
-                    </Typography>
-                  </Box>
-                  <Chip
-                    label={b.isVerified ? "VERIFIED" : "UNVERIFIED"}
-                    color={b.isVerified ? "success" : "warning"}
-                    size="small"
-                    sx={{ fontWeight: 700 }}
-                  />
-                </Box>
-                <Divider sx={{ my: 1.5 }} />
-                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    startIcon={<SendIcon />}
-                    onClick={() => handleTransfer(b)}
-                    disabled={!b.isVerified}
-                  >
-                    Transfer
-                  </Button>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => initiateDelete(b.id)}
-                    disabled={deleteMutation.isPending}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              </CardContent>
-            </Card>
-          ))}
-        </Box>
-      )}
+      <BeneficiaryList
+        beneficiaries={beneficiaries}
+        loading={isLoading}
+        error={
+          isError
+            ? (error as Error)?.message || "Unable to load beneficiaries"
+            : null
+        }
+        onAdd={() => setAddOpen(true)}
+        onVerify={handleVerifyBeneficiary}
+        onTransfer={handleTransfer}
+        onDelete={(item) => void initiateDelete(item.id)}
+      />
 
       {/* Add Beneficiary Dialog */}
       <Dialog open={addOpen} onClose={() => setAddOpen(false)} fullWidth maxWidth="sm">

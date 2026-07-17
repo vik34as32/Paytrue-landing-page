@@ -23,7 +23,6 @@ import {
   useTransferNeft,
 } from "@/src/hooks/useDmt";
 import { getCurrentLocation } from "@/src/lib/rdService";
-import { maskAccountNumber } from "@/src/lib/dmtUtils";
 import { formatCurrency } from "@/lib/utils";
 import { useDmtWorkflow, STEP } from "../DmtWorkflowContext";
 import OtpDialog from "../OtpDialog";
@@ -172,11 +171,24 @@ export default function TransferStep() {
             {selectedBeneficiary.name}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {selectedBeneficiary.bankName} • {selectedBeneficiary.ifscCode}
+            {selectedBeneficiary.bankName} • IFSC {selectedBeneficiary.ifscCode}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            A/C {maskAccountNumber(selectedBeneficiary.accountNumber)}
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 700,
+              fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+              letterSpacing: 0.3,
+              wordBreak: "break-all",
+            }}
+          >
+            A/C {selectedBeneficiary.accountNumber || "—"}
           </Typography>
+          {selectedBeneficiary.mobile ? (
+            <Typography variant="body2" color="text.secondary">
+              Mobile {selectedBeneficiary.mobile}
+            </Typography>
+          ) : null}
         </CardContent>
       </Card>
 

@@ -7,6 +7,7 @@ import { resolveBeneficiaryBankFields, resolveBeneficiaryMobileNumber } from "@/
 import {
   buildVerifyBankAccountPayload,
   normalizeVerifyBankAccountResponse,
+  resolveDmtGeoCoordinates,
 } from "@/src/lib/dmtBankVerify";
 import { DMT_MODULE_ENDPOINTS } from "../services/endpoints";
 import { normalizeBeneficiaryList, normalizeDmtBankList, normalizeWorkflowResponse } from "../services/normalizers";
@@ -161,21 +162,53 @@ export const dmtApi = createApi({
       transformResponse: (response: unknown) => normalizeDmtBankList(response),
     }),
 
-    verifyBankAccount: builder.mutation<VerifyBankAccountResult, VerifyBankAccountRequest>({
-      query: (body) => ({
-        url: DMT_MODULE_ENDPOINTS.verifyBankAccount,
-        method: "POST",
-        body: buildVerifyBankAccountPayload({
-          accountNumber: body.accountNumber,
-          ifscCode: body.bankIfsc,
-          name: body.name,
-          pennyDrop: body.pennyDrop ?? "YES",
-          latitude: body.latitude,
-          longitude: body.longitude,
-        }),
-      }),
-      transformResponse: (response: unknown) => normalizeVerifyBankAccountResponse(response),
-      transformErrorResponse: mapApiError,
+    verifyBankAccount: builder.mutation<
+      VerifyBankAccountResult,
+      Omit<VerifyBankAccountRequest, "latitude" | "longitude"> & {
+        latitude?: string;
+        longitude?: string;
+      }
+    >({
+      async queryFn(body, _api, _extraOptions, baseQuery) {
+        try {
+          const coords =
+            body.latitude && body.longitude
+              ? { latitude: body.latitude, longitude: body.longitude }
+              : await resolveDmtGeoCoordinates();
+
+          const payload = buildVerifyBankAccountPayload({
+            accountNumber: body.accountNumber,
+            ifscCode: body.bankIfsc,
+            name: body.name,
+            pennyDrop: body.pennyDrop ?? "YES",
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+          });
+
+          const result = await baseQuery({
+            url: DMT_MODULE_ENDPOINTS.verifyBankAccount,
+            method: "POST",
+            body: payload,
+          });
+
+          if (result.error) {
+            return { error: mapApiError(result.error) as never };
+          }
+
+          return {
+            data: normalizeVerifyBankAccountResponse(result.data),
+          };
+        } catch (error) {
+          return {
+            error: {
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Bank verification failed",
+            } as never,
+          };
+        }
+      },
     }),
 
     addBeneficiary: builder.mutation<DmtWorkflowResponse, AddBeneficiaryRequest>({

@@ -22,7 +22,7 @@ import { X } from "lucide-react";
 import BankingThemeProvider from "@/components/biometric/BankingThemeProvider";
 import FingerprintScanner from "@/components/biometric/FingerprintScanner";
 import VerificationSuccess from "@/components/biometric/VerificationSuccess";
-import BiometricPendingApproval from "@/components/biometric/BiometricPendingApproval";
+import BiometricApprovalPending from "@/components/biometric/BiometricApprovalPending";
 import { useBiometricDevice } from "@/src/hooks/useBiometricDevice";
 import { useFingerprint } from "@/src/hooks/useFingerprint";
 import useScannerConnection from "@/src/hooks/useScannerConnection";
@@ -33,6 +33,7 @@ import {
   clearMerchantError,
   closeBiometricModal,
   resetMerchantVerification,
+  selectMerchantBiometricStatus,
   selectMerchantError,
   selectMerchantModalOpen,
   selectMerchantPidOptionWadh,
@@ -62,6 +63,7 @@ export default function BiometricVerificationDialog({
   const pidOptionWadh = useSelector(selectMerchantPidOptionWadh);
   const statusLoading = useSelector(selectMerchantStatusLoading);
   const statusChecked = useSelector(selectMerchantStatusChecked);
+  const biometricStatus = useSelector(selectMerchantBiometricStatus);
   const { selectedDevice, changeDevice } = useBiometricDevice();
   const { capture, refreshRdService } = useFingerprint({ autoRefresh: false });
   const {
@@ -194,7 +196,14 @@ export default function BiometricVerificationDialog({
 
         <DialogContent sx={{ pt: 3 }}>
           {isPendingApproval ? (
-            <BiometricPendingApproval />
+            <BiometricApprovalPending
+              variant="dialog"
+              biometricStatus={biometricStatus}
+              refreshing={statusLoading}
+              onRefresh={() => {
+                void dispatch(loadMerchantBiometricStatus());
+              }}
+            />
           ) : isSuccess ? (
             <VerificationSuccess />
           ) : (

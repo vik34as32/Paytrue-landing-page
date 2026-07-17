@@ -211,6 +211,32 @@ body {
   border-radius: 999px;
 }
 
+/* Receipt success modal — keep content in viewport with a visible scrollbar */
+.receipt-modal-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+  -ms-overflow-style: auto;
+}
+
+.receipt-modal-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.receipt-modal-scroll::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.receipt-modal-scroll::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 999px;
+  border: 2px solid #f1f5f9;
+}
+
+.receipt-modal-scroll::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
 @media print {
   @page {
     size: A4 portrait;
@@ -333,12 +359,11 @@ body {
   overflow: visible !important;
 }
 
-/* Statement table — horizontal + vertical scroll with visible scrollbars */
+/* Statement table — one scroll container so header + body stay aligned */
 .statement-datatable {
   width: 100%;
   max-width: 100%;
-  overflow-x: auto;
-  overflow-y: visible;
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: #64748b #f1f5f9;
@@ -364,52 +389,47 @@ body {
   background: #f1f5f9;
 }
 
-.statement-datatable .rdt_Table {
-  min-width: 1480px;
+.statement-datatable .rdt_Table,
+.statement-datatable .rdt_table {
+  min-width: 1680px;
 }
 
+.statement-datatable.statement-upi-atm .rdt_Table,
+.statement-datatable.statement-upi-atm .rdt_table {
+  min-width: 2100px;
+}
+
+/* Kill nested RDT scrolls (old + new class names) — header must move with body */
 .statement-datatable .rdt_TableWrapper,
+.statement-datatable .rdt_wrapper,
 .statement-datatable .rdt_TableBody,
-.statement-datatable .rdt_TableHead {
+.statement-datatable .rdt_body,
+.statement-datatable .rdt_TableHead,
+.statement-datatable .rdt_head,
+.statement-datatable .rdt_Table > div,
+.statement-datatable .rdt_responsiveWrapper,
+.statement-datatable .rdt_responsiveWrapperScroll,
+.statement-datatable .rdt_responsiveWrapperFixed {
   overflow: visible !important;
 }
 
-.statement-datatable .rdt_Table > div:has(> .rdt_TableBody) {
-  overflow: auto !important;
-  scrollbar-width: thin;
-  scrollbar-color: #64748b #f1f5f9;
-}
-
-.statement-datatable .rdt_Table > div:has(> .rdt_TableBody)::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-.statement-datatable .rdt_Table > div:has(> .rdt_TableBody)::-webkit-scrollbar-track {
-  background: #f8fafc;
-}
-
-.statement-datatable .rdt_Table > div:has(> .rdt_TableBody)::-webkit-scrollbar-thumb {
-  background: #94a3b8;
-  border-radius: 9999px;
-  border: 2px solid #f8fafc;
-}
-
-.statement-datatable .rdt_TableHeadRow {
-  position: sticky;
-  top: 0;
-  z-index: 2;
+.statement-datatable .rdt_TableHeadRow,
+.statement-datatable .rdt_headRow,
+.statement-datatable .rdt_headFixed {
+  position: static !important;
 }
 
 .statement-datatable .rdt_TableCol,
 .statement-datatable .rdt_TableCol_Sortable,
-.statement-datatable .rdt_TableCol_Sortable > div {
-  overflow: visible !important;
+.statement-datatable .rdt_TableCol_Sortable > div,
+.statement-datatable .rdt_columnSortable,
+.statement-datatable .rdt_columnText {
   white-space: nowrap !important;
 }
 
-.statement-datatable .rdt_TableCell {
-  overflow: visible !important;
+.statement-datatable .rdt_TableCell,
+.statement-datatable .rdt_cellBase {
+  overflow: hidden;
 }
 
 /* Filter date inputs — align with search field */

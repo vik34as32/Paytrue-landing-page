@@ -62,6 +62,36 @@ export function normalizeUpiAtmTransaction(payload: unknown): UpiAtmTransaction 
     root.upiQr
   );
 
+  const expiryDt = pickString(
+    txn.expiryDt,
+    txn.expiryDate,
+    txn.expiresAt,
+    txn.qrExpire,
+    txn.QRexpire,
+    root.expiryDt,
+    root.expiryDate,
+    root.expiresAt
+  );
+
+  const displayExpirySecRaw =
+    txn.displayExpirySec ??
+    txn.display_expiry_sec ??
+    root.displayExpirySec ??
+    root.display_expiry_sec;
+
+  const displayExpirySec =
+    displayExpirySecRaw !== undefined && displayExpirySecRaw !== null
+      ? Number(displayExpirySecRaw)
+      : undefined;
+
+  const expiresAtMs = resolveUpiAtmExpiresAtMs({
+    expiryDt,
+    displayExpirySec: Number.isFinite(displayExpirySec)
+      ? displayExpirySec
+      : undefined,
+    qrString,
+  });
+
   return {
     ...txn,
     id: pickString(txn.id, txn.transactionId, root.id),
@@ -85,6 +115,118 @@ export function normalizeUpiAtmTransaction(payload: unknown): UpiAtmTransaction 
     message: pickString(txn.message, root.message),
     paidAt: pickString(txn.paidAt, txn.completedAt, root.paidAt),
     createdAt: pickString(txn.createdAt, root.createdAt),
+    expiryDt,
+    displayExpirySec: Number.isFinite(displayExpirySec)
+      ? displayExpirySec
+      : undefined,
+    expiresAtMs,
+  };
+}
+
+/** Parse API expiry into absolute epoch ms for countdown. */
+export function resolveUpiAtmExpiresAtMs(input: {
+  expiryDt?: string;
+  displayExpirySec?: number;
+  qrString?: string;
+  nowMs?: number;
+}): number | undefined {
+  const now = input.nowMs ?? Date.now();
+
+  if (input.expiryDt) {
+    const parsed = parseUpiAtmExpiryDate(input.expiryDt);
+    if (parsed != null) return parsed;
+  }
+
+  const fromQr = extractQrExpireMs(input.qrString);
+  if (fromQr != null) return fromQr;
+
+  if (
+    input.displayExpirySec != null &&
+    Number.isFinite(input.displayExpirySec) &&
+    input.displayExpirySec > 0
+  ) {
+    return now + Math.round(input.displayExpirySec * 1000);
+  }
+
+  return undefined;
+}
+
+function parseUpiAtmExpiryDate(value: string): number | null {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+
+  // "2026-07-16 19:01:13" → treat as local time
+  const spaceMatch = raw.match(
+    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/
+  );
+  if (spaceMatch) {
+    const [, y, mo, d, h, mi, s] = spaceMatch;
+    const date = new Date(
+      Number(y),
+      Number(mo) - 1,
+      Number(d),
+      Number(h),
+      Number(mi),
+      Number(s)
+    );
+    const ms = date.getTime();
+    return Number.isNaN(ms) ? null : ms;
+  }
+
+  const ms = new Date(raw).getTime();
+  return Number.isNaN(ms) ? null : ms;
+}
+
+function extractQrExpireMs(qrString?: string): number | null {
+  if (!qrString) return null;
+  try {
+    const match = qrString.match(/QRexpire=([^&]+)/i);
+    if (!match?.[1]) return null;
+    const decoded = decodeURIComponent(match[1]);
+    const ms = new Date(decoded).getTime();
+    return Number.isNaN(ms) ? null : ms;
+  } catch {
+    return null;
+  }
+}
+
+/** Remaining seconds until expiry (0 when expired). */
+export function getUpiAtmRemainingSeconds(
+  expiresAtMs?: number,
+  nowMs = Date.now()
+): number | null {
+  if (expiresAtMs == null || !Number.isFinite(expiresAtMs)) return null;
+  return Math.max(0, Math.ceil((expiresAtMs - nowMs) / 1000));
+}
+
+/** Format seconds as m:ss or "Xm Ys" for display. */
+export function formatUpiAtmCountdown(totalSeconds: number): {
+  clock: string;
+  label: string;
+} {
+  const sec = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(sec / 60);
+  const seconds = sec % 60;
+  const clock = `${minutes}:${String(seconds).padStart(2, "0")}`;
+
+  if (sec <= 0) {
+    return { clock: "0:00", label: "QR expired" };
+  }
+
+  if (minutes <= 0) {
+    return { clock, label: `Expires in ${seconds} sec` };
+  }
+
+  if (seconds === 0) {
+    return {
+      clock,
+      label: `Expires in ${minutes} min`,
+    };
+  }
+
+  return {
+    clock,
+    label: `Expires in ${minutes} min ${seconds} sec`,
   };
 }
 

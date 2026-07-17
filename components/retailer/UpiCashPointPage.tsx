@@ -110,6 +110,23 @@ export default function UpiCashPointPage() {
     [form, stopPolling]
   );
 
+  const handleQrExpired = useCallback(() => {
+    stopPolling();
+    setPolling(false);
+    setStatusLabel("QR expired. Please generate a new QR.");
+    setError("QR code expired. Generate a new QR to continue.");
+    setQrOpen(false);
+    setActiveTransaction(null);
+  }, [stopPolling]);
+
+  const handleQrClose = useCallback(() => {
+    stopPolling();
+    setPolling(false);
+    setQrOpen(false);
+    setActiveTransaction(null);
+    setStatusLabel("Waiting for customer payment...");
+  }, [stopPolling]);
+
   const pollPaymentStatus = useCallback(
     async (referenceId: string, token: number) => {
       setPolling(true);
@@ -124,7 +141,18 @@ export default function UpiCashPointPage() {
         try {
           const result = await fetchUpiAtmStatus(referenceId);
           const status = normalizeUpiAtmStatus(result.transaction.status);
-          setActiveTransaction((prev) => ({ ...(prev || {}), ...result.transaction }));
+          setActiveTransaction((prev) => ({
+            ...(prev || {}),
+            ...result.transaction,
+            // Keep original QR expiry across status polls
+            expiresAtMs:
+              result.transaction.expiresAtMs ?? prev?.expiresAtMs,
+            expiryDt: result.transaction.expiryDt ?? prev?.expiryDt,
+            displayExpirySec:
+              result.transaction.displayExpirySec ?? prev?.displayExpirySec,
+            qrImage: result.transaction.qrImage || prev?.qrImage,
+            qrString: result.transaction.qrString || prev?.qrString,
+          }));
 
           if (isUpiAtmSuccessStatus(status)) {
             openReceipt(result.transaction);
@@ -346,6 +374,8 @@ export default function UpiCashPointPage() {
         transaction={activeTransaction}
         polling={polling}
         statusLabel={statusLabel}
+        onClose={handleQrClose}
+        onExpired={handleQrExpired}
       />
 
       <UpiAtmReceiptModal

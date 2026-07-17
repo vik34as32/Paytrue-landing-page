@@ -26,7 +26,25 @@ export default function DmtStepper({ activeStep }: DmtStepperProps) {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   return (
-    <Box sx={{ mb: 3 }}>
+    <Box
+      sx={{
+        mb: 2.5,
+        pb: 2,
+        borderBottom: "1px solid",
+        borderColor: "divider",
+        width: "100%",
+        maxWidth: "100%",
+        minWidth: 0,
+        overflowX: "auto",
+        "& .MuiStepper-root": { minWidth: isMobile ? 0 : 640 },
+        "& .MuiStepLabel-label": {
+          fontSize: { xs: 11, md: 12 },
+          fontWeight: 600,
+        },
+        "& .MuiStepIcon-root.Mui-active": { color: "primary.main" },
+        "& .MuiStepIcon-root.Mui-completed": { color: "primary.main" },
+      }}
+    >
       <Stepper
         activeStep={activeStep}
         alternativeLabel={!isMobile}

@@ -4,13 +4,11 @@ import { useForm, Controller, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  Card,
-  CardContent,
-  Typography,
-  TextField,
-  Button,
   Box,
+  Button,
   CircularProgress,
+  TextField,
+  Typography,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 
@@ -37,46 +35,87 @@ export default function SearchSenderCard({
   });
 
   return (
-    <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
-      <CardContent sx={{ p: 3 }}>
-        <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-          Search Sender
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Enter mobile number. Workflow is controlled by backend nextAction.
-        </Typography>
-        <Box
-          component="form"
-          onSubmit={form.handleSubmit((values) => onSearch(values.mobile))}
-          sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}
+    <Box
+      sx={{
+        border: "1px solid",
+        borderColor: "divider",
+        borderRadius: 2,
+        bgcolor: "#fff",
+        p: { xs: 2, md: 2.5 },
+        width: "100%",
+        maxWidth: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
+      }}
+    >
+      <Typography sx={{ fontWeight: 800, fontSize: "1.05rem", color: "#0b1f3a", mb: 0.5 }}>
+        Search Remitter
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Enter the customer&apos;s 10-digit mobile number to load beneficiaries.
+      </Typography>
+      <Box
+        component="form"
+        onSubmit={form.handleSubmit((values) => onSearch(values.mobile))}
+        sx={{
+          display: "flex",
+          gap: 1.25,
+          alignItems: "flex-start",
+          flexWrap: { xs: "wrap", sm: "nowrap" },
+        }}
+      >
+        <Controller
+          name="mobile"
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <TextField
+              {...field}
+              placeholder="Mobile number"
+              fullWidth
+              size="medium"
+              error={!!fieldState.error}
+              helperText={fieldState.error?.message || " "}
+              disabled={loading}
+              slotProps={{
+                htmlInput: {
+                  maxLength: 10,
+                  inputMode: "numeric",
+                  "aria-label": "Remitter mobile number",
+                },
+              }}
+              sx={{
+                flex: 1,
+                "& .MuiOutlinedInput-root": {
+                  bgcolor: "#f8fafc",
+                  borderRadius: 1.5,
+                },
+              }}
+            />
+          )}
+        />
+        <Button
+          type="submit"
+          variant="contained"
+          disabled={loading}
+          startIcon={
+            loading ? (
+              <CircularProgress size={18} color="inherit" />
+            ) : (
+              <SearchIcon />
+            )
+          }
+          sx={{
+            height: 56,
+            minWidth: 120,
+            px: 3,
+            borderRadius: 1.5,
+            boxShadow: "none",
+            whiteSpace: "nowrap",
+          }}
         >
-          <Controller
-            name="mobile"
-            control={form.control}
-            render={({ field, fieldState }) => (
-              <TextField
-                {...field}
-                label="Mobile Number"
-                sx={{ flex: 1, minWidth: 220 }}
-                error={!!fieldState.error}
-                helperText={fieldState.error?.message}
-                disabled={loading}
-                slotProps={{ htmlInput: { maxLength: 10, inputMode: "numeric" } }}
-              />
-            )}
-          />
-          <Button
-            type="submit"
-            variant="contained"
-            size="large"
-            disabled={loading}
-            startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <SearchIcon />}
-            sx={{ height: 56 }}
-          >
-            Search
-          </Button>
-        </Box>
-      </CardContent>
-    </Card>
+          Search
+        </Button>
+      </Box>
+    </Box>
   );
 }

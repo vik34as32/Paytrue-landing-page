@@ -1,5 +1,5 @@
 export type TransactionType = "debit" | "credit";
-export type TransactionStatus = "success" | "pending" | "failed";
+export type TransactionStatus = "success" | "pending" | "failed" | "expired";
 export type StatementSource = "dmt" | "upi-atm" | "aeps";
 
 export type AepsTransactionTypeCode =
@@ -18,6 +18,16 @@ export interface StatementTransaction {
   type: TransactionType;
   status: TransactionStatus;
   amount: number;
+  debitAmount?: number;
+  creditAmount?: number;
+  /** Principal / transfer amount shown in statement table */
+  transferAmount?: number;
+  /** AEPS cash withdrawal principal amount */
+  withdrawalAmount?: number;
+  /** Fee / charge deducted for the transaction */
+  deductionAmount?: number;
+  /** Retailer commission earned on the transaction */
+  commission?: number;
   openingBalance: number;
   balanceAfter: number;
   senderName: string;
@@ -30,6 +40,16 @@ export interface StatementTransaction {
   charges?: number;
   bankName?: string;
   accountNumber?: string;
+  /** UPI payer VPA (e.g. user@okhdfcbank) */
+  vpa?: string;
+  /** Provider / UPI txn id (e.g. P260717…) */
+  upiTxnId?: string;
+  /** UPI ATM QR image (data URL or http URL) */
+  qrImage?: string;
+  /** UPI pay deep-link string */
+  qrString?: string;
+  /** Masked Aadhaar for AEPS (e.g. XXXXXXXX4382) */
+  aadhaarMasked?: string;
   accountHolderName?: string;
   ifscCode?: string;
   bankBranch?: string;

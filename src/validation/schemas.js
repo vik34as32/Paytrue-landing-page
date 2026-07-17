@@ -243,8 +243,33 @@ export const bankStepSchema = yup.object({
   cancelledChequeImage: fileOptional,
 });
 
+// export const loginSchema = yup.object({
+//   email: yup.string().trim().email("Enter a valid email").required("Email is required"),
+//   password: yup.string().required("Password is required"),
+//   remember: yup.boolean(),
+// });
+
+
+// import * as yup from "yup";
+
 export const loginSchema = yup.object({
-  email: yup.string().trim().email("Enter a valid email").required("Email is required"),
+  identifier: yup
+    .string()
+    .trim()
+    .required("Email or Mobile Number is required")
+    .test(
+      "email-or-mobile",
+      "Enter a valid email or 10 digit mobile number",
+      (value) => {
+        if (!value) return false;
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const digits = String(value).replace(/\D/g, "").replace(/^91(?=\d{10}$)/, "");
+        const mobileRegex = /^[6-9]\d{9}$/;
+
+        return emailRegex.test(value.trim()) || mobileRegex.test(digits);
+      }
+    ),
   password: yup.string().required("Password is required"),
   remember: yup.boolean(),
 });

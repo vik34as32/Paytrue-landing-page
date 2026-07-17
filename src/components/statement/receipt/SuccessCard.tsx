@@ -35,7 +35,7 @@ export default function SuccessCard({ receipt }: SuccessCardProps) {
   return (
     <section
       className={cn(
-        "rounded-2xl border px-6 py-8 text-center shadow-sm",
+        "receipt-success-card receipt-no-print rounded-2xl border px-6 py-8 text-center shadow-sm",
         cardStyles
       )}
     >

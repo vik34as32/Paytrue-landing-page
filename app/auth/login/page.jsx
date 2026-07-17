@@ -19,7 +19,6 @@ import Header from "@/app/shared/components/layout/Header";
 import FormStatusAlert from "@/src/components/common/FormStatusAlert";
 import PremiumFintechFooter from "@/app/shared/components/layout/Footer";
 import ReduxProvider from "@/src/components/common/ReduxProvider";
-import PasswordStrengthMeter from "@/src/components/common/PasswordStrengthMeter";
 import { loginSchema } from "@/src/validation/schemas";
 import { loginUser } from "@/src/redux/thunks/authThunk";
 import { fetchProfile } from "@/src/redux/thunks/profileThunk";
@@ -42,14 +41,11 @@ function LoginForm() {
   const {
     register,
     handleSubmit,
-    watch,
     formState: { errors },
   } = useForm({
     resolver: yupResolver(loginSchema),
-    defaultValues: { email: "", password: "", remember: false },
+    defaultValues: { identifier: "", password: "", remember: false },
   });
-
-  const password = watch("password");
 
   useEffect(() => {
     return () => {
@@ -61,23 +57,33 @@ function LoginForm() {
     setLoginSuccess("");
     dispatch(clearAuthError());
 
-    const action = await dispatch(
-      loginUser({
-        email: data.email,
-        password: data.password,
-        remember: data.remember,
-      })
-    );
+    const identifier = String(data.identifier ?? "").trim();
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
+    const mobile = identifier.replace(/\D/g, "").replace(/^91(?=\d{10}$)/, "");
+
+    // Email login → { email, password }
+    // Mobile login → { mobile, password }
+    const payload = {
+      password: data.password,
+      remember: Boolean(data.remember),
+      ...(isEmail
+        ? { email: identifier.toLowerCase() }
+        : { mobile }),
+    };
+
+    const action = await dispatch(loginUser(payload));
 
     if (loginUser.fulfilled.match(action)) {
       await dispatch(fetchProfile());
+
       setLoginSuccess("Login successful. Redirecting to your dashboard...");
+
       const redirect = resolvePostLoginRedirect(
         searchParams.get("redirect"),
         action.payload.user?.userType
       );
+
       router.replace(redirect);
-      return;
     }
   };
 
@@ -137,20 +143,24 @@ function LoginForm() {
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-7">
                 <div>
                   <label className="mb-3 block text-sm font-semibold text-gray-700 dark:text-slate-300">
-                    Email Address
+                    Email Address / Mobile Number
                   </label>
                   <div className="flex items-center rounded-2xl border border-gray-200 bg-slate-50 px-5 py-4 focus-within:border-[#0057D9] dark:border-slate-700 dark:bg-slate-800">
                     <Mail className="mr-4 text-gray-400" size={22} />
                     <input
-                      type="email"
-                      placeholder="Enter your email"
+                      type="text"
+                      inputMode="email"
+                      autoComplete="username"
+                      placeholder="Enter email or 10-digit mobile"
                       className="w-full bg-transparent text-lg text-gray-800 outline-none dark:text-white"
-                      {...register("email")}
+                      {...register("identifier")}
                     />
                   </div>
-                  {errors.email && (
-                    <p className="mt-2 text-sm text-red-500">{errors.email.message}</p>
-                  )}
+                  {errors.identifier ? (
+                    <p className="mt-2 text-sm text-red-500">
+                      {errors.identifier.message}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div>

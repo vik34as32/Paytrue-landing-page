@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Controller } from "react-hook-form";
 import { Copy, RefreshCw, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -112,16 +112,21 @@ function CoordinateField({ name, label, methods, loading, placeholder = "Auto-fi
   );
 }
 
-export function useOutletCoordinates(methods, values) {
+export function useOutletCoordinates(methods, values, { enabled = true } = {}) {
   const { setValue } = methods;
   const [loadingCoords, setLoadingCoords] = useState(false);
   const requestRef = useRef(0);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoadingCoords(false);
+      return undefined;
+    }
+
     const { pincode, city, state, district } = values;
     if (!pincode || pincode.length !== 6 || !city || !state) {
       setLoadingCoords(false);
-      return;
+      return undefined;
     }
 
     const requestId = ++requestRef.current;
@@ -140,9 +145,66 @@ export function useOutletCoordinates(methods, values) {
     return () => {
       requestRef.current += 1;
     };
-  }, [values.pincode, values.city, values.state, values.district, setValue]);
+  }, [
+    enabled,
+    values.pincode,
+    values.city,
+    values.state,
+    values.district,
+    setValue,
+  ]);
 
   return { loadingCoords };
+}
+
+/** Always capture device GPS for retailer self-edit */
+export function useCurrentGeolocation(methods, { enabled = false } = {}) {
+  const { setValue } = methods;
+  const [loadingCoords, setLoadingCoords] = useState(false);
+  const [geoError, setGeoError] = useState(null);
+  const fetchedRef = useRef(false);
+
+  const captureLocation = useCallback(() => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setGeoError("Geolocation is not supported on this device.");
+      return;
+    }
+
+    setLoadingCoords(true);
+    setGeoError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setValue("latitude", position.coords.latitude.toFixed(6), {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
+        setValue("longitude", position.coords.longitude.toFixed(6), {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
+        setLoadingCoords(false);
+      },
+      (error) => {
+        setLoadingCoords(false);
+        const messages = {
+          1: "Location permission denied. Please allow location access.",
+          2: "Unable to determine your location. Try again.",
+          3: "Location request timed out. Try again.",
+        };
+        setGeoError(messages[error.code] || "Failed to get current location.");
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+    );
+  }, [setValue]);
+
+  useEffect(() => {
+    if (!enabled || fetchedRef.current) return;
+    fetchedRef.current = true;
+    captureLocation();
+  }, [enabled, captureLocation]);
+
+  return { loadingCoords, geoError, captureLocation };
 }
 
 export function StepIndicator({ steps, currentStep }) {
@@ -248,6 +310,7 @@ function OutletLocationFields({
   stateOptions,
   cityOptions,
   loadingPincode,
+  lockIdentityFields = false,
 }) {
   const citySelectOptions = cityOptions.map((city) => ({ value: city, label: city }));
 
@@ -258,6 +321,8 @@ function OutletLocationFields({
         label="Address"
         placeholder="Full outlet address"
         methods={methods}
+        disabled={lockIdentityFields}
+        readOnly={lockIdentityFields}
       />
       <FormField
         name="pincode"
@@ -266,11 +331,14 @@ function OutletLocationFields({
         methods={methods}
         maxLength={6}
         inputMode="numeric"
+        disabled={lockIdentityFields}
+        readOnly={lockIdentityFields}
         onChange={(event) => {
+          if (lockIdentityFields) return;
           event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6);
         }}
       />
-      {loadingPincode && (
+      {loadingPincode && !lockIdentityFields && (
         <div className="flex items-center gap-2 text-xs text-slate-500 lg:col-span-2">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           Looking up pincode...
@@ -283,6 +351,7 @@ function OutletLocationFields({
         options={stateOptions}
         methods={methods}
         searchable
+        disabled={lockIdentityFields}
       />
       {citySelectOptions.length > 1 ? (
         <SelectField
@@ -292,22 +361,32 @@ function OutletLocationFields({
           options={citySelectOptions}
           methods={methods}
           searchable
+          disabled={lockIdentityFields}
         />
       ) : (
-        <FormField name="city" label="City" placeholder="City" methods={methods} />
+        <FormField
+          name="city"
+          label="City"
+          placeholder="City"
+          methods={methods}
+          disabled={lockIdentityFields}
+          readOnly={lockIdentityFields}
+        />
       )}
     </>
   );
 }
 
-export function useOutletPincodeLookup(methods, setCityOptions) {
+export function useOutletPincodeLookup(methods, setCityOptions, { enabled = true } = {}) {
   const { watch, setValue } = methods;
   const pincode = watch("pincode");
   const [loadingPincode, setLoadingPincode] = useState(false);
 
   useEffect(() => {
+    if (!enabled) return undefined;
+
     const code = String(pincode || "").trim();
-    if (code.length !== 6) return;
+    if (code.length !== 6) return undefined;
 
     let cancelled = false;
     setLoadingPincode(true);
@@ -322,13 +401,15 @@ export function useOutletPincodeLookup(methods, setCityOptions) {
       const cities =
         result.cities?.length > 0 ? result.cities : [result.city].filter(Boolean);
       setCityOptions(cities);
-      setValue("city", result.city || "", { shouldValidate: true });
+      if (cities.length === 1) {
+        setValue("city", cities[0], { shouldValidate: true });
+      }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [pincode, setCityOptions, setValue]);
+  }, [enabled, pincode, setCityOptions, setValue]);
 
   return { loadingPincode };
 }
@@ -343,6 +424,8 @@ export function PersonalDetailsStep({
   originalEmail = "",
   originalMobile = "",
   userType = "DISTRIBUTOR",
+  lockIdentityFields = false,
+  hidePassword = false,
 }) {
   const dateOfBirth = values.dateOfBirth;
   const isRetailer = userType === "RETAILER";
@@ -356,6 +439,8 @@ export function PersonalDetailsStep({
             label="Full Name"
             placeholder="Enter full name as per Aadhaar card"
             methods={methods}
+            disabled={lockIdentityFields}
+            readOnly={lockIdentityFields}
           />
         </div>
       ) : (
@@ -368,67 +453,68 @@ export function PersonalDetailsStep({
         methods={methods}
         isEdit={isEdit}
         originalEmail={originalEmail}
+        locked={lockIdentityFields}
       />
       <MobileVerificationField
         methods={methods}
         isEdit={isEdit}
         originalMobile={originalMobile}
+        locked={lockIdentityFields}
       />
-      <SelectField name="gender" label="Gender" placeholder="Select gender" options={GENDER_OPTIONS} methods={methods} />
-      {/* <div className="space-y-2" data-field="dateOfBirth">
+      <SelectField
+        name="gender"
+        label="Gender"
+        placeholder="Select gender"
+        options={GENDER_OPTIONS}
+        methods={methods}
+        disabled={lockIdentityFields}
+      />
+      <div className="space-y-2" data-field="dateOfBirth">
         <Label>Date of Birth</Label>
-        <Input
-          type="date"
-          className="paytrue-filter-date"
-          max={new Date().toISOString().slice(0, 10)}
-          onKeyDown={(event) => event.preventDefault()}
-          {...methods.register("dateOfBirth")}
+
+        <Controller
+          name="dateOfBirth"
+          control={methods.control}
+          render={({ field }) => (
+            <DatePicker
+              selected={parseStoredDate(field.value)}
+              onChange={(date) =>
+                field.onChange(date ? format(date, "yyyy-MM-dd") : "")
+              }
+              dateFormat="MM/dd/yyyy"
+              placeholderText="MM/DD/YYYY"
+              maxDate={new Date()}
+              showMonthDropdown
+              showYearDropdown
+              dropdownMode="select"
+              scrollableYearDropdown
+              yearDropdownItemNumber={120}
+              disabled={lockIdentityFields}
+              customInput={
+                <DatePickerInput
+                  placeholder="MM/DD/YYYY"
+                  disabled={lockIdentityFields}
+                />
+              }
+            />
+          )}
         />
-        {dateOfBirth && (
-          <p className="text-xs text-slate-500">Display: {formatDateDisplay(dateOfBirth)}</p>
-        )}
+
+        {dateOfBirth ? (
+          <p className="text-xs text-slate-500">
+            Saved as: {formatDateDisplay(dateOfBirth)}
+          </p>
+        ) : null}
+
         {methods.formState.errors.dateOfBirth && (
-          <p className="text-xs text-red-500">{methods.formState.errors.dateOfBirth.message}</p>
+          <p className="text-xs text-red-500">
+            {methods.formState.errors.dateOfBirth.message}
+          </p>
         )}
-      </div> */}
- <div className="space-y-2" data-field="dateOfBirth">
-  <Label>Date of Birth</Label>
-
-  <Controller
-    name="dateOfBirth"
-    control={methods.control}
-    render={({ field }) => (
-      <DatePicker
-        selected={parseStoredDate(field.value)}
-        onChange={(date) =>
-          field.onChange(date ? format(date, "yyyy-MM-dd") : "")
-        }
-        dateFormat="MM/dd/yyyy"
-        placeholderText="MM/DD/YYYY"
-        maxDate={new Date()}
-        showMonthDropdown
-        showYearDropdown
-        dropdownMode="select"
-        scrollableYearDropdown
-        yearDropdownItemNumber={120}
-        customInput={<DatePickerInput placeholder="MM/DD/YYYY" />}
-      />
-    )}
-  />
-
-  {dateOfBirth ? (
-    <p className="text-xs text-slate-500">
-      Saved as: {formatDateDisplay(dateOfBirth)}
-    </p>
-  ) : null}
-
-  {methods.formState.errors.dateOfBirth && (
-    <p className="text-xs text-red-500">
-      {methods.formState.errors.dateOfBirth.message}
-    </p>
-  )}
-</div>
-      <PasswordFieldGroup methods={methods} isEdit={isEdit} password={password} />
+      </div>
+      {!hidePassword ? (
+        <PasswordFieldGroup methods={methods} isEdit={isEdit} password={password} />
+      ) : null}
       <div className="lg:col-span-2">
         <ImageUpload
           label="Profile Image"
@@ -447,12 +533,25 @@ export function OutletInformationStep({
   setOutletCityOptions,
   values,
   setValue,
+  lockIdentityFields = false,
+  forceCurrentLocation = false,
 }) {
-  const { loadingPincode } = useOutletPincodeLookup(methods, setOutletCityOptions);
-  const { loadingCoords } = useOutletCoordinates(methods, values);
+  const { loadingPincode } = useOutletPincodeLookup(methods, setOutletCityOptions, {
+    enabled: !lockIdentityFields,
+  });
+  const { loadingCoords: loadingGeoCoords } = useOutletCoordinates(methods, values, {
+    enabled: !forceCurrentLocation,
+  });
+  const {
+    loadingCoords: loadingGps,
+    geoError,
+    captureLocation,
+  } = useCurrentGeolocation(methods, { enabled: forceCurrentLocation });
+  const loadingCoords = forceCurrentLocation ? loadingGps : loadingGeoCoords;
   const prevStateRef = useRef(values.state);
 
   useEffect(() => {
+    if (lockIdentityFields) return;
     if (prevStateRef.current && prevStateRef.current !== values.state) {
       setValue("city", "", { shouldValidate: false });
       setValue("latitude", "", { shouldValidate: false });
@@ -460,7 +559,7 @@ export function OutletInformationStep({
       setOutletCityOptions([]);
     }
     prevStateRef.current = values.state;
-  }, [values.state, setOutletCityOptions, setValue]);
+  }, [values.state, setOutletCityOptions, setValue, lockIdentityFields]);
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -472,15 +571,67 @@ export function OutletInformationStep({
         stateOptions={INDIAN_STATES}
         cityOptions={outletCityOptions}
         loadingPincode={loadingPincode}
+        lockIdentityFields={lockIdentityFields}
       />
       <FormField name="district" label="District" placeholder="District" methods={methods} readOnly disabled />
-      <CoordinateField name="latitude" label="Latitude" methods={methods} loading={loadingCoords} />
-      <CoordinateField name="longitude" label="Longitude" methods={methods} loading={loadingCoords} />
+      {forceCurrentLocation ? (
+        <div className="lg:col-span-2 flex flex-wrap items-center gap-3 rounded-xl border border-[#1565d8]/20 bg-[#1565d8]/5 px-4 py-3">
+          <p className="flex-1 text-sm text-slate-600">
+            Latitude &amp; longitude are captured from your current GPS location.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="border-[#1565d8]/30 text-[#1565d8]"
+            onClick={captureLocation}
+            disabled={loadingCoords}
+          >
+            {loadingCoords ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            Refresh Current Location
+          </Button>
+        </div>
+      ) : null}
+      {geoError ? (
+        <p className="lg:col-span-2 text-xs text-red-500">{geoError}</p>
+      ) : null}
+      <CoordinateField
+        name="latitude"
+        label="Latitude"
+        methods={methods}
+        loading={loadingCoords}
+        placeholder={
+          forceCurrentLocation
+            ? "Captured from current GPS"
+            : "Auto-filled from location"
+        }
+      />
+      <CoordinateField
+        name="longitude"
+        label="Longitude"
+        methods={methods}
+        loading={loadingCoords}
+        placeholder={
+          forceCurrentLocation
+            ? "Captured from current GPS"
+            : "Auto-filled from location"
+        }
+      />
     </div>
   );
 }
 
-export function KycStep({ methods, userType, values, existingUrls, setFile }) {
+export function KycStep({
+  methods,
+  userType,
+  values,
+  existingUrls,
+  setFile,
+  lockIdentityFields = false,
+}) {
   const isRetailer = userType === "RETAILER";
   const { setValue } = methods;
 
@@ -492,7 +643,10 @@ export function KycStep({ methods, userType, values, existingUrls, setFile }) {
         placeholder="ABCDE1234F"
         methods={methods}
         maxLength={10}
+        disabled={lockIdentityFields}
+        readOnly={lockIdentityFields}
         onChange={(event) => {
+          if (lockIdentityFields) return;
           const next = event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
           event.target.value = next;
           setValue("panNumber", next, { shouldValidate: true, shouldDirty: true });
@@ -506,7 +660,10 @@ export function KycStep({ methods, userType, values, existingUrls, setFile }) {
           methods={methods}
           maxLength={12}
           inputMode="numeric"
+          disabled={lockIdentityFields}
+          readOnly={lockIdentityFields}
           onChange={(event) => {
+            if (lockIdentityFields) return;
             const next = event.target.value.replace(/\D/g, "").slice(0, 12);
             event.target.value = next;
             setValue("aadhaarNumber", next, { shouldValidate: true, shouldDirty: true });

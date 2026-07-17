@@ -127,20 +127,32 @@ export function normalizeBeneficiary(raw: Record<string, unknown> = {}): DmtBene
       : {};
   const bankObj =
     raw.bank && typeof raw.bank === "object" ? (raw.bank as Record<string, unknown>) : {};
+  const bankAsString = typeof raw.bank === "string" ? raw.bank.trim() : "";
   const ifscCode = String(raw.ifscCode ?? raw.ifsc ?? "").toUpperCase();
   const bankName =
-    String(bankObj.name ?? bankObj.bankName ?? raw.bankName ?? raw.bank ?? "").trim() ||
+    String(bankObj.name ?? bankObj.bankName ?? raw.bankName ?? bankAsString ?? "").trim() ||
     (ifscCode ? `${ifscCode.slice(0, 4)} Bank` : "");
+  const verificationDt = String(
+    raw.verificationDt ?? raw.verifiedAt ?? raw.verified_at ?? ""
+  ).trim();
+  const isVerified = Boolean(
+    raw.isVerified ||
+      raw.verified ||
+      status === "verified" ||
+      verificationDt
+  );
 
   return {
     id: String(raw.id ?? raw.beneficiaryId ?? raw._id ?? ""),
     name: String(raw.name ?? raw.beneficiaryName ?? ""),
-    mobile: String(raw.mobile ?? raw.mobileNumber ?? ""),
+    mobile: String(
+      raw.mobile ?? raw.beneficiaryMobileNumber ?? raw.mobileNumber ?? ""
+    ),
     bankName,
-    accountNumber: String(raw.accountNumber ?? raw.accountNo ?? ""),
+    accountNumber: String(raw.accountNumber ?? raw.accountNo ?? raw.account ?? ""),
     ifscCode,
-    status,
-    isVerified: Boolean(raw.isVerified ?? status === "verified"),
+    status: isVerified ? "verified" : status === "verified" ? "unverified" : status,
+    isVerified,
     createdAt: String(raw.createdAt ?? raw.created_at ?? new Date().toISOString()),
     referenceKey: String(
       raw.referenceKey ?? metadata.referenceKey ?? instantPay.referenceKey ?? ""

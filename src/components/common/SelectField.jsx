@@ -19,6 +19,7 @@ export default function SelectField({
   options = [],
   methods,
   searchable = false,
+  disabled = false,
 }) {
   const {
     control,
@@ -45,11 +46,15 @@ export default function SelectField({
           <Select
             value={field.value || ""}
             onValueChange={field.onChange}
+            disabled={disabled}
             onOpenChange={(open) => {
               if (!open) setSearch("");
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger
+              disabled={disabled}
+              className={disabled ? "cursor-not-allowed opacity-70" : undefined}
+            >
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>
             <SelectContent>

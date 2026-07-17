@@ -9,11 +9,30 @@ import {
 import { clearClientSession } from "@/src/lib/sessionCleanup";
 import { extractAuthPayload, normalizeUser } from "@/src/lib/authUtils";
 
+/**
+ * Login with email OR mobile.
+ * Payload sent to API:
+ *   { email, password }  when email is provided
+ *   { mobile, password } when mobile is provided
+ */
 export const loginUser = createAsyncThunk(
   "auth/login",
-  async ({ email, password, remember }, { rejectWithValue }) => {
+  async ({ email, mobile, password, remember }, { rejectWithValue }) => {
     try {
-      const response = await api.post(API_ENDPOINTS.login, { email, password });
+      const normalizedEmail = email?.trim().toLowerCase() || "";
+      const normalizedMobile = String(mobile ?? "")
+        .replace(/\D/g, "")
+        .replace(/^91(?=\d{10}$)/, "");
+
+      if (!normalizedEmail && !normalizedMobile) {
+        return rejectWithValue("Email or mobile number is required");
+      }
+
+      const body = normalizedEmail
+        ? { email: normalizedEmail, password }
+        : { mobile: normalizedMobile, password };
+
+      const response = await api.post(API_ENDPOINTS.login, body);
       const { accessToken, refreshToken, user } = extractAuthPayload(response.data);
 
       if (!accessToken) {

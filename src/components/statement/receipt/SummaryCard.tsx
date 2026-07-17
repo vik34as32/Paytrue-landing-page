@@ -35,7 +35,7 @@ export default function SummaryCard({ receipt }: SummaryCardProps) {
   ];
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm">
+    <section className="receipt-payment-summary overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm">
       <div className="flex items-center gap-2 border-b border-[#E5E7EB] bg-gradient-to-r from-[#0A84FF]/10 to-[#0057D9]/10 px-5 py-4">
         <IndianRupee className="h-5 w-5 text-[#0057D9]" />
         <h3 className="text-sm font-bold text-[#001F5B]">Payment Summary</h3>
@@ -44,7 +44,7 @@ export default function SummaryCard({ receipt }: SummaryCardProps) {
         {rows.map(({ label, value, highlight, bold, accent }) => (
           <div
             key={label}
-            className="flex items-center justify-between gap-4 px-5 py-4"
+            className="receipt-detail-row flex items-center justify-between gap-4 px-5 py-4"
           >
             <span className="text-sm text-slate-600">{label}</span>
             <span

@@ -2,7 +2,7 @@ import { normalizeDmtBankList } from "@/src/modules/dmt/services/normalizers";
 import { DMT_ENDPOINTS } from "@/src/constants/dmtApi";
 import api from "@/src/lib/axios";
 import { logDmtApiCall, apiNameFromEndpoint } from "@/src/lib/dmtApiLogger";
-import { buildAepsLoginApiBody } from "@/src/lib/aepsUtils";
+import { createAepsExternalRef, buildInstantPayRemitterEkycBiometricData } from "@/src/lib/pidParser";
 import { formatGeoLocation } from "@/src/lib/geoUtils";
 import { resolveDmtTransferServiceId } from "@/features/retailer/store/retailerServicesStore";
 import {
@@ -317,23 +317,39 @@ export async function resendSenderOtp(mobile: string): Promise<OtpActionResponse
 
 export async function remitterEkyc(payload: RemitterEkycPayload): Promise<DmtSender> {
   return request(async () => {
-    const biometricBase = buildAepsLoginApiBody({
-      pidData: payload.pidData,
+    const referenceKey = String(payload.referenceKey || "").trim();
+    if (!referenceKey) {
+      throw new Error(
+        "eKYC referenceKey missing. Call GET /remitter/:mobile/pid-options first."
+      );
+    }
+
+    // InstantPay remitter eKYC schema requires Skey (RD sessionKey), not sessionKey
+    const biometricData = buildInstantPayRemitterEkycBiometricData(payload.pidData);
+    const coords = formatGeoLocation({
       latitude: payload.latitude,
       longitude: payload.longitude,
-      captureType: payload.captureType || "FINGER",
     });
 
+    // eslint-disable-next-line no-console -- InstantPay DMT eKYC debug
+    console.log("========== EKYC DEBUG ==========");
+    // eslint-disable-next-line no-console
+    console.log("referenceKey:", referenceKey);
+    // eslint-disable-next-line no-console
+    console.log("PID Length:", payload.pidData?.length ?? 0);
+    // eslint-disable-next-line no-console
+    console.log("===============================");
+
     const body: Record<string, unknown> = {
-      mobile: payload.mobile,
-      latitude: biometricBase.latitude,
-      longitude: biometricBase.longitude,
-      externalRef: payload.externalRef || biometricBase.externalRef,
+      mobileNumber: String(payload.mobile || "").trim(),
+      referenceKey,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      externalRef: payload.externalRef || createAepsExternalRef("DMT"),
       consentTaken: payload.consentTaken,
       captureType: payload.captureType || "FINGER",
-      biometricData: biometricBase.biometricData,
+      biometricData,
     };
-    if (payload.referenceKey) body.referenceKey = payload.referenceKey;
 
     const response = await api.post(DMT_ENDPOINTS.remitterEkyc, body);
     const data = unwrapApiData<Record<string, unknown>>(response.data);

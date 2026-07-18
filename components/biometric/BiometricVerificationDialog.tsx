@@ -28,6 +28,7 @@ import { useFingerprint } from "@/src/hooks/useFingerprint";
 import useScannerConnection from "@/src/hooks/useScannerConnection";
 import { clearAllProviderCaches } from "@/src/lib/biometric/BiometricFactory";
 import { BIOMETRIC_DEVICE_OPTIONS } from "@/src/types/biometric";
+import { formatMorphoRdError } from "@/src/lib/biometric/rdLocalUtils";
 import type { AppDispatch } from "@/src/redux/types";
 import {
   clearMerchantError,
@@ -131,7 +132,7 @@ export default function BiometricVerificationDialog({
       if (!rdCheck?.isRunning) {
         throw new Error(
           device === "MORPHO"
-            ? "Morpho RD Service not running."
+            ? formatMorphoRdError(null)
             : "Mantra RD Service not running. Start Mantra L1 AVDM."
         );
       }
@@ -146,7 +147,12 @@ export default function BiometricVerificationDialog({
       dispatch(setVerificationPhase("verifying"));
       await dispatch(submitMerchantBiometricVerification(captureResult.pidData)).unwrap();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Verification failed.";
+      const message =
+        device === "MORPHO"
+          ? formatMorphoRdError(err)
+          : err instanceof Error
+            ? err.message
+            : "Verification failed.";
       setScanError(message);
       dispatch(setVerificationPhase("idle"));
     }

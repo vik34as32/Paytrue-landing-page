@@ -17,7 +17,7 @@ import {
   useVerifyRemitterOtp,
   useVerifySenderOtp,
 } from "@/src/hooks/useDmt";
-import { setActiveSenderMobile } from "@/src/lib/dmtSession";
+import { setActiveSenderMobile, clearSenderReferenceKey, clearSenderPidOptionWadh } from "@/src/lib/dmtSession";
 import type { DmtApiError } from "@/src/types/dmt";
 
 const RESEND_SECONDS = 30;
@@ -66,7 +66,11 @@ function VerifySenderOtpForm() {
         otp,
         referenceKey: referenceKey || undefined,
       });
+      // InstantPay invalidates the pre-OTP referenceKey — never reuse it
+      clearSenderReferenceKey();
+      clearSenderPidOptionWadh();
       setActiveSenderMobile(mobile);
+      // Re-check remitter / profile for a fresh referenceKey
       await refetchMutation.mutateAsync(mobile);
       toast.success(
         isRemitterFlow ? "Remitter verified successfully" : "Sender verified successfully"

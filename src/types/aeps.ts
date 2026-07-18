@@ -17,9 +17,11 @@ export interface AepsPidCaptureResult {
 
 /** Options sent to RD Service CAPTURE (PidOptions XML) */
 export interface PidCaptureOptions {
-  /** InstantPay merchant KYC WADH from biometric-status */
+  /** InstantPay WADH — used only when pidOptionsXml is not provided */
   wadh?: string;
   env?: "P" | "PP";
+  /** Pre-built PidOptions XML from GET .../pid-options — passed to RD as-is */
+  pidOptionsXml?: string;
 }
 
 export interface RdServiceStatus {

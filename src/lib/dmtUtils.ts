@@ -99,6 +99,20 @@ export function normalizeSender(raw: Record<string, unknown> = {}): DmtSender {
     raw.verificationStatus ?? raw.status ?? raw.kycStatus
   );
 
+  const metadata =
+    raw.metadata && typeof raw.metadata === "object"
+      ? (raw.metadata as Record<string, unknown>)
+      : {};
+  const pidOptionWadh = String(
+    raw.pidOptionWadh ??
+      raw.pid_option_wadh ??
+      raw.wadh ??
+      metadata.pidOptionWadh ??
+      metadata.pid_option_wadh ??
+      metadata.wadh ??
+      ""
+  ).trim();
+
   return {
     id: String(raw.id ?? raw.senderId ?? raw._id ?? raw.mobile ?? ""),
     mobile: String(raw.mobile ?? raw.mobileNumber ?? ""),
@@ -112,6 +126,7 @@ export function normalizeSender(raw: Record<string, unknown> = {}): DmtSender {
     dailyUsed: toNumber(raw.dailyUsed ?? raw.daily_used, 0),
     monthlyUsed: toNumber(raw.monthlyUsed ?? raw.monthly_used, 0),
     isVerified: Boolean(raw.isVerified ?? verificationStatus === "verified"),
+    pidOptionWadh: pidOptionWadh || undefined,
   };
 }
 
@@ -218,10 +233,61 @@ export function normalizeCheckSenderResponse(payload: unknown): CheckSenderRespo
     senderRaw?.referenceKey ??
     senderRaw?.reference_key;
 
+  const metadata =
+    data?.metadata && typeof data.metadata === "object"
+      ? (data.metadata as Record<string, unknown>)
+      : {};
+  const senderMeta =
+    senderRaw?.metadata && typeof senderRaw.metadata === "object"
+      ? (senderRaw.metadata as Record<string, unknown>)
+      : {};
+
+  const pidOptionWadh = String(
+    data?.pidOptionWadh ??
+      data?.pid_option_wadh ??
+      data?.wadh ??
+      metadata.pidOptionWadh ??
+      metadata.pid_option_wadh ??
+      metadata.wadh ??
+      senderRaw?.pidOptionWadh ??
+      senderRaw?.pid_option_wadh ??
+      senderRaw?.wadh ??
+      senderMeta.pidOptionWadh ??
+      senderMeta.pid_option_wadh ??
+      senderMeta.wadh ??
+      ""
+  ).trim();
+
+  // eslint-disable-next-line no-console -- DMT PID/WADH debug
+  console.log("========== FRONTEND PID DEBUG ==========");
+  // eslint-disable-next-line no-console
+  console.log("API pidOptionWadh:", pidOptionWadh || "(undefined)");
+  // eslint-disable-next-line no-console
+  console.log("Redux pidOptionWadh:", "(not stored yet — checkRemitter normalize)");
+  // eslint-disable-next-line no-console
+  console.log("Capture pidOptionWadh:", "(n/a at check)");
+  // eslint-disable-next-line no-console
+  console.log("Generated XML:", "(n/a at check)");
+  if (!pidOptionWadh) {
+    // eslint-disable-next-line no-console
+    console.log(
+      "Became undefined at:",
+      "normalizeCheckSenderResponse — missing pidOptionWadh on remitter/check payload"
+    );
+  }
+  // eslint-disable-next-line no-console
+  console.log("========================================");
+
   return {
     exists,
-    sender: senderRaw ? normalizeSender(senderRaw) : null,
+    sender: senderRaw
+      ? normalizeSender({
+          ...senderRaw,
+          ...(pidOptionWadh ? { pidOptionWadh } : {}),
+        })
+      : null,
     referenceKey: referenceKeyRaw != null ? String(referenceKeyRaw) : undefined,
+    pidOptionWadh: pidOptionWadh || undefined,
   };
 }
 

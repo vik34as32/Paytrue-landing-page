@@ -13,10 +13,13 @@ import {
   stopLoading,
 } from "../redux/workflowSlice";
 import {
+  clearEkycSession,
   resetSenderState,
+  setEkycPidOptions,
   setSenderMobile,
   setSenderProfile,
   setSenderReferenceKey,
+  setVerifyOtpEkycReferenceKey,
 } from "../redux/senderSlice";
 import {
   resetBeneficiaryState,
@@ -30,19 +33,28 @@ import {
   setTransactionResult,
 } from "../redux/transactionSlice";
 import {
+  clearSenderPidOptionWadh,
+  clearSenderReferenceKey as clearPersistedSenderReferenceKey,
   getSenderReferenceKey,
   setActiveSenderMobile,
+  setSenderPidOptionWadh as persistSenderPidOptionWadh,
   setSenderReferenceKey as persistSenderReferenceKey,
 } from "@/src/lib/dmtSession";
 import { getCurrentLocation } from "@/src/lib/rdService";
 import { refreshRetailerWalletData } from "@/features/retailer/utils/walletValidation";
 import { codeToNextAction, ensureTransferSuccessResponse } from "../services/normalizers";
 import {
+  buildRdPidOptionsXml,
+  logEkycDebug,
+} from "@/src/lib/biometric/pidOptions";
+import {
   useAddBeneficiaryMutation,
   useBioAuthMutation,
   useDeleteBeneficiaryMutation,
   useFetchBeneficiariesQuery,
   useGenerateTransactionOtpMutation,
+  useLazyFetchRemitterPidOptionsQuery,
+  useLazyFetchRemitterProfileQuery,
   useRegisterSenderMutation,
   useSearchSenderMutation,
   useTransferMutation,
@@ -55,6 +67,7 @@ import type {
   AddBeneficiaryRequest,
   BioAuthRequest,
   DmtBeneficiary,
+  DmtNextAction,
   DmtTransferMode,
   DmtWorkflowResponse,
   RegisterSenderRequest,
@@ -63,14 +76,53 @@ import type {
   VerifySenderOtpRequest,
   VerifyTransactionOtpRequest,
 } from "../types";
+import { useStore } from "react-redux";
+import type { RootState } from "@/src/redux/types";
 
 function getErrorMessage(error: unknown): string {
   const err = error as { data?: { message?: string }; message?: string };
   return err?.data?.message || err?.message || "Request failed";
 }
 
+/** Backend signals that the active referenceKey must be refreshed */
+function isEkycReferenceExpiredError(error: unknown): boolean {
+  const err = error as {
+    data?: { code?: string; message?: string; error?: string };
+    code?: string;
+    message?: string;
+  };
+  const code = String(err?.data?.code || err?.code || "").toUpperCase();
+  const message = String(
+    err?.data?.message || err?.data?.error || err?.message || ""
+  ).toUpperCase();
+
+  if (
+    [
+      "REFERENCE_KEY_EXPIRED",
+      "REFERENCE_EXPIRED",
+      "INVALID_REFERENCE_KEY",
+      "EKYC_SESSION_EXPIRED",
+      "PID_OPTIONS_EXPIRED",
+    ].includes(code)
+  ) {
+    return true;
+  }
+
+  const compact = message.replace(/\s+/g, "");
+  if (compact.includes("INVALIDREFERENCEKEY")) return true;
+
+  return (
+    message.includes("REFERENCEKEY") || message.includes("REFERENCE KEY")
+      ? message.includes("EXPIRED") ||
+        message.includes("INVALID") ||
+        message.includes("REQUIRED")
+      : false
+  );
+}
+
 export function useDmtOrchestrator() {
   const dispatch = useAppDispatch();
+  const store = useStore<RootState>();
   const sender = useAppSelector((state) => state.dmtSender);
   const beneficiary = useAppSelector((state) => state.dmtBeneficiary);
   const transaction = useAppSelector((state) => state.dmtTransaction);
@@ -80,6 +132,8 @@ export function useDmtOrchestrator() {
   const [registerSenderMutation] = useRegisterSenderMutation();
   const [verifySenderOtpMutation] = useVerifySenderOtpMutation();
   const [bioAuthMutation] = useBioAuthMutation();
+  const [fetchRemitterPidOptions] = useLazyFetchRemitterPidOptionsQuery();
+  const [fetchRemitterProfile] = useLazyFetchRemitterProfileQuery();
   const [addBeneficiaryMutation] = useAddBeneficiaryMutation();
   const [verifyBeneficiaryOtpMutation] = useVerifyBeneficiaryOtpMutation();
   const [deleteBeneficiaryMutation] = useDeleteBeneficiaryMutation();
@@ -114,9 +168,32 @@ export function useDmtOrchestrator() {
   const applyResponse = useCallback(
     (response: DmtWorkflowResponse) => {
       dispatch(applyWorkflowResponse(response));
-      if (response.referenceKey) {
-        dispatch(setSenderReferenceKey(response.referenceKey));
-        persistSenderReferenceKey(response.referenceKey);
+
+      const latest = store.getState().dmtSender;
+      const verifyLocked = latest.ekycReferenceKeySource === "verify-otp";
+      const incomingKey = String(response.referenceKey || "").trim();
+
+      // Never overwrite a locked verify-otp eKYC key with checkRemitter RNF keys
+      if (incomingKey && !verifyLocked) {
+        dispatch(setSenderReferenceKey(incomingKey));
+        persistSenderReferenceKey(incomingKey);
+      } else if (incomingKey && verifyLocked && incomingKey !== latest.ekycReferenceKey) {
+        // eslint-disable-next-line no-console -- InstantPay eKYC referenceKey debug
+        console.log("WARNING:");
+        // eslint-disable-next-line no-console
+        console.log(
+          "Ignoring checkRemitter referenceKey because verify referenceKey already exists."
+        );
+        // eslint-disable-next-line no-console
+        console.log("");
+        // eslint-disable-next-line no-console
+        console.log("Old Verify Key:", latest.ekycReferenceKey);
+        // eslint-disable-next-line no-console
+        console.log("Incoming RNF Key:", incomingKey);
+      }
+
+      if (response.pidOptionWadh) {
+        persistSenderPidOptionWadh(response.pidOptionWadh);
       }
       if (response.sender) dispatch(setSenderProfile(response.sender));
       if (response.beneficiaries) dispatch(setBeneficiaries(response.beneficiaries));
@@ -130,9 +207,197 @@ export function useDmtOrchestrator() {
           })
         );
       }
+
+      // Seed eKYC materials when BIO_AUTH is next — preserve verify-otp key if locked
+      const mobile = String(
+        response.sender?.mobile || sender.mobile || ""
+      ).trim();
+      const referenceKey = verifyLocked
+        ? latest.ekycReferenceKey
+        : incomingKey;
+      const pidOptionWadh = String(
+        response.pidOptionWadh || response.sender?.pidOptionWadh || ""
+      ).trim();
+      const pidOptions = String(
+        response.pidOptions ||
+          (pidOptionWadh ? buildRdPidOptionsXml({ wadh: pidOptionWadh }) : "")
+      ).trim();
+
+      if (
+        response.nextAction === "BIO_AUTH" &&
+        mobile &&
+        referenceKey &&
+        pidOptions
+      ) {
+        dispatch(
+          setEkycPidOptions({
+            mobile,
+            referenceKey,
+            pidOptions,
+            pidOptionWadh: pidOptionWadh || undefined,
+            force: true,
+            source: verifyLocked ? "verify-otp" : "check-remitter",
+          })
+        );
+      }
+
       return response;
     },
-    [dispatch]
+    [dispatch, sender.mobile, store]
+  );
+
+  /**
+   * After verify-otp: keep the verify referenceKey locked.
+   * checkRemitter may supply pidOptions/wadh only — never replace the verify key.
+   */
+  const refreshEkycMaterialsAfterOtp = useCallback(
+    async (
+      mobile: string,
+      preferredNextAction?: DmtNextAction | null,
+      verifyReferenceKey?: string
+    ): Promise<DmtWorkflowResponse> => {
+      const normalized = String(mobile || "").trim();
+      if (!normalized) {
+        throw new Error("Remitter mobile is required after OTP verification.");
+      }
+
+      const lockedVerifyKey = String(verifyReferenceKey || "").trim();
+
+      // 1) Remitter check — used for pidOptions/wadh only when verify key is locked
+      const check = await searchSenderMutation({ mobile: normalized }).unwrap();
+
+      let profileWadh = "";
+      let profilePidOptions = "";
+      try {
+        const profile = await fetchRemitterProfile({ mobile: normalized }).unwrap();
+        profileWadh = String(profile.pidOptionWadh || "").trim();
+        profilePidOptions = String(profile.pidOptions || "").trim();
+        const profileKey = String(profile.referenceKey || "").trim();
+        if (
+          lockedVerifyKey &&
+          profileKey &&
+          profileKey !== lockedVerifyKey
+        ) {
+          // eslint-disable-next-line no-console -- InstantPay eKYC referenceKey debug
+          console.log("WARNING:");
+          // eslint-disable-next-line no-console
+          console.log(
+            "Ignoring checkRemitter referenceKey because verify referenceKey already exists."
+          );
+          // eslint-disable-next-line no-console
+          console.log("");
+          // eslint-disable-next-line no-console
+          console.log("Old Verify Key:", lockedVerifyKey);
+          // eslint-disable-next-line no-console
+          console.log("Incoming RNF Key:", profileKey);
+        }
+      } catch {
+        // Profile GET is optional if check already returned materials
+      }
+
+      const checkKey = String(check.referenceKey || "").trim();
+      if (lockedVerifyKey && checkKey && checkKey !== lockedVerifyKey) {
+        // eslint-disable-next-line no-console -- InstantPay eKYC referenceKey debug
+        console.log("WARNING:");
+        // eslint-disable-next-line no-console
+        console.log(
+          "Ignoring checkRemitter referenceKey because verify referenceKey already exists."
+        );
+        // eslint-disable-next-line no-console
+        console.log("");
+        // eslint-disable-next-line no-console
+        console.log("Old Verify Key:", lockedVerifyKey);
+        // eslint-disable-next-line no-console
+        console.log("Incoming RNF Key:", checkKey);
+      }
+
+      // eKYC referenceKey = verify-otp key when present; otherwise fall back to check
+      const activeReferenceKey = lockedVerifyKey || checkKey;
+
+      let newPidOptionWadh = String(
+        check.pidOptionWadh || profileWadh || ""
+      ).trim();
+      let newPidOptions = String(
+        check.pidOptions ||
+          profilePidOptions ||
+          (newPidOptionWadh
+            ? buildRdPidOptionsXml({ wadh: newPidOptionWadh })
+            : "")
+      ).trim();
+
+      if (!newPidOptions) {
+        const pid = await fetchRemitterPidOptions(
+          { mobile: normalized },
+          false
+        ).unwrap();
+        if (!newPidOptionWadh) {
+          newPidOptionWadh = String(pid.pidOptionWadh || "").trim();
+        }
+        newPidOptions = String(
+          pid.pidOptions ||
+            (newPidOptionWadh
+              ? buildRdPidOptionsXml({ wadh: newPidOptionWadh })
+              : "")
+        ).trim();
+      }
+
+      if (!activeReferenceKey) {
+        throw new Error(
+          "eKYC referenceKey missing after verify-otp. Cannot continue eKYC."
+        );
+      }
+      if (!newPidOptions) {
+        throw new Error(
+          "Fresh pidOptions missing after OTP. Cannot capture biometrics."
+        );
+      }
+
+      if (lockedVerifyKey) {
+        dispatch(
+          setVerifyOtpEkycReferenceKey({
+            mobile: normalized,
+            referenceKey: lockedVerifyKey,
+          })
+        );
+      }
+
+      dispatch(
+        setEkycPidOptions({
+          mobile: normalized,
+          referenceKey: activeReferenceKey,
+          pidOptions: newPidOptions,
+          pidOptionWadh: newPidOptionWadh || undefined,
+          force: true,
+          source: lockedVerifyKey ? "verify-otp" : "check-remitter",
+        })
+      );
+      persistSenderReferenceKey(activeReferenceKey);
+      if (newPidOptionWadh) persistSenderPidOptionWadh(newPidOptionWadh);
+
+      logEkycDebug({
+        referenceKey: activeReferenceKey,
+        pidLength: newPidOptions.length,
+      });
+
+      const nextAction: DmtNextAction | null =
+        preferredNextAction || check.nextAction || "BIO_AUTH";
+
+      return {
+        ...check,
+        success: true,
+        // Surface the locked verify key to callers — not the RNF check key
+        referenceKey: activeReferenceKey,
+        pidOptionWadh: newPidOptionWadh || check.pidOptionWadh,
+        pidOptions: newPidOptions,
+        nextAction,
+      };
+    },
+    [
+      dispatch,
+      fetchRemitterPidOptions,
+      fetchRemitterProfile,
+      searchSenderMutation,
+    ]
   );
 
   const run = useCallback(
@@ -199,51 +464,158 @@ export function useDmtOrchestrator() {
     ]
   );
 
+  const extractVerifyOtpReferenceKey = (otpResponse: DmtWorkflowResponse): string => {
+    const data =
+      otpResponse.data && typeof otpResponse.data === "object"
+        ? (otpResponse.data as Record<string, unknown>)
+        : {};
+    return String(
+      otpResponse.referenceKey ||
+        data.referenceKey ||
+        data.verifyReferenceKey ||
+        (otpResponse as { verifyReferenceKey?: string }).verifyReferenceKey ||
+        ""
+    ).trim();
+  };
+
   const verifySenderOtp = useCallback(
     async (payload: Omit<VerifySenderOtpRequest, "mobile"> & { otp: string }) =>
       run(async () => {
+        const otpReferenceKey = String(
+          payload.referenceKey || sender.referenceKey || getSenderReferenceKey() || ""
+        ).trim();
+
+        let otpNextAction: DmtNextAction | null = null;
+        let verifyReferenceKey = "";
+
         try {
-          const response = await verifySenderOtpMutation({
+          const otpResponse = await verifySenderOtpMutation({
             mobile: sender.mobile,
             otp: payload.otp,
-            referenceKey: payload.referenceKey || sender.referenceKey,
+            referenceKey: otpReferenceKey || undefined,
           }).unwrap();
-          return applyResponse(response);
+          otpNextAction = otpResponse.nextAction;
+          verifyReferenceKey = extractVerifyOtpReferenceKey(otpResponse);
+
+          if (verifyReferenceKey) {
+            dispatch(
+              setVerifyOtpEkycReferenceKey({
+                mobile: sender.mobile,
+                referenceKey: verifyReferenceKey,
+              })
+            );
+            persistSenderReferenceKey(verifyReferenceKey);
+          }
         } catch (error) {
-          // OTP validated but sender still needs biometric eKYC. Backend signals
-          // this with code KYC_REQUIRED instead of a nextAction, so move the
-          // workflow forward to Bio Auth (step 4) rather than showing an error.
+          // OTP accepted but eKYC still required (KYC_REQUIRED, etc.)
           const code = String(
             (error as { code?: string; data?: { code?: string } })?.code ??
               (error as { data?: { code?: string } })?.data?.code ??
               ""
           ).toUpperCase();
           const action = codeToNextAction(code);
-          if (action) {
-            return applyResponse({ success: true, nextAction: action });
+          if (!action) throw error;
+          otpNextAction = action;
+
+          // Some backends return the new key on the error payload
+          const errData = (error as { data?: Record<string, unknown> })?.data;
+          verifyReferenceKey = String(
+            errData?.referenceKey ||
+              errData?.verifyReferenceKey ||
+              ""
+          ).trim();
+          if (verifyReferenceKey) {
+            dispatch(
+              setVerifyOtpEkycReferenceKey({
+                mobile: sender.mobile,
+                referenceKey: verifyReferenceKey,
+              })
+            );
+            persistSenderReferenceKey(verifyReferenceKey);
           }
-          throw error;
         }
+
+        // Fetch pidOptions/wadh via checkRemitter — do NOT replace verify-otp key
+        const refreshed = await refreshEkycMaterialsAfterOtp(
+          sender.mobile,
+          otpNextAction,
+          verifyReferenceKey || store.getState().dmtSender.ekycReferenceKey
+        );
+
+        return applyResponse(refreshed);
       }),
-    [applyResponse, run, sender.mobile, sender.referenceKey, verifySenderOtpMutation]
+    [
+      applyResponse,
+      dispatch,
+      refreshEkycMaterialsAfterOtp,
+      run,
+      sender.mobile,
+      sender.referenceKey,
+      store,
+      verifySenderOtpMutation,
+    ]
   );
 
   const bioAuth = useCallback(
     async (payload: Omit<BioAuthRequest, "mobile">) =>
       run(async () => {
-        const response = await bioAuthMutation({
-          mobile: sender.mobile,
-          referenceKey: payload.referenceKey || sender.referenceKey,
-          latitude: payload.latitude,
-          longitude: payload.longitude,
-          consentTaken: payload.consentTaken,
-          captureType: payload.captureType,
-          pidData: payload.pidData,
-          externalRef: payload.externalRef,
-        }).unwrap();
-        return applyResponse(response);
+        const latest = store.getState().dmtSender;
+        const ekycReferenceKey = String(
+          latest.ekycReferenceKey ||
+            payload.referenceKey ||
+            latest.referenceKey ||
+            ""
+        ).trim();
+        if (!ekycReferenceKey) {
+          throw new Error(
+            "eKYC referenceKey missing. Complete OTP so the verify-otp referenceKey can be saved."
+          );
+        }
+
+        // eslint-disable-next-line no-console -- InstantPay eKYC referenceKey debug
+        console.log("==================================");
+        // eslint-disable-next-line no-console
+        console.log("Before eKYC:");
+        // eslint-disable-next-line no-console
+        console.log("");
+        // eslint-disable-next-line no-console
+        console.log("ReferenceKey:", ekycReferenceKey);
+        // eslint-disable-next-line no-console
+        console.log("Source:", latest.ekycReferenceKeySource || "unknown");
+        // eslint-disable-next-line no-console
+        console.log("==================================");
+
+        logEkycDebug({
+          referenceKey: ekycReferenceKey,
+          pidLength: payload.pidData?.length ?? 0,
+        });
+
+        try {
+          const response = await bioAuthMutation({
+            mobile: latest.mobile || sender.mobile,
+            referenceKey: ekycReferenceKey,
+            latitude: payload.latitude,
+            longitude: payload.longitude,
+            consentTaken: payload.consentTaken,
+            captureType: payload.captureType,
+            pidData: payload.pidData,
+            externalRef: payload.externalRef,
+          }).unwrap();
+
+          dispatch(clearEkycSession());
+          clearPersistedSenderReferenceKey();
+          clearSenderPidOptionWadh();
+          return applyResponse(response);
+        } catch (error) {
+          if (isEkycReferenceExpiredError(error)) {
+            dispatch(clearEkycSession());
+            clearPersistedSenderReferenceKey();
+            clearSenderPidOptionWadh();
+          }
+          throw error;
+        }
       }),
-    [applyResponse, bioAuthMutation, run, sender.mobile, sender.referenceKey]
+    [applyResponse, bioAuthMutation, dispatch, run, sender.mobile, store]
   );
 
   const addBeneficiary = useCallback(

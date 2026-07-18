@@ -1,7 +1,8 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { API_BASE_URL } from "@/src/constants/api";
 import { getAccessToken } from "@/src/lib/cookies";
-import { buildAepsLoginApiBody } from "@/src/lib/aepsUtils";
+import { createAepsExternalRef, buildInstantPayRemitterEkycBiometricData } from "@/src/lib/pidParser";
+import { formatGeoLocation } from "@/src/lib/geoUtils";
 import { resolveDmtTransferServiceId } from "@/features/retailer/store/retailerServicesStore";
 import { resolveBeneficiaryBankFields, resolveBeneficiaryMobileNumber } from "@/src/lib/dmtUtils";
 import {
@@ -11,6 +12,11 @@ import {
 } from "@/src/lib/dmtBankVerify";
 import { DMT_MODULE_ENDPOINTS } from "../services/endpoints";
 import { normalizeBeneficiaryList, normalizeDmtBankList, normalizeWorkflowResponse } from "../services/normalizers";
+import {
+  normalizeRemitterPidOptions,
+  logEkycDebug,
+  type RemitterPidOptionsResult,
+} from "@/src/lib/biometric/pidOptions";
 import type {
   AddBeneficiaryRequest,
   BioAuthRequest,
@@ -101,37 +107,58 @@ export const dmtApi = createApi({
       transformErrorResponse: mapApiError,
     }),
 
+    /** GET /dmt/remitter/:mobile/pid-options — fresh referenceKey + pidOptionWadh for eKYC */
+    fetchRemitterPidOptions: builder.query<RemitterPidOptionsResult, { mobile: string }>({
+      query: ({ mobile }) => ({
+        url: DMT_MODULE_ENDPOINTS.remitterPidOptions(mobile),
+        method: "GET",
+      }),
+      transformResponse: (response: unknown) => normalizeRemitterPidOptions(response),
+      transformErrorResponse: mapApiError,
+    }),
+
+    /** GET /dmt/remitter/:mobile — remitter profile (post-OTP fresh key + pid materials) */
+    fetchRemitterProfile: builder.query<DmtWorkflowResponse, { mobile: string }>({
+      query: ({ mobile }) => ({
+        url: DMT_MODULE_ENDPOINTS.senderProfile(mobile),
+        method: "GET",
+      }),
+      transformResponse: (response: unknown) => normalizeWorkflowResponse(response),
+      transformErrorResponse: mapApiError,
+    }),
+
     bioAuth: builder.mutation<DmtWorkflowResponse, BioAuthRequest>({
       query: (body) => {
-        const biometricBase = buildAepsLoginApiBody({
-          pidData: body.pidData,
+        const referenceKey = String(body.referenceKey || "").trim();
+        if (!referenceKey) {
+          throw new Error(
+            "eKYC referenceKey missing. Call GET /remitter/:mobile/pid-options before eKYC."
+          );
+        }
+
+        // InstantPay remitter eKYC schema requires Skey (RD sessionKey), not sessionKey
+        const biometricData = buildInstantPayRemitterEkycBiometricData(body.pidData);
+        const coords = formatGeoLocation({
           latitude: body.latitude,
           longitude: body.longitude,
-          captureType: body.captureType || "FINGER",
         });
 
-        const bd = (biometricBase.biometricData ?? {}) as Record<string, unknown>;
-        // Backend/InstantPay eKYC expects the standard Aadhaar PID field names
-        // (Skey, Hmac, Data). Our parser exposes them as sessionKey/hmac/pidData,
-        // so remap them here while keeping the original fields for compatibility.
-        const biometricData = {
-          ...bd,
-          Skey: bd.sessionKey,
-          ci: bd.ci,
-          Hmac: bd.hmac,
-          Data: bd.pidData,
-          type: bd.pidDataType,
-        };
+        logEkycDebug({
+          referenceKey,
+          pidLength: body.pidData?.length ?? 0,
+        });
+
+        const mobileNumber = String(body.mobile || "").trim();
 
         return {
           url: DMT_MODULE_ENDPOINTS.bioAuth,
           method: "POST",
           body: {
-            mobile: body.mobile,
-            referenceKey: body.referenceKey,
-            latitude: biometricBase.latitude,
-            longitude: biometricBase.longitude,
-            externalRef: body.externalRef || biometricBase.externalRef,
+            mobileNumber,
+            referenceKey,
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            externalRef: body.externalRef || createAepsExternalRef("DMT"),
             consentTaken: body.consentTaken,
             captureType: body.captureType || "FINGER",
             biometricData,
@@ -402,6 +429,9 @@ export const {
   useSearchSenderMutation,
   useRegisterSenderMutation,
   useVerifySenderOtpMutation,
+  useFetchRemitterPidOptionsQuery,
+  useLazyFetchRemitterPidOptionsQuery,
+  useLazyFetchRemitterProfileQuery,
   useBioAuthMutation,
   useFetchBeneficiariesQuery,
   useFetchBanksQuery,

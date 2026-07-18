@@ -39,16 +39,20 @@ import type { UpiAtmTransaction } from "@/src/types/upiAtm";
 import UpiAtmQrModal from "@/components/retailer/UpiAtmQrModal";
 import UpiAtmReceiptModal from "@/components/retailer/UpiAtmReceiptModal";
 
-const QUICK_AMOUNTS = [100, 200, 500, 1000, 2000, 5000];
+const QUICK_AMOUNTS = [200, 500, 1000, 2000, 5000];
 const POLL_INTERVAL_MS = 3000;
 const MAX_POLL_ATTEMPTS = 100;
+const MIN_AMOUNT = 200;
 
 const schema = z.object({
   mobile: z
     .string()
     .trim()
     .regex(/^[6-9]\d{9}$/, "Enter valid 10-digit mobile number"),
-  amount: z.coerce.number().min(1, "Minimum amount is ₹1").max(50000, "Maximum amount is ₹50,000"),
+  amount: z.coerce
+    .number()
+    .min(MIN_AMOUNT, "Minimum amount is ₹200")
+    .max(50000, "Maximum amount is ₹50,000"),
 });
 
 type UpiCashPointForm = z.infer<typeof schema>;
@@ -283,7 +287,7 @@ export default function UpiCashPointPage() {
                     id="amount"
                     type="number"
                     min={1}
-                    placeholder="Enter amount"
+                    placeholder="Minimum ₹200"
                     className="pl-10"
                     disabled={submitting || qrOpen}
                     {...form.register("amount")}

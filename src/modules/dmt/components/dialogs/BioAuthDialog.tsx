@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Dialog,
@@ -30,6 +30,8 @@ import {
   selectAepsSelectedDevice,
   setSelectedDevice,
 } from "@/src/redux/slices/aepsSlice";
+import { useRemitterEkycSession } from "@/src/modules/dmt/hooks/useRemitterEkycSession";
+import { logRdDebug } from "@/src/lib/biometric/pidOptions";
 
 type DeviceType = "MANTRA" | "MORPHO";
 
@@ -40,6 +42,7 @@ const DEVICES: Array<{ id: DeviceType; name: string; hint: string }> = [
 
 interface BioAuthDialogProps {
   open: boolean;
+  mobile: string;
   loading?: boolean;
   onClose: () => void;
   onSubmit: (payload: {
@@ -48,21 +51,37 @@ interface BioAuthDialogProps {
     longitude: string;
     captureType: "FINGER" | "FACE";
     consentTaken: "Y" | "N";
+    /** Same referenceKey from the single pid-options fetch */
+    referenceKey: string;
   }) => void;
 }
 
+/**
+ * InstantPay DMT eKYC biometric dialog.
+ *
+ * - GET pid-options once per eKYC session
+ * - Reuse referenceKey + pidOptions on capture retry
+ * - Clear session only on cancel / parent success clear
+ * - Never calls pid-options again after RD capture
+ */
 export default function BioAuthDialog({
   open,
+  mobile,
   loading = false,
   onClose,
   onSubmit,
 }: BioAuthDialogProps) {
   const dispatch = useDispatch();
-  const selectedDevice = (useSelector(selectAepsSelectedDevice) as DeviceType) || "MANTRA";
+  const selectedDevice =
+    (useSelector(selectAepsSelectedDevice) as DeviceType) || "MANTRA";
+  const { session, ensureSession, clearSession } = useRemitterEkycSession();
 
   const [consent, setConsent] = useState(true);
-  const [mode, setMode] = useState<"FINGER" | "FACE">("FINGER");
+  const [mode] = useState<"FINGER" | "FACE">("FINGER");
   const [localError, setLocalError] = useState<string | null>(null);
+  const [loadingPidOptions, setLoadingPidOptions] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const sessionBootstrappedRef = useRef(false);
 
   const {
     isCapturing,
@@ -70,18 +89,81 @@ export default function BioAuthDialog({
     captureWithLocation,
     refreshRdService,
     rdStatus,
-  } = useFingerprint();
+  } = useFingerprint({ autoRefresh: false });
 
-  const [refreshing, setRefreshing] = useState(false);
   const connected = Boolean(rdStatus?.isRunning || rdStatus?.deviceConnected);
-  const busy = loading || isCapturing || isFetchingLocation;
+  const busy =
+    loading || isCapturing || isFetchingLocation || loadingPidOptions;
 
   const statusLabel = useMemo(() => {
+    if (loadingPidOptions) return "Loading PID options...";
     if (refreshing) return "Checking...";
     if (isCapturing) return "Scanning...";
     if (isFetchingLocation) return "Getting location...";
     return connected ? "Connected" : "Not connected";
-  }, [connected, isCapturing, isFetchingLocation, refreshing]);
+  }, [
+    connected,
+    isCapturing,
+    isFetchingLocation,
+    loadingPidOptions,
+    refreshing,
+  ]);
+
+  /** Bootstrap pid-options once when dialog opens (skip if session already active) */
+  useEffect(() => {
+    if (!open || !mobile.trim()) {
+      sessionBootstrappedRef.current = false;
+      return;
+    }
+
+    if (
+      session.isActive &&
+      session.mobile === mobile.trim() &&
+      session.referenceKey &&
+      session.pidOptions
+    ) {
+      sessionBootstrappedRef.current = true;
+      setLoadingPidOptions(false);
+      return;
+    }
+
+    if (sessionBootstrappedRef.current) return;
+
+    let cancelled = false;
+    sessionBootstrappedRef.current = true;
+
+    (async () => {
+      setLoadingPidOptions(true);
+      setLocalError(null);
+      try {
+        await ensureSession(mobile.trim());
+      } catch (error) {
+        sessionBootstrappedRef.current = false;
+        if (!cancelled) {
+          setLocalError(
+            error instanceof Error
+              ? error.message
+              : "Failed to load remitter pid-options."
+          );
+        }
+      } finally {
+        if (!cancelled) setLoadingPidOptions(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally depend on primitives — avoid re-fetch loops from object identity
+  }, [
+    ensureSession,
+    mobile,
+    open,
+    session.isActive,
+    session.mobile,
+    session.pidOptions,
+    session.referenceKey,
+  ]);
 
   const handleSelectDevice = (device: DeviceType) => {
     if (device === selectedDevice || busy) return;
@@ -103,19 +185,74 @@ export default function BioAuthDialog({
     }
   };
 
+  const handleClose = () => {
+    if (busy) return;
+    // Cancel → clear eKYC session
+    clearSession();
+    sessionBootstrappedRef.current = false;
+    onClose();
+  };
+
   const handleCapture = async () => {
     if (!consent) return;
     setLocalError(null);
+
     try {
-      const capture = await captureWithLocation();
+      // Reuse existing session — do NOT call pid-options again on retry
+      const active =
+        session.isActive &&
+        session.mobile === mobile.trim() &&
+        session.referenceKey &&
+        session.pidOptions
+          ? {
+              referenceKey: session.referenceKey,
+              pidOptions: session.pidOptions,
+              pidOptionWadh: session.pidOptionWadh,
+            }
+          : await ensureSession(mobile.trim());
+
+      if (!active.referenceKey || !active.pidOptions) {
+        throw new Error(
+          "Missing referenceKey or pidOptions. Open eKYC again to load pid-options."
+        );
+      }
+
+      logRdDebug({
+        referenceKey: active.referenceKey,
+        pidOptionWadh: active.pidOptionWadh || null,
+        generatedXml: active.pidOptions,
+      });
+
+      // eslint-disable-next-line no-console -- InstantPay eKYC referenceKey debug
+      console.log("==================================");
+      // eslint-disable-next-line no-console
+      console.log("Before RD Capture:");
+      // eslint-disable-next-line no-console
+      console.log("");
+      // eslint-disable-next-line no-console
+      console.log("ReferenceKey:", active.referenceKey);
+      // eslint-disable-next-line no-console
+      console.log("Source:", session.referenceKeySource || "unknown");
+      // eslint-disable-next-line no-console
+      console.log("==================================");
+
+      // Pass saved pidOptions XML directly to RD Service
+      const capture = await captureWithLocation({
+        pidOptionsXml: active.pidOptions,
+        wadh: active.pidOptionWadh || undefined,
+      });
+
+      // Do NOT fetch profile / pid-options after capture
       onSubmit({
         pidData: capture.pidData,
         latitude: capture.latitude,
         longitude: capture.longitude,
         captureType: mode,
         consentTaken: "Y",
+        referenceKey: active.referenceKey,
       });
     } catch (error) {
+      // Capture failure → keep session for retry (requirement #9)
       setLocalError(
         error instanceof Error ? error.message : "Fingerprint capture failed."
       );
@@ -123,7 +260,7 @@ export default function BioAuthDialog({
   };
 
   return (
-    <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={busy ? undefined : handleClose} fullWidth maxWidth="sm">
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1.5, pb: 1 }}>
         <Box
           sx={{
@@ -144,16 +281,15 @@ export default function BioAuthDialog({
             Biometric Authentication
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Select scanner, connect and capture fingerprint
+            pid-options once → RD capture → eKYC
           </Typography>
         </Box>
-        <IconButton onClick={onClose} disabled={busy} size="small">
+        <IconButton onClick={handleClose} disabled={busy} size="small">
           <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>
 
       <DialogContent dividers>
-        {/* Step 1: Device selection */}
         <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
           Step 1 · Select Device
         </Typography>
@@ -194,7 +330,6 @@ export default function BioAuthDialog({
           })}
         </Box>
 
-        {/* Step 2: Connection status */}
         <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
           Step 2 · Scanner Status
         </Typography>
@@ -235,22 +370,9 @@ export default function BioAuthDialog({
           </Button>
         </Box>
 
-        {/* Step 3: Capture */}
         <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
           Step 3 · Capture
         </Typography>
-
-        {/* <Box sx={{ display: "flex", gap: 1, mt: 1, mb: 2 }}>
-          <Button
-            fullWidth
-            variant={mode === "FINGER" ? "contained" : "outlined"}
-            startIcon={<FingerprintIcon />}
-            onClick={() => setMode("FINGER")}
-            disabled={busy}
-          >
-            Fingerprint
-          </Button>
-        </Box> */}
 
         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", py: 1 }}>
           <Box
@@ -288,11 +410,15 @@ export default function BioAuthDialog({
             )}
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-            {isCapturing
-              ? "Place finger on the scanner..."
-              : isFetchingLocation
-                ? "Fetching location..."
-                : "Tap to capture"}
+            {loadingPidOptions
+              ? "Loading InstantPay pid-options (once)..."
+              : isCapturing
+                ? "Place finger on the scanner..."
+                : isFetchingLocation
+                  ? "Fetching location..."
+                  : session.isActive
+                    ? "Tap to capture (session ready — retry reuses same key)"
+                    : "Tap to capture"}
           </Typography>
         </Box>
 
@@ -320,19 +446,19 @@ export default function BioAuthDialog({
       </DialogContent>
 
       <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button onClick={onClose} disabled={busy} color="inherit">
+        <Button onClick={handleClose} disabled={busy} color="inherit">
           Cancel
         </Button>
         <Button
           variant="contained"
           size="large"
           onClick={handleCapture}
-          disabled={busy || !consent}
+          disabled={busy || !consent || !mobile.trim()}
           startIcon={
             busy ? <CircularProgress size={16} color="inherit" /> : <FingerprintIcon />
           }
         >
-          {mode === "FACE" ? "Start Face Auth" : "Capture Fingerprint"}
+          Capture Fingerprint
         </Button>
       </DialogActions>
     </Dialog>

@@ -4,11 +4,17 @@ import {
   RD_SERVICE_HOSTS,
   RD_SERVICE_PATHS,
   RD_SERVICE_PORTS,
-  RD_SERVICE_PROTOCOLS,
 } from "@/src/constants/aepsApi";
 import { rdError, rdLog, rdLogAttempt, rdLogResult, rdWarn } from "@/src/lib/rdServiceLogger";
 import { formatGeoLocation } from "@/src/lib/geoUtils";
 import { assertPidCaptureXml } from "@/src/lib/pidParser";
+import {
+  formatLocalRdProxyError,
+  getPreferredRdProtocols,
+  isLocalAppHost,
+  MANTRA_RD_SETUP_HELP,
+} from "@/src/lib/biometric/rdLocalUtils";
+import { buildRdPidOptionsXml } from "@/src/lib/biometric/pidOptions";
 import type { AepsPidCaptureResult, PidCaptureOptions, RdServiceStatus } from "@/src/types/aeps";
 
 /** Custom HTTP methods per UIDAI / Mantra RD Service specification */
@@ -332,7 +338,10 @@ export async function discoverRDService(
 ): Promise<RdDiscoveredEndpoint | null> {
   rdLog("Starting RD Service discovery ...");
 
-  for (const protocol of RD_SERVICE_PROTOCOLS) {
+  const protocols = getPreferredRdProtocols();
+  rdLog("Protocol order", { protocols: [...protocols] });
+
+  for (const protocol of protocols) {
     rdLog(`Trying ${protocol.toUpperCase()} protocol ...`);
 
     for (const host of RD_SERVICE_HOSTS) {
@@ -371,17 +380,9 @@ async function resolveEndpoint(
 }
 
 function buildPidOptions(options: PidCaptureOptions = {}): string {
-  const env = options.env ?? "P";
-  const wadh = options.wadh?.trim();
-  const wadhAttr = wadh ? ` wadh="${wadh}"` : "";
-
-  return `<?xml version="1.0"?>
-<PidOptions ver="1.0">
-  <Opts fCount="1" fType="2" iCount="0" pCount="0" format="0" pidVer="2.0" timeout="20000" posh="UNKNOWN" env="${env}"${wadhAttr} />
-  <CustOpts>
-    <Param name="mantrakey" value="" />
-  </CustOpts>
-</PidOptions>`;
+  const prebuilt = options.pidOptionsXml?.trim();
+  if (prebuilt) return prebuilt;
+  return buildRdPidOptionsXml({ wadh: options.wadh?.trim() ?? "" });
 }
 
 function emptyStatus(error: string | null = null): RdServiceStatus {
@@ -765,7 +766,12 @@ async function captureFingerprintViaLocalProxy(
   };
 
   if (!response.ok || !payload.success || !payload.body) {
-    throw new Error(payload.error || "Local RD capture proxy failed.");
+    throw new Error(
+      formatLocalRdProxyError(
+        payload.error || "Local RD capture proxy failed.",
+        payload.url || captureUrls[0]
+      )
+    );
   }
 
   return {
@@ -848,17 +854,30 @@ export async function captureFingerprint(
   try {
     return await tryCaptureAtUrls(captureUrls, pidOptionsXml, options);
   } catch (browserError) {
-    rdWarn("Browser CAPTURE failed — trying local RD proxy", { error: browserError });
-  }
+    rdWarn("Browser CAPTURE failed", { error: browserError });
 
-  try {
-    const proxyResponse = await captureFingerprintViaLocalProxy(endpoint, pidOptionsXml);
-    return parseCaptureResponse(proxyResponse, options);
-  } catch (proxyError) {
-    rdError("Capture Failed — browser and proxy attempts exhausted", { error: proxyError });
-    throw proxyError instanceof Error
-      ? proxyError
-      : new Error("Fingerprint capture failed.");
+    // Server-side 127.0.0.1 proxy only works when Next.js runs on the same PC as RD
+    if (isLocalAppHost()) {
+      try {
+        rdLog("Trying local RD proxy (same-PC only)");
+        const proxyResponse = await captureFingerprintViaLocalProxy(
+          endpoint,
+          pidOptionsXml
+        );
+        return parseCaptureResponse(proxyResponse, options);
+      } catch (proxyError) {
+        rdError("Capture Failed — browser and proxy attempts exhausted", {
+          error: proxyError,
+        });
+        throw proxyError instanceof Error
+          ? proxyError
+          : new Error(`Fingerprint capture failed. ${MANTRA_RD_SETUP_HELP}`);
+      }
+    }
+
+    throw browserError instanceof Error
+      ? new Error(`${browserError.message} ${MANTRA_RD_SETUP_HELP}`)
+      : new Error(`Fingerprint capture failed. ${MANTRA_RD_SETUP_HELP}`);
   }
 }
 

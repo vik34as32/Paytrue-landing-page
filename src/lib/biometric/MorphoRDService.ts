@@ -4,7 +4,6 @@ import {
   RD_SERVICE_HOSTS,
   RD_SERVICE_PATHS,
   RD_SERVICE_PORTS,
-  RD_SERVICE_PROTOCOLS,
 } from "@/src/constants/aepsApi";
 import {
   rdCaptureRequest,
@@ -15,6 +14,14 @@ import {
   type RdRequestResult,
 } from "@/src/lib/rdService";
 import { isMorphoCandidateRdXml, isMorphoRdXml } from "@/src/lib/biometric/vendorFilters";
+import {
+  formatLocalRdProxyError,
+  formatMorphoRdError,
+  getPreferredRdProtocols,
+  isLocalAppHost,
+  MORPHO_RD_SETUP_HELP,
+} from "@/src/lib/biometric/rdLocalUtils";
+import { buildRdPidOptionsXml } from "@/src/lib/biometric/pidOptions";
 import { bioError, bioLog, bioLogAttempt, bioWarn } from "@/src/lib/biometric/biometricLogger";
 import { assertPidCaptureXml } from "@/src/lib/pidParser";
 import type { AepsPidCaptureResult, PidCaptureOptions, RdServiceStatus } from "@/src/types/aeps";
@@ -80,25 +87,25 @@ function isRdServiceXml(body: string): boolean {
 
 /**
  * Morpho Interface paths may be absolute host paths e.g. /127.0.0.1:11100/capture
+ * Preserve the discovered protocol (https preferred on HTTPS portals).
  */
 export function resolveMorphoRdUrl(baseUrl: string, path: string): string {
   if (!path) return `${baseUrl}${RD_SERVICE_PATHS.capture}`;
   if (/^https?:\/\//i.test(path)) return path;
+
+  const protocol = /^https:/i.test(baseUrl) ? "https" : "http";
+
   if (/^\/127\.0\.0\.1:\d+/i.test(path) || /^\/localhost:\d+/i.test(path)) {
-    return `http://${path.slice(1)}`;
+    return `${protocol}://${path.slice(1)}`;
   }
+
   return `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 function buildMorphoPidOptions(options: PidCaptureOptions = {}): string {
-  const env = options.env ?? "P";
-  const wadh = options.wadh?.trim();
-  const wadhAttr = wadh ? ` wadh="${wadh}"` : "";
-
-  return `<?xml version="1.0"?>
-<PidOptions ver="1.0">
-  <Opts fCount="1" fType="2" iCount="0" pCount="0" format="0" pidVer="2.0" timeout="20000" posh="UNKNOWN" env="${env}"${wadhAttr} />
-</PidOptions>`;
+  const prebuilt = options.pidOptionsXml?.trim();
+  if (prebuilt) return prebuilt;
+  return buildRdPidOptionsXml({ wadh: options.wadh?.trim() ?? "" });
 }
 
 function mapServiceStatusToFlags(serviceStatus: string): {
@@ -258,7 +265,10 @@ export async function discoverMorphoRDService(
     return cachedEndpoint;
   }
 
-  for (const protocol of RD_SERVICE_PROTOCOLS) {
+  const protocols = getPreferredRdProtocols();
+  bioLog(DEVICE_TYPE, "Protocol order", { protocols: [...protocols] });
+
+  for (const protocol of protocols) {
     bioLog(DEVICE_TYPE, `Trying ${protocol.toUpperCase()} ...`);
     for (const host of RD_SERVICE_HOSTS) {
       for (const port of RD_SERVICE_PORTS) {
@@ -338,7 +348,7 @@ export async function checkMorphoRDService(forceRefresh = false): Promise<RdServ
 
   if (!endpoint) {
     return emptyStatus(
-      "Morpho RD Service not installed or not running. Install Morpho MSO 1300 E3 RD L1 (ports 11100–11105)."
+      `Morpho RD Service not installed or not running. ${MORPHO_RD_SETUP_HELP}`
     );
   }
 
@@ -427,7 +437,9 @@ async function captureMorphoViaLocalProxy(
   pidOptionsXml: string
 ): Promise<AepsPidCaptureResult> {
   const captureUrls = buildMorphoCaptureUrls(endpoint);
-  bioLog(DEVICE_TYPE, "Trying local RD capture proxy", { captureUrls });
+  bioLog(DEVICE_TYPE, "Trying local RD capture proxy (same-PC only)", {
+    captureUrls,
+  });
 
   const response = await fetch("/api/local-rd/capture", {
     method: "POST",
@@ -446,7 +458,12 @@ async function captureMorphoViaLocalProxy(
   };
 
   if (!response.ok || !payload.success || !payload.body) {
-    throw new Error(payload.error || "Local Morpho RD capture proxy failed.");
+    throw new Error(
+      formatLocalRdProxyError(
+        payload.error || "Local Morpho RD capture proxy failed.",
+        payload.url || captureUrls[0]
+      )
+    );
   }
 
   const pidXml = payload.body.trim();
@@ -462,6 +479,22 @@ async function captureMorphoViaLocalProxy(
   };
 }
 
+/** Browser CAPTURE, then POST — Morpho L1 builds vary on verb support. */
+async function browserMorphoCapture(
+  captureUrl: string,
+  pidOptionsXml: string
+): Promise<RdRequestResult> {
+  try {
+    return await rdCaptureRequest(captureUrl, pidOptionsXml, RD_CAPTURE_TIMEOUT_MS);
+  } catch (captureError) {
+    bioWarn(DEVICE_TYPE, "CAPTURE verb failed — trying POST", {
+      url: captureUrl,
+      error: captureError instanceof Error ? captureError.message : captureError,
+    });
+    return rdXhrRequest("POST", captureUrl, pidOptionsXml, RD_CAPTURE_TIMEOUT_MS);
+  }
+}
+
 export async function captureMorphoFingerprint(
   forceRefresh = false,
   options: PidCaptureOptions = {}
@@ -471,9 +504,7 @@ export async function captureMorphoFingerprint(
   const endpoint = await resolveEndpoint(forceRefresh);
   if (!endpoint) {
     bioError(DEVICE_TYPE, "Capture Failed — Morpho RD Service not discovered");
-    throw new Error(
-      "Morpho RD Service not found. Ensure Morpho RD L1 service is running."
-    );
+    throw new Error(formatMorphoRdError(null, `Morpho RD Service not found. ${MORPHO_RD_SETUP_HELP}`));
   }
 
   const pidOptionsXml = buildMorphoPidOptions(options);
@@ -481,19 +512,16 @@ export async function captureMorphoFingerprint(
   let lastError: Error | null = null;
 
   for (const captureUrl of captureUrls) {
-    bioLog(DEVICE_TYPE, "Sending CAPTURE request", { url: captureUrl });
+    bioLog(DEVICE_TYPE, "Sending Morpho capture request", { url: captureUrl });
     try {
-      const response = await rdCaptureRequest(
-        captureUrl,
-        pidOptionsXml,
-        RD_CAPTURE_TIMEOUT_MS
-      );
+      const response = await browserMorphoCapture(captureUrl, pidOptionsXml);
       const pidXml = (response.body || "").trim();
 
       if (pidXml && /<\s*PidData\b/i.test(pidXml)) {
         assertPidCaptureXml(pidXml);
         bioLog(DEVICE_TYPE, "Capture Success — PID XML received", {
           url: captureUrl,
+          method: response.method,
           pidLength: pidXml.length,
           hasWadh: Boolean(options.wadh?.trim()),
         });
@@ -519,22 +547,38 @@ export async function captureMorphoFingerprint(
     } catch (error) {
       lastError =
         error instanceof Error ? error : new Error("Morpho capture failed.");
-      bioError(DEVICE_TYPE, "Capture Failed", { url: captureUrl, error: lastError.message });
+      bioError(DEVICE_TYPE, "Capture Failed", {
+        url: captureUrl,
+        error: lastError.message,
+      });
     }
   }
 
-  try {
-    return await captureMorphoViaLocalProxy(endpoint, pidOptionsXml);
-  } catch (proxyError) {
-    bioError(DEVICE_TYPE, "Capture Failed — browser and proxy attempts exhausted", {
-      error: proxyError,
-    });
-    throw (
-      (proxyError instanceof Error ? proxyError : null) ??
-      lastError ??
-      new Error("Morpho capture failed.")
-    );
+  // Server proxy only works when Next.js runs on the same PC as Morpho RD
+  // (local next dev). On production/cloud it always ECONNREFUSED 127.0.0.1.
+  if (isLocalAppHost()) {
+    try {
+      return await captureMorphoViaLocalProxy(endpoint, pidOptionsXml);
+    } catch (proxyError) {
+      bioError(DEVICE_TYPE, "Capture Failed — browser and local proxy exhausted", {
+        error: proxyError,
+      });
+      throw new Error(
+        formatMorphoRdError(
+          proxyError,
+          lastError?.message || `Morpho capture failed. ${MORPHO_RD_SETUP_HELP}`
+        )
+      );
+    }
   }
+
+  bioError(DEVICE_TYPE, "Capture Failed — browser attempts exhausted (proxy skipped on remote host)");
+  throw new Error(
+    formatMorphoRdError(
+      lastError,
+      `Morpho capture failed from browser. ${MORPHO_RD_SETUP_HELP}`
+    )
+  );
 }
 
 export default {

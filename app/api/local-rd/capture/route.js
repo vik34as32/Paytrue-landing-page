@@ -2,7 +2,23 @@ import http from "http";
 import https from "https";
 import { NextResponse } from "next/server";
 
-function rdCaptureNode(url, pidOptions) {
+function formatProxyError(error, url) {
+  const message =
+    error instanceof Error ? error.message : String(error || "Local RD capture failed.");
+
+  if (/ECONNREFUSED/i.test(message)) {
+    return [
+      `Cannot reach RD Service at ${url || "127.0.0.1:11100"}.`,
+      "Morpho/Mantra RD Service must run on the retailer's PC (same machine as the browser), not on the application server.",
+      "Start Morpho RD L1 / Mantra L1 AVDM (ports 11100–11105).",
+      "If the portal is HTTPS, open https://127.0.0.1:11100 in Chrome once and accept the certificate, then retry.",
+    ].join(" ");
+  }
+
+  return message;
+}
+
+function rdCaptureNode(url, pidOptions, method = "CAPTURE") {
   return new Promise((resolve, reject) => {
     let parsed;
     try {
@@ -19,12 +35,14 @@ function rdCaptureNode(url, pidOptions) {
         hostname: parsed.hostname,
         port: parsed.port || (parsed.protocol === "https:" ? 443 : 80),
         path: `${parsed.pathname}${parsed.search}`,
-        method: "CAPTURE",
+        method,
         headers: {
-          "Content-Type": "application/xml",
+          "Content-Type": "text/xml; charset=UTF-8",
           "Content-Length": Buffer.byteLength(body),
         },
         timeout: 30_000,
+        // Morpho/Mantra local HTTPS uses a self-signed RD certificate
+        rejectUnauthorized: false,
       },
       (response) => {
         let data = "";
@@ -36,6 +54,7 @@ function rdCaptureNode(url, pidOptions) {
             url,
             status: response.statusCode || 0,
             body: data,
+            method,
           });
         });
       }
@@ -74,27 +93,30 @@ export async function POST(request) {
   let lastError = "Local RD capture failed.";
 
   for (const url of captureUrls) {
-    try {
-      const result = await rdCaptureNode(url, pidOptions);
-      const body = String(result.body || "").trim();
+    for (const method of ["CAPTURE", "POST"]) {
+      try {
+        const result = await rdCaptureNode(url, pidOptions, method);
+        const body = String(result.body || "").trim();
 
-      if (result.status === 405) {
-        lastError = `Capture rejected on ${url} (405 Method Not Allowed).`;
-        continue;
+        if (result.status === 405) {
+          lastError = `Capture rejected on ${url} (${method} → 405 Method Not Allowed).`;
+          continue;
+        }
+
+        if (body && /<\s*PidData\b/i.test(body)) {
+          return NextResponse.json({
+            success: true,
+            url,
+            body,
+            method,
+          });
+        }
+
+        lastError =
+          body || `Capture failed on ${url} (${method}, HTTP ${result.status}).`;
+      } catch (error) {
+        lastError = formatProxyError(error, url);
       }
-
-      if (body && /<\s*PidData\b/i.test(body)) {
-        return NextResponse.json({
-          success: true,
-          url,
-          body,
-        });
-      }
-
-      lastError = body || `Capture failed on ${url} (HTTP ${result.status}).`;
-    } catch (error) {
-      lastError =
-        error instanceof Error ? error.message : "Local RD capture request failed.";
     }
   }
 

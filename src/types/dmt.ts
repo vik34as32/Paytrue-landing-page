@@ -15,6 +15,8 @@ export interface DmtSender {
   dailyUsed?: number;
   monthlyUsed?: number;
   isVerified: boolean;
+  /** InstantPay WADH from remitter/check */
+  pidOptionWadh?: string;
 }
 
 export interface DmtBeneficiary {
@@ -81,6 +83,8 @@ export interface CheckSenderResponse {
   exists: boolean;
   sender?: DmtSender | null;
   referenceKey?: string;
+  /** InstantPay WADH for RD PidOptions */
+  pidOptionWadh?: string;
 }
 
 export interface RegisterSenderPayload {
@@ -180,7 +184,8 @@ export interface TransferInitResponse {
 
 export interface RemitterEkycPayload {
   mobile: string;
-  referenceKey?: string;
+  /** MUST be from GET /dmt/remitter/:mobile/pid-options */
+  referenceKey: string;
   latitude: string;
   longitude: string;
   externalRef?: string;

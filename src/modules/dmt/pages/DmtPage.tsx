@@ -278,11 +278,13 @@ export default function DmtPage() {
       {showBioAuth ? (
         <BioAuthDialog
           open={bioModalOpen}
+          mobile={sender.mobile}
           loading={loading}
           onClose={() => setBioModalOpen(false)}
           onSubmit={(payload) => {
+            // Close UI only — eKYC session cleared on success/cancel/expiry, not here
             setBioModalOpen(false);
-            bioAuth(payload);
+            void bioAuth(payload);
           }}
         />
       ) : null}

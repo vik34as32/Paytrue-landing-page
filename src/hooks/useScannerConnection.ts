@@ -5,6 +5,11 @@ import { useSelector } from "react-redux";
 import { getProvider } from "@/src/lib/biometric/BiometricFactory";
 import { clearAllProviderCaches } from "@/src/lib/biometric/BiometricFactory";
 import { bioLog } from "@/src/lib/biometric/biometricLogger";
+import {
+  formatMorphoRdError,
+  MANTRA_RD_SETUP_HELP,
+  MORPHO_RD_SETUP_HELP,
+} from "@/src/lib/biometric/rdLocalUtils";
 import { useRDService, type UseRDServiceOptions } from "@/src/hooks/useRDService";
 import { selectAepsSelectedDevice } from "@/src/redux/slices/aepsSlice";
 import type { BiometricDeviceType } from "@/src/types/biometric";
@@ -59,8 +64,8 @@ export function useScannerConnection(
       if (!rdStatus?.isRunning) {
         const msg =
           device === "MORPHO"
-            ? "Morpho RD Service not found. Start Morpho RD L1 application."
-            : "Mantra RD Service not found. Plug in scanner, start Mantra L1 AVDM, then retry.";
+            ? `Morpho RD Service not found. ${MORPHO_RD_SETUP_HELP}`
+            : `Mantra RD Service not found. ${MANTRA_RD_SETUP_HELP}`;
         throw new Error(msg);
       }
 
@@ -97,7 +102,14 @@ export function useScannerConnection(
         error: null,
       };
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : "Unable to connect scanner.";
+      const errMsg =
+        device === "MORPHO"
+          ? formatMorphoRdError(err)
+          : err instanceof Error
+            ? /ECONNREFUSED/i.test(err.message)
+              ? `Mantra RD Service is not reachable. ${MANTRA_RD_SETUP_HELP}`
+              : err.message
+            : "Unable to connect scanner.";
       setConnectionState("error");
       setError(errMsg);
       setMessage("");

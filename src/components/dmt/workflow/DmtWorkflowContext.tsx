@@ -23,6 +23,7 @@ interface WorkflowState {
   step: number;
   mobile: string;
   referenceKey: string;
+  pidOptionWadh: string;
   sender: DmtSender | null;
   selectedBeneficiary: DmtBeneficiary | null;
   transferReference: string;
@@ -31,6 +32,7 @@ interface WorkflowState {
 interface WorkflowContextValue extends WorkflowState {
   setMobile: (mobile: string) => void;
   setReferenceKey: (key: string) => void;
+  setPidOptionWadh: (wadh: string) => void;
   setSender: (sender: DmtSender | null) => void;
   setSelectedBeneficiary: (beneficiary: DmtBeneficiary | null) => void;
   setTransferReference: (reference: string) => void;
@@ -46,6 +48,7 @@ export function DmtWorkflowProvider({ children }: { children: ReactNode }) {
   const [step, setStep] = useState<number>(STEP.SEARCH);
   const [mobile, setMobile] = useState("");
   const [referenceKey, setReferenceKey] = useState("");
+  const [pidOptionWadh, setPidOptionWadh] = useState("");
   const [sender, setSender] = useState<DmtSender | null>(null);
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<DmtBeneficiary | null>(null);
   const [transferReference, setTransferReference] = useState("");
@@ -55,11 +58,13 @@ export function DmtWorkflowProvider({ children }: { children: ReactNode }) {
       step,
       mobile,
       referenceKey,
+      pidOptionWadh,
       sender,
       selectedBeneficiary,
       transferReference,
       setMobile,
       setReferenceKey,
+      setPidOptionWadh,
       setSender,
       setSelectedBeneficiary,
       setTransferReference,
@@ -70,12 +75,13 @@ export function DmtWorkflowProvider({ children }: { children: ReactNode }) {
         setStep(STEP.SEARCH);
         setMobile("");
         setReferenceKey("");
+        setPidOptionWadh("");
         setSender(null);
         setSelectedBeneficiary(null);
         setTransferReference("");
       },
     }),
-    [step, mobile, referenceKey, sender, selectedBeneficiary, transferReference]
+    [step, mobile, referenceKey, pidOptionWadh, sender, selectedBeneficiary, transferReference]
   );
 
   return <DmtWorkflowContext.Provider value={value}>{children}</DmtWorkflowContext.Provider>;

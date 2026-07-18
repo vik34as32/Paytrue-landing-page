@@ -14,6 +14,7 @@ export function getActiveSenderMobile(): string {
 }
 
 const DMT_SENDER_REF_KEY = "dmt_sender_reference_key";
+const DMT_SENDER_WADH_KEY = "dmt_sender_pid_option_wadh";
 
 export function setSenderReferenceKey(referenceKey: string): void {
   if (typeof window === "undefined") return;
@@ -30,6 +31,24 @@ export function getSenderReferenceKey(): string {
 export function clearSenderReferenceKey(): void {
   if (typeof window === "undefined") return;
   sessionStorage.removeItem(DMT_SENDER_REF_KEY);
+}
+
+export function setSenderPidOptionWadh(wadh: string): void {
+  if (typeof window === "undefined") return;
+  const value = String(wadh || "").trim();
+  if (value) {
+    sessionStorage.setItem(DMT_SENDER_WADH_KEY, value);
+  }
+}
+
+export function getSenderPidOptionWadh(): string {
+  if (typeof window === "undefined") return "";
+  return sessionStorage.getItem(DMT_SENDER_WADH_KEY) || "";
+}
+
+export function clearSenderPidOptionWadh(): void {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(DMT_SENDER_WADH_KEY);
 }
 
 export function getBeneficiaryReferenceKey(beneficiaryId: string): string {
@@ -83,5 +102,6 @@ export function clearDmtSessionStorage(): void {
   keysToRemove.forEach((key) => sessionStorage.removeItem(key));
   sessionStorage.removeItem(DMT_SENDER_MOBILE_KEY);
   sessionStorage.removeItem(DMT_SENDER_REF_KEY);
+  sessionStorage.removeItem(DMT_SENDER_WADH_KEY);
   sessionStorage.removeItem("dmt_transaction_reference_key");
 }

@@ -22,6 +22,12 @@ export interface DmtWorkflowResponse<T = Record<string, unknown>> {
   message?: string;
   data?: T;
   referenceKey?: string;
+  /** Prefer this when present on verify-otp success payloads */
+  verifyReferenceKey?: string;
+  /** InstantPay WADH for RD PidOptions (from remitter/check metadata) */
+  pidOptionWadh?: string;
+  /** Full PidOptions XML when returned by remitter check/profile */
+  pidOptions?: string;
   sender?: DmtSender;
   beneficiary?: DmtBeneficiary;
   beneficiaries?: DmtBeneficiary[];
@@ -45,6 +51,8 @@ export interface DmtSender {
   beneficiaryCount?: number;
   dailyLimit?: number;
   monthlyLimit?: number;
+  /** InstantPay WADH from remitter/check */
+  pidOptionWadh?: string;
 }
 
 export interface DmtBeneficiary {
@@ -96,7 +104,8 @@ export interface VerifySenderOtpRequest {
 
 export interface BioAuthRequest {
   mobile: string;
-  referenceKey?: string;
+  /** MUST be referenceKey from GET .../pid-options (never OTP/register key) */
+  referenceKey: string;
   latitude: string;
   longitude: string;
   consentTaken: "Y" | "N";

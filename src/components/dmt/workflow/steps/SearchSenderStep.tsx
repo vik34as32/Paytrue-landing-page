@@ -23,6 +23,8 @@ import {
   useVerifyRemitterOtp,
 } from "@/src/hooks/useDmt";
 import {
+  clearSenderPidOptionWadh,
+  clearSenderReferenceKey,
   setActiveSenderMobile,
   setSenderReferenceKey,
 } from "@/src/lib/dmtSession";
@@ -76,6 +78,7 @@ export default function SearchSenderStep() {
       setReferenceKey(result.referenceKey);
       setSenderReferenceKey(result.referenceKey);
     }
+    // eKYC referenceKey + pidOptionWadh come ONLY from GET .../pid-options
     return result;
   };
 
@@ -140,7 +143,7 @@ export default function SearchSenderStep() {
     }
   };
 
-  /** STEP 3 — POST /remitter/verify-otp → auto re-check → open profile */
+  /** STEP 3 — POST /remitter/verify-otp → clear old key → re-check → open profile */
   const onVerifyOtp = async (otp: string) => {
     const mobileValue = searchForm.getValues("mobile");
     try {
@@ -152,7 +155,12 @@ export default function SearchSenderStep() {
       toast.success("Sender verified");
       setOtpOpen(false);
 
-      // Automatically call remitter/check again
+      // InstantPay invalidates the pre-OTP referenceKey — never reuse it
+      setReferenceKey("");
+      clearSenderReferenceKey();
+      clearSenderPidOptionWadh();
+
+      // Automatically call remitter/check again for a fresh referenceKey
       const result = await runCheck(mobileValue);
       if (result.exists && result.sender) {
         setSender(result.sender);

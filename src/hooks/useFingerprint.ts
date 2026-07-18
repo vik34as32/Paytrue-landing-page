@@ -5,6 +5,10 @@ import { useSelector } from "react-redux";
 import { getProvider } from "@/src/lib/biometric/BiometricFactory";
 import { getCurrentLocation } from "@/src/lib/rdService";
 import { bioError, bioLog } from "@/src/lib/biometric/biometricLogger";
+import {
+  formatMorphoRdError,
+  MANTRA_RD_SETUP_HELP,
+} from "@/src/lib/biometric/rdLocalUtils";
 import { useRDService, type UseRDServiceOptions } from "@/src/hooks/useRDService";
 import { selectAepsSelectedDevice } from "@/src/redux/slices/aepsSlice";
 import type { BiometricDeviceType } from "@/src/types/biometric";
@@ -51,9 +55,13 @@ export function useFingerprint(options: UseRDServiceOptions = {}) {
         bioError(device, "RD Service Not Found — cannot capture");
         const fallbackMessage =
           device === "MORPHO"
-            ? "Morpho RD Service not found. Ensure Morpho RD L1 is running."
-            : "Mantra RD Service not found. Ensure Mantra L1 AVDM is running.";
-        throw new Error(rdStatus.error || fallbackMessage);
+            ? formatMorphoRdError(rdStatus.error)
+            : rdStatus.error || `Mantra RD Service not found. ${MANTRA_RD_SETUP_HELP}`;
+        throw new Error(
+          device === "MORPHO"
+            ? fallbackMessage
+            : rdStatus.error || fallbackMessage
+        );
       }
 
       bioLog(device, "RD Service is running — proceeding to fingerprint capture", {
@@ -73,20 +81,27 @@ export function useFingerprint(options: UseRDServiceOptions = {}) {
       return result;
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Fingerprint capture failed.";
+        device === "MORPHO"
+          ? formatMorphoRdError(error)
+          : error instanceof Error
+            ? error.message
+            : "Fingerprint capture failed.";
       bioError(device, "Capture Failed", message);
-      throw error;
+      throw new Error(message);
     } finally {
       setIsCapturing(false);
     }
   }, [device, refresh]);
 
-  const captureWithLocation = useCallback(async () => {
-    bioLog(device, "Start flow — location + fingerprint capture");
-    const coords = location ?? (await fetchLocation());
-    const pid = await capture();
-    return { ...coords, pidData: pid.pidData, capture: pid };
-  }, [capture, device, fetchLocation, location]);
+  const captureWithLocation = useCallback(
+    async (options?: PidCaptureOptions) => {
+      bioLog(device, "Start flow — location + fingerprint capture");
+      const coords = location ?? (await fetchLocation());
+      const pid = await capture(options);
+      return { ...coords, pidData: pid.pidData, capture: pid };
+    },
+    [capture, device, fetchLocation, location]
+  );
 
   return {
     rdStatus: status,

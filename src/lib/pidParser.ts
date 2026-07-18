@@ -145,6 +145,29 @@ export function parsePidXmlToBiometricData(pidXml: string): AepsBiometricData {
   };
 }
 
+/**
+ * InstantPay Remitter eKYC biometricData shape.
+ * RD values unchanged; sessionKey is exposed as `Skey` per InstantPay schema.
+ * @see https://developers.instantpay.in/reference/remittance-domestic-remitter-ekyc
+ */
+export function buildInstantPayRemitterEkycBiometricData(pidXml: string) {
+  const parsed = parsePidXmlToBiometricData(pidXml);
+  return {
+    ci: parsed.ci,
+    hmac: parsed.hmac,
+    pidData: parsed.pidData,
+    ts: parsed.ts ?? "",
+    dc: parsed.dc,
+    mi: parsed.mi,
+    dpId: parsed.dpId,
+    mc: parsed.mc,
+    rdsId: parsed.rdsId,
+    rdsVer: parsed.rdsVer,
+    Skey: parsed.sessionKey,
+    srno: parsed.srno,
+  };
+}
+
 export function createAepsExternalRef(prefix = "AEPS"): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }

@@ -9,6 +9,8 @@ export const DMT_ENDPOINTS = {
   remitterVerifyOtp: "/dmt/remitter/verify-otp",
   verifySenderOtp: "/dmt/sender/verify-otp",
   remitterEkyc: "/dmt/remitter/ekyc",
+  remitterPidOptions: (mobile) =>
+    `/dmt/remitter/${encodeURIComponent(mobile)}/pid-options`,
   remitterByMobile: (mobile) => `/dmt/remitter/${encodeURIComponent(mobile)}`,
   senderByMobile: (mobile) => `/dmt/sender/${encodeURIComponent(mobile)}`,
   banks: "/dmt/banks",

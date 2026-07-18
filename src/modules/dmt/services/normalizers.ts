@@ -7,6 +7,12 @@ import type {
   DmtWorkflowResponse,
 } from "../types";
 import { DMT_NEXT_ACTIONS } from "../types";
+import {
+  extractPidOptionWadh,
+  extractPidOptionsXml,
+  buildRdPidOptionsXml,
+  logFrontendPidDebug,
+} from "@/src/lib/biometric/pidOptions";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -36,14 +42,19 @@ export function extractReferenceKey(...sources: unknown[]): string | undefined {
 
     const key = pickString(
       record.referenceKey,
+      record.verifyReferenceKey,
+      record.verify_reference_key,
       record.reference_key,
       record.requestId,
       record.request_id,
       nested.referenceKey,
+      nested.verifyReferenceKey,
+      nested.verify_reference_key,
       nested.reference_key,
       nested.requestId,
       nested.request_id,
       deepNested.referenceKey,
+      deepNested.verifyReferenceKey,
       deepNested.reference_key,
       deepNested.requestId,
       deepNested.request_id
@@ -92,6 +103,7 @@ export function normalizeSender(raw: Record<string, unknown> = {}): DmtSender {
   const lastName = pickString(raw.lastName, raw.last_name) ?? "";
   const name =
     pickString(raw.name, raw.fullName, `${firstName} ${lastName}`.trim()) ?? "Sender";
+  const pidOptionWadh = extractPidOptionWadh(raw, raw.metadata);
 
   return {
     id: pickString(raw.id, raw.senderId, raw._id),
@@ -109,6 +121,7 @@ export function normalizeSender(raw: Record<string, unknown> = {}): DmtSender {
     beneficiaryCount: Number(raw.beneficiaryCount ?? raw.beneficiary_count ?? 0) || 0,
     dailyLimit: Number(raw.dailyLimit ?? 0) || 0,
     monthlyLimit: Number(raw.monthlyLimit ?? 0) || 0,
+    pidOptionWadh,
   };
 }
 
@@ -385,6 +398,39 @@ export function normalizeWorkflowResponse(payload: unknown): DmtWorkflowResponse
     payload
   );
 
+  const pidOptionWadh = extractPidOptionWadh(
+    data,
+    nestedData,
+    root,
+    senderRaw,
+    payload
+  );
+
+  const pidOptionsFromApi = extractPidOptionsXml(data, nestedData, root, senderRaw, payload);
+  const pidOptions =
+    pidOptionsFromApi ||
+    (pidOptionWadh ? buildRdPidOptionsXml({ wadh: pidOptionWadh }) : undefined);
+
+  // Only emit PID debug on remitter/check-style responses that carry WADH or BIO_AUTH
+  const nextActionPreview = inferNextActionFromTransfer(
+    data,
+    root,
+    explicitNextAction,
+    Object.keys(transactionRaw).length ? normalizeTransaction(transactionRaw) : undefined
+  );
+  if (pidOptionWadh || pidOptions || nextActionPreview === "BIO_AUTH") {
+    logFrontendPidDebug({
+      flow: "normalizeWorkflowResponse (remitter/check)",
+      apiPidOptionWadh: pidOptionWadh ?? null,
+      reduxPidOptionWadh: null,
+      capturePidOptionWadh: null,
+      generatedXml: pidOptions ?? null,
+      undefinedAt: pidOptionWadh || pidOptions
+        ? null
+        : "normalizeWorkflowResponse — pidOptionWadh/pidOptions missing in remitter/check payload (checked data, nested data, root, sender, metadata)",
+    });
+  }
+
   const beneficiaries = normalizeBeneficiaryList(
     data.beneficiaries ? { beneficiaries: data.beneficiaries } : payload
   );
@@ -400,13 +446,22 @@ export function normalizeWorkflowResponse(payload: unknown): DmtWorkflowResponse
     transaction
   );
 
+  const sender = Object.keys(senderRaw).length
+    ? normalizeSender({
+        ...senderRaw,
+        ...(pidOptionWadh ? { pidOptionWadh } : {}),
+      })
+    : undefined;
+
   return {
     success: Boolean(root.success ?? data.success ?? true),
     nextAction,
     message: pickString(root.message, data.message),
     referenceKey,
+    pidOptionWadh,
+    pidOptions,
     data,
-    sender: Object.keys(senderRaw).length ? normalizeSender(senderRaw) : undefined,
+    sender,
     beneficiary: Object.keys(beneficiaryRaw).length
       ? normalizeBeneficiary(beneficiaryRaw)
       : undefined,

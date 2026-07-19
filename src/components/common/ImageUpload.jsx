@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Cropper from "react-easy-crop";
-import { Upload, X, Loader2, ImageIcon } from "lucide-react";
+import {
+  Upload,
+  X,
+  Loader2,
+  ImageIcon,
+  RotateCcw,
+  RotateCw,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,40 +21,18 @@ import {
 import { IMAGE_ACCEPT, MAX_IMAGE_SIZE_MB } from "@/src/constants/uploadConfig";
 import { validateImageFile } from "@/src/lib/fileValidation";
 
-async function getCroppedFile(imageSrc, pixelCrop, fileName = "cropped.jpg") {
-  const image = await createImage(imageSrc);
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas not supported");
+function getRadianAngle(degreeValue) {
+  return (degreeValue * Math.PI) / 180;
+}
 
-  canvas.width = pixelCrop.width;
-  canvas.height = pixelCrop.height;
-
-  ctx.drawImage(
-    image,
-    pixelCrop.x,
-    pixelCrop.y,
-    pixelCrop.width,
-    pixelCrop.height,
-    0,
-    0,
-    pixelCrop.width,
-    pixelCrop.height
-  );
-
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          reject(new Error("Failed to crop image"));
-          return;
-        }
-        resolve(new File([blob], fileName, { type: blob.type || "image/jpeg" }));
-      },
-      "image/jpeg",
-      0.92
-    );
-  });
+function rotateSize(width, height, rotation) {
+  const rotRad = getRadianAngle(rotation);
+  return {
+    width:
+      Math.abs(Math.cos(rotRad) * width) + Math.abs(Math.sin(rotRad) * height),
+    height:
+      Math.abs(Math.sin(rotRad) * width) + Math.abs(Math.cos(rotRad) * height),
+  };
 }
 
 function createImage(url) {
@@ -55,7 +40,70 @@ function createImage(url) {
     const img = new Image();
     img.addEventListener("load", () => resolve(img));
     img.addEventListener("error", reject);
+    img.crossOrigin = "anonymous";
     img.src = url;
+  });
+}
+
+async function getCroppedFile(
+  imageSrc,
+  pixelCrop,
+  rotation = 0,
+  fileName = "cropped.jpg"
+) {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not supported");
+
+  const rotRad = getRadianAngle(rotation);
+  const { width: bBoxWidth, height: bBoxHeight } = rotateSize(
+    image.width,
+    image.height,
+    rotation
+  );
+
+  canvas.width = Math.max(1, Math.round(bBoxWidth));
+  canvas.height = Math.max(1, Math.round(bBoxHeight));
+
+  ctx.translate(bBoxWidth / 2, bBoxHeight / 2);
+  ctx.rotate(rotRad);
+  ctx.translate(-image.width / 2, -image.height / 2);
+  ctx.drawImage(image, 0, 0);
+
+  const croppedCanvas = document.createElement("canvas");
+  const croppedCtx = croppedCanvas.getContext("2d");
+  if (!croppedCtx) throw new Error("Canvas not supported");
+
+  croppedCanvas.width = Math.max(1, Math.round(pixelCrop.width));
+  croppedCanvas.height = Math.max(1, Math.round(pixelCrop.height));
+
+  croppedCtx.drawImage(
+    canvas,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
+    0,
+    0,
+    croppedCanvas.width,
+    croppedCanvas.height
+  );
+
+  return new Promise((resolve, reject) => {
+    croppedCanvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error("Failed to crop image"));
+          return;
+        }
+        resolve(
+          new File([blob], fileName, { type: blob.type || "image/jpeg" })
+        );
+      },
+      "image/jpeg",
+      0.92
+    );
   });
 }
 
@@ -79,12 +127,20 @@ export default function ImageUpload({
   const [pendingFile, setPendingFile] = useState(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
 
   const onCropComplete = useCallback((_, pixels) => {
     setCroppedAreaPixels(pixels);
   }, []);
+
+  const resetCropState = () => {
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setRotation(0);
+    setCroppedAreaPixels(null);
+  };
 
   useEffect(() => {
     if (objectUrlRef.current) {
@@ -124,6 +180,7 @@ export default function ImageUpload({
       const url = URL.createObjectURL(selectedFile);
       setPendingFile(selectedFile);
       setCropSrc(url);
+      resetCropState();
       setCropOpen(true);
     } else {
       onChange?.(selectedFile);
@@ -147,7 +204,14 @@ export default function ImageUpload({
     if (cropSrc) URL.revokeObjectURL(cropSrc);
     setCropSrc(null);
     setPendingFile(null);
-    setCroppedAreaPixels(null);
+    resetCropState();
+  };
+
+  const rotateBy = (degrees) => {
+    setRotation((prev) => {
+      const next = (prev + degrees) % 360;
+      return next < 0 ? next + 360 : next;
+    });
   };
 
   const applyCrop = async () => {
@@ -157,12 +221,14 @@ export default function ImageUpload({
       const croppedFile = await getCroppedFile(
         cropSrc,
         croppedAreaPixels,
+        rotation,
         pendingFile?.name || "cropped.jpg"
       );
       onChange?.(croppedFile);
       closeCropDialog();
     } catch {
       setError("Failed to crop image");
+      toast.error("Failed to crop image");
     } finally {
       setLoading(false);
     }
@@ -171,13 +237,19 @@ export default function ImageUpload({
   return (
     <div className={`space-y-2 ${className}`}>
       {label && (
-        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{label}</p>
+        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          {label}
+        </p>
       )}
 
       {displaySrc ? (
         <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={displaySrc} alt="Preview" className="max-h-48 w-full object-contain" />
+          <img
+            src={displaySrc}
+            alt="Preview"
+            className="max-h-48 w-full object-contain"
+          />
           <div className="absolute right-2 top-2 flex gap-2">
             <Button
               type="button"
@@ -187,7 +259,12 @@ export default function ImageUpload({
             >
               Replace
             </Button>
-            <Button type="button" size="sm" variant="destructive" onClick={handleRemove}>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={handleRemove}
+            >
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -245,42 +322,100 @@ export default function ImageUpload({
           if (!open) closeCropDialog();
         }}
       >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ImageIcon className="h-5 w-5" />
+        <DialogContent className="max-w-md gap-0 overflow-hidden p-0 sm:rounded-2xl">
+          <DialogHeader className="border-b border-slate-100 px-4 py-3">
+            <DialogTitle className="flex items-center gap-2 text-base font-semibold text-[#0b1f3a]">
+              <ImageIcon className="h-4 w-4 text-[#1565d8]" />
               Crop Image
             </DialogTitle>
           </DialogHeader>
-          <div className="relative h-64 w-full bg-slate-900">
+
+          <div className="relative h-56 w-full bg-[#0f172a]">
             {cropSrc && (
               <Cropper
                 image={cropSrc}
                 crop={crop}
                 zoom={zoom}
-                aspect={1}
+                rotation={rotation}
+                aspect={undefined}
+                minZoom={0.5}
+                maxZoom={3}
                 onCropChange={setCrop}
                 onZoomChange={setZoom}
                 onCropComplete={onCropComplete}
+                showGrid
+                objectFit="contain"
+                restrictPosition={false}
               />
             )}
           </div>
-          <input
-            type="range"
-            min={1}
-            max={3}
-            step={0.1}
-            value={zoom}
-            onChange={(e) => setZoom(Number(e.target.value))}
-            className="w-full"
-          />
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={closeCropDialog}>
-              Cancel
-            </Button>
-            <Button type="button" onClick={applyCrop} disabled={loading}>
-              {loading ? "Processing..." : "Apply Crop"}
-            </Button>
+
+          <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/80 px-4 py-3">
+            <div className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                className="h-9 w-9 rounded-lg border-slate-200 bg-white shadow-sm"
+                onClick={() => rotateBy(-90)}
+                title="Rotate left 90°"
+                aria-label="Rotate left 90 degrees"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                className="h-9 w-9 rounded-lg border-slate-200 bg-white shadow-sm"
+                onClick={() => rotateBy(90)}
+                title="Rotate right 90°"
+                aria-label="Rotate right 90 degrees"
+              >
+                <RotateCw className="h-4 w-4" />
+              </Button>
+              <div className="ml-1 flex h-9 min-w-[7.5rem] items-center rounded-lg border border-slate-200 bg-white px-2.5 shadow-sm">
+                <input
+                  type="range"
+                  min={0.5}
+                  max={3}
+                  step={0.1}
+                  value={zoom}
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="w-full accent-[#1565d8]"
+                  aria-label="Zoom"
+                  title="Zoom"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-lg"
+                onClick={closeCropDialog}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 rounded-lg bg-[#1565d8] hover:bg-[#1257b8]"
+                onClick={applyCrop}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Saving
+                  </>
+                ) : (
+                  "Apply"
+                )}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

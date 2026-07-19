@@ -240,7 +240,7 @@ body {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 10mm;
+    margin: 8mm;
   }
 
   html,
@@ -252,7 +252,9 @@ body {
 
   .rt-sidebar,
   .rt-main-shell > header,
-  .receipt-no-print {
+  .receipt-no-print,
+  .receipt-payment-summary,
+  .receipt-print-hide {
     display: none !important;
   }
 
@@ -290,14 +292,33 @@ body {
     max-width: none !important;
     width: 100% !important;
     margin: 0 auto !important;
-    break-inside: avoid;
-    page-break-inside: avoid;
     overflow: visible !important;
   }
 
-  .receipt-print-area * {
-    break-inside: avoid;
-    page-break-inside: avoid;
+  .receipt-print-area .receipt-print-body {
+    padding: 6px 10px !important;
+  }
+
+  .receipt-print-area .space-y-4 > :not([hidden]) ~ :not([hidden]),
+  .receipt-print-area .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 6px !important;
+  }
+
+  .receipt-print-area .receipt-detail-icon {
+    display: none !important;
+  }
+
+  .receipt-print-area .receipt-detail-row {
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
+  }
+
+  .receipt-print-area .receipt-qr-mobile {
+    display: none !important;
+  }
+
+  .receipt-print-area .receipt-footer {
+    padding: 6px 10px !important;
   }
 }
 
@@ -357,6 +378,28 @@ body {
 .paytrue-cyan-datatable .rdt_TableBody,
 .paytrue-cyan-datatable .rdt_TableHead {
   overflow: visible !important;
+}
+
+/* Retailer list — keep Status / Action header labels fully visible */
+.retailer-list-datatable .rdt_Table {
+  min-width: 1600px !important;
+}
+
+.retailer-list-datatable .rdt_TableHeadRow .rdt_TableCol,
+.retailer-list-datatable .rdt_TableHeadRow .rdt_TableCol_Sortable {
+  background-color: #00aeef !important;
+  color: #ffffff !important;
+  overflow: visible !important;
+}
+
+.retailer-list-datatable .rdt_TableHeadRow .rdt_TableCol > *,
+.retailer-list-datatable .rdt_TableHeadRow .rdt_TableCol_Sortable > * {
+  color: #ffffff !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  overflow: visible !important;
+  white-space: nowrap !important;
+  max-width: none !important;
 }
 
 /* Statement table — one scroll container so header + body stay aligned */

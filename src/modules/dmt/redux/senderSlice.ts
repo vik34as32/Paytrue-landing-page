@@ -15,6 +15,11 @@ interface SenderState {
    */
   referenceKey: string;
   /**
+   * True only after remitter verify-otp succeeds.
+   * Bio/eKYC must not open until this is true.
+   */
+  otpVerified: boolean;
+  /**
    * Active eKYC materials. After verify-otp, `ekycReferenceKey` is locked to the
    * verify response and must NOT be replaced by later checkRemitter RNF keys.
    */
@@ -31,6 +36,7 @@ interface SenderState {
 const initialState: SenderState = {
   mobile: "",
   referenceKey: "",
+  otpVerified: false,
   ekycMobile: "",
   ekycReferenceKey: "",
   ekycReferenceKeySource: "",
@@ -60,6 +66,8 @@ const senderSlice = createSlice({
   reducers: {
     setSenderMobile(state, action: PayloadAction<string>) {
       state.mobile = action.payload;
+      // New mobile search — OTP not verified yet
+      state.otpVerified = false;
     },
     setSenderReferenceKey(state, action: PayloadAction<string>) {
       const value = String(action.payload || "").trim();
@@ -67,6 +75,9 @@ const senderSlice = createSlice({
     },
     clearSenderReferenceKey(state) {
       state.referenceKey = "";
+    },
+    setOtpVerified(state, action: PayloadAction<boolean>) {
+      state.otpVerified = Boolean(action.payload);
     },
     /**
      * Lock the verify-otp referenceKey as the active eKYC key.
@@ -84,6 +95,7 @@ const senderSlice = createSlice({
       state.ekycReferenceKey = referenceKey;
       state.ekycReferenceKeySource = "verify-otp";
       state.referenceKey = referenceKey;
+      state.otpVerified = true;
 
       // eslint-disable-next-line no-console -- InstantPay eKYC referenceKey debug
       console.log("==================================");
@@ -163,6 +175,7 @@ const senderSlice = createSlice({
       state.pidOptions = "";
       state.pidOptionWadh = "";
       state.referenceKey = "";
+      state.otpVerified = false;
     },
     setSenderPidOptionWadh(state, action: PayloadAction<string>) {
       const value = String(action.payload || "").trim();
@@ -182,6 +195,7 @@ export const {
   setSenderMobile,
   setSenderReferenceKey,
   clearSenderReferenceKey,
+  setOtpVerified,
   setVerifyOtpEkycReferenceKey,
   setEkycPidOptions,
   clearEkycSession,

@@ -31,7 +31,7 @@ import {
 import ChangePasswordDialog from "@/src/components/common/ChangePasswordDialog";
 import { selectUser } from "@/src/redux/slices/authSlice";
 import { selectProfileLoading } from "@/src/redux/slices/profileSlice";
-import { getUserDisplayName } from "@/src/lib/userUtils";
+import { getRetailerDisplayName } from "@/src/lib/userUtils";
 import { useLogout } from "@/src/hooks/useLogout";
 import VirtualCard from "./VirtualCard";
 
@@ -42,7 +42,7 @@ export default function ProfileDropdown() {
   const profileLoading = useSelector(selectProfileLoading);
   const logout = useLogout();
 
-  const displayName = getUserDisplayName(user, "Retailer");
+  const displayName = getRetailerDisplayName(user, "Retailer");
   const userId = user?.userId || user?.retailerId || user?.id || "—";
   const email = user?.email || "—";
   const initial = displayName.charAt(0).toUpperCase();

@@ -7,7 +7,7 @@ import WalletTransferForm from "@/src/components/wallet/WalletTransferForm";
 import TransferHistoryTable from "@/src/components/wallet/TransferHistoryTable";
 import WalletBalanceCard from "@/src/components/wallet/WalletBalanceCard";
 import { formatCurrency } from "@/lib/utils";
-import { getUserDisplayName } from "@/src/lib/userUtils";
+import { getRetailerDisplayName } from "@/src/lib/userUtils";
 import { RETAILER_USER } from "@/features/retailer/constants";
 import { fetchDistributors } from "@/src/redux/thunks/distributorThunk";
 import { fetchRetailers } from "@/src/redux/thunks/retailerThunk";
@@ -55,7 +55,7 @@ export default function RetailerWalletSection() {
 
       <WalletBalanceCard
         wallet={wallet}
-        userName={getUserDisplayName(user, RETAILER_USER.name)}
+        userName={getRetailerDisplayName(user, RETAILER_USER.name)}
         userId={user?.userId || RETAILER_USER.retailerId}
       />
 

@@ -10,11 +10,8 @@ import {
   FileText,
   Hash,
   Layers,
-  Percent,
   Phone,
-  Radio,
   Receipt,
-  Wallet,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import ReferenceCopyCell from "@/src/components/statement/ReferenceCopyCell";
@@ -32,6 +29,7 @@ interface DetailItem {
   valueClassName?: string;
 }
 
+/** Customer-facing fields only — no operator/service/commission/wallet. */
 export default function TransactionCard({ receipt }: TransactionCardProps) {
   const statusColor =
     receipt.status === "success"
@@ -41,6 +39,13 @@ export default function TransactionCard({ receipt }: TransactionCardProps) {
         : "text-red-600";
 
   const rows: DetailItem[] = [
+    {
+      icon: BadgeIndianRupee,
+      label: "Amount",
+      value: formatCurrency(receipt.amount),
+      valueClassName:
+        "bg-gradient-to-r from-[#0A84FF] to-[#0057D9] bg-clip-text text-base font-extrabold text-transparent",
+    },
     { icon: Hash, label: "Transaction ID", value: receipt.transactionId },
     {
       icon: FileText,
@@ -66,8 +71,6 @@ export default function TransactionCard({ receipt }: TransactionCardProps) {
           } as DetailItem,
         ]
       : []),
-    { icon: Radio, label: "Operator", value: receipt.operator },
-    { icon: Layers, label: "Service", value: receipt.service },
     ...(receipt.showBankDetailsCard
       ? []
       : receipt.bankName
@@ -85,7 +88,7 @@ export default function TransactionCard({ receipt }: TransactionCardProps) {
         ? [
             {
               icon: CreditCard,
-              label: "Bank Account Number",
+              label: "Account Number",
               value: receipt.accountNumber,
               valueClassName: "font-mono text-xs break-all",
             } as DetailItem,
@@ -111,46 +114,21 @@ export default function TransactionCard({ receipt }: TransactionCardProps) {
     { icon: Clock, label: "Time", value: receipt.time },
   ];
 
-  if (receipt.showWalletBalance) {
-    rows.push(
-      {
-        icon: Wallet,
-        label: "Opening Balance",
-        value: formatCurrency(receipt.openingBalance),
-      },
-      {
-        icon: BadgeIndianRupee,
-        label: "Commission",
-        value: formatCurrency(receipt.commission),
-      },
-      {
-        icon: BadgeIndianRupee,
-        label: "Charges",
-        value: formatCurrency(receipt.charge),
-      },
-      {
-        icon: Percent,
-        label: "GST",
-        value: formatCurrency(receipt.gst),
-      }
-    );
-  }
-
   return (
     <section className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm">
-      <div className="flex items-center gap-2 border-b border-[#E5E7EB] bg-[#F8FAFC] px-5 py-4">
-        <FileText className="h-5 w-5 text-[#0057D9]" />
+      <div className="flex items-center gap-2 border-b border-[#E5E7EB] bg-[#F8FAFC] px-4 py-3">
+        <FileText className="h-4 w-4 text-[#0057D9]" />
         <h3 className="text-sm font-bold text-[#001F5B]">Transaction Details</h3>
       </div>
       <div className="divide-y divide-[#E5E7EB]">
         {rows.map(({ icon: Icon, label, value, valueClassName }) => (
           <div
             key={label}
-            className="receipt-detail-row flex items-start justify-between gap-4 px-5 py-3.5"
+            className="receipt-detail-row flex items-center justify-between gap-3 px-4 py-2.5"
           >
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="receipt-detail-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F8FAFC] text-[#0057D9]">
-                <Icon className="h-4 w-4" />
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="receipt-detail-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F8FAFC] text-[#0057D9]">
+                <Icon className="h-3.5 w-3.5" />
               </span>
               <span className="text-sm text-slate-500">{label}</span>
             </div>

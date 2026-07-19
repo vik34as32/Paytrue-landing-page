@@ -49,7 +49,7 @@ import {
 } from "@/src/redux/slices/profileSlice";
 import { selectUser } from "@/src/redux/slices/authSlice";
 import { getBusinessTypeLabel } from "@/src/constants/businessTypes";
-import { getUserDisplayName } from "@/src/lib/userUtils";
+import { getRetailerDisplayName } from "@/src/lib/userUtils";
 import { formatCurrency } from "@/lib/utils";
 import {
   extractProfileMedia,
@@ -230,10 +230,11 @@ export default function RetailerProfileView() {
   const parent = (data.parent || {}) as Record<string, unknown>;
   const media = extractProfileMedia(data);
 
-  const displayName = getUserDisplayName(data, "Retailer");
+  const displayName = getRetailerDisplayName(data, "Retailer");
   const userCode = String(data.userCode ?? data.userId ?? data.id ?? "—");
   const email = String(data.email ?? "—");
   const mobile = String(data.mobile ?? "—");
+  const firstNameOnly = String(data.firstName ?? displayName).trim() || displayName;
 
   const bioResponse = outlet.biometricKycStatusResponse as
     | Record<string, unknown>
@@ -289,63 +290,59 @@ export default function RetailerProfileView() {
         </motion.div>
       ) : null}
 
-      {/* Hero */}
+      {/* Hero — bank-grade identity banner */}
       <motion.div variants={fadeUp}>
-        <Card className="overflow-hidden border-0 shadow-xl">
-          <div className="relative bg-gradient-to-br from-[#001F5B] via-[#0057D9] to-[#1565d8] px-6 py-8 text-white sm:px-8">
-            <motion.div
-              animate={{ scale: [1, 1.08, 1], opacity: [0.15, 0.25, 0.15] }}
-              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-              className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/20 blur-3xl"
-            />
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 shadow-[0_12px_36px_rgba(11,31,58,0.12)]">
+          <div className="relative bg-gradient-to-r from-[#0b2a4a] via-[#0e3a63] to-[#1565d8] px-5 py-6 text-white sm:px-7 sm:py-7">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.12),transparent_55%)]" />
+
             <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-                <motion.div
-                  initial={{ scale: 0.85, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: "spring", stiffness: 200, damping: 18 }}
-                  className="relative shrink-0"
-                >
+                <div className="relative shrink-0">
                   {media.profileImage ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={media.profileImage}
                       alt={displayName}
-                      className="h-28 w-28 rounded-2xl border-4 border-white/25 object-cover shadow-2xl ring-4 ring-white/10"
+                      className="h-24 w-24 rounded-2xl border-2 border-white/30 object-cover shadow-2xl sm:h-28 sm:w-28"
                     />
                   ) : (
-                    <div className="flex h-28 w-28 items-center justify-center rounded-2xl border-4 border-white/25 bg-white/10 text-4xl font-bold shadow-2xl">
+                    <div className="flex h-24 w-24 items-center justify-center rounded-2xl border-2 border-white/30 bg-white/10 text-3xl font-bold shadow-2xl sm:h-28 sm:w-28">
                       {displayName.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#0057D9] bg-emerald-500">
+                  <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#0b2a4a] bg-emerald-500 shadow">
                     <BadgeCheck className="h-4 w-4 text-white" />
                   </span>
-                </motion.div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-100/80">
-                    PayTrue Retailer
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-blue-100/85">
+                    PayTrue Retailer Account
                   </p>
-                  <h2 className="mt-1 text-3xl font-bold">{displayName}</h2>
-                  <p className="mt-1 font-mono text-sm text-blue-100">
-                    {userCode}
+                  <h2 className="mt-1 text-2xl font-extrabold tracking-tight sm:text-3xl">
+                    {displayName}
+                  </h2>
+                  <p className="mt-1 font-mono text-sm text-blue-100/90">
+                    Retailer ID · {userCode}
                   </p>
+
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs">
-                      <Mail className="h-3.5 w-3.5" />
-                      {email}
+                    <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-white/15 bg-black/15 px-2.5 py-1.5 text-[11px] font-medium backdrop-blur-sm">
+                      <Mail className="h-3.5 w-3.5 shrink-0 opacity-80" />
+                      <span className="truncate">{email}</span>
                     </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs">
-                      <Phone className="h-3.5 w-3.5" />
+                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-black/15 px-2.5 py-1.5 text-[11px] font-medium backdrop-blur-sm">
+                      <Phone className="h-3.5 w-3.5 opacity-80" />
                       {mobile}
                     </span>
                     {data.mobileVerified ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/25 px-3 py-1 text-xs text-emerald-100">
+                      <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-300/30 bg-emerald-500/20 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-50">
                         <BadgeCheck className="h-3.5 w-3.5" />
                         Mobile Verified
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/25 px-3 py-1 text-xs text-amber-100">
+                      <span className="inline-flex items-center gap-1 rounded-lg border border-amber-300/30 bg-amber-500/20 px-2.5 py-1.5 text-[11px] font-semibold text-amber-50">
                         <XCircle className="h-3.5 w-3.5" />
                         Mobile Pending
                       </span>
@@ -354,10 +351,13 @@ export default function RetailerProfileView() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[320px]">
                 {[
                   { label: "Account", value: formatProfileStatus(data.status) },
-                  { label: "KYC", value: formatProfileStatus(data.kycStatus ?? kyc.status) },
+                  {
+                    label: "KYC",
+                    value: formatProfileStatus(data.kycStatus ?? kyc.status),
+                  },
                   {
                     label: "Mini KYC",
                     value: formatProfileStatus(outlet.miniKycStatus),
@@ -366,24 +366,23 @@ export default function RetailerProfileView() {
                     label: "Biometric",
                     value: formatProfileStatus(outlet.biometricStatus),
                   },
-                ].map((item, i) => (
-                  <motion.div
+                ].map((item) => (
+                  <div
                     key={item.label}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.15 + i * 0.06 }}
-                    className="rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 backdrop-blur-sm"
+                    className="rounded-xl border border-white/12 bg-white/10 px-3 py-2.5 backdrop-blur-sm"
                   >
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-blue-100/70">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-blue-100/70">
                       {item.label}
                     </p>
-                    <p className="mt-0.5 text-sm font-bold">{item.value}</p>
-                  </motion.div>
+                    <p className="mt-1 text-[13px] font-bold leading-tight">
+                      {item.value}
+                    </p>
+                  </div>
                 ))}
               </div>
             </div>
           </div>
-        </Card>
+        </div>
       </motion.div>
 
       {/* Quick stats */}
@@ -450,8 +449,7 @@ export default function RetailerProfileView() {
           description="Account & contact details"
         >
           <motion.div variants={stagger} initial="hidden" animate="show" className="grid gap-3 sm:grid-cols-2">
-            <DetailItem label="First Name" value={String(data.firstName ?? "")} />
-            <DetailItem label="Last Name" value={String(data.lastName ?? "")} />
+            <DetailItem label="Name" value={firstNameOnly} />
             <DetailItem label="Email" value={email} />
             <DetailItem label="Mobile" value={mobile} />
             <DetailItem

@@ -198,8 +198,28 @@ export default function BeneficiariesStep() {
                   name={beneficiaryName}
                   verifyFn={(input) => verifyBankMutation.mutateAsync(input)}
                   onVerified={(result) => {
-                    if (!form.getValues("name")?.trim() && result.payee?.name) {
-                      form.setValue("name", result.payee.name, { shouldValidate: true });
+                    const accountNumber = form.getValues("accountNumber").trim();
+                    if (accountNumber) {
+                      form.setValue("confirmAccountNumber", accountNumber, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      });
+                    }
+                    const verifiedName = result.payee?.name?.trim();
+                    if (verifiedName) {
+                      form.setValue("name", verifiedName, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      });
+                    }
+                  }}
+                  onVerifyClick={() => {
+                    const accountNumber = form.getValues("accountNumber").trim();
+                    if (accountNumber) {
+                      form.setValue("confirmAccountNumber", accountNumber, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      });
                     }
                   }}
                   error={!!fieldState.error}

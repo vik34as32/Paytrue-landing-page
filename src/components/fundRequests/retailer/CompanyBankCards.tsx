@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Building2, Check, Copy } from "lucide-react";
 import { toast } from "sonner";
+import { BankLogo } from "@/components/retailer/BankLogo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { maskAccountNumber } from "@/src/lib/fundRequestUtils";
@@ -100,12 +101,18 @@ export default function CompanyBankCards({
             )}
 
             <div className="flex items-start gap-3 pr-8">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#1565d8] dark:bg-blue-950/40">
-                <Building2 className="h-5 w-5" />
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
+                <BankLogo
+                  bank={{
+                    name: account.bankName,
+                    ifscPrefix: account.ifscCode?.slice(0, 4) || "",
+                  }}
+                  size={36}
+                />
               </div>
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Account Holder
+                  {account.bankName || "Bank"}
                 </p>
                 <p className="mt-0.5 text-sm font-bold uppercase leading-snug text-[#001F5B] dark:text-white">
                   {account.accountHolderName}

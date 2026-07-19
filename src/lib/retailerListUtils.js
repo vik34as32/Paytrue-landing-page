@@ -1,5 +1,6 @@
 import { mapApiUserToExistingUrls } from "@/src/lib/buildUserFormData";
 import { maskAadhaar, maskAccountNumber, maskPan } from "@/src/lib/profileUtils";
+import { getRetailerDisplayName } from "@/src/lib/userUtils";
 
 export function mapApiUserShape(user = {}) {
   const profile = user.profile || {};
@@ -28,11 +29,16 @@ export function normalizeRetailer(user = {}) {
   const firstName = mapped.firstName || "";
   const lastName = mapped.lastName || "";
   const name = `${firstName} ${lastName}`.trim() || mapped.email || "Retailer";
+  const displayName = getRetailerDisplayName(mapped, firstName || name);
+  const bioResponse = outlet.biometricKycStatusResponse || {};
+  const bankDocImage =
+    bank.passbookImage || bank.cancelledChequeImage || null;
 
   return {
     id: mapped.id || mapped._id,
     userCode: mapped.userCode || "",
     name,
+    displayName,
     firstName,
     lastName,
     email: mapped.email || "",
@@ -40,7 +46,13 @@ export function normalizeRetailer(user = {}) {
     alternateMobileNumber: mapped.alternateMobileNumber || "",
     profileImage: mapped.profileImage || null,
     outletName: outlet.outletName || mapped.shopName || "",
-    outletId: outlet.instantpayOutletId || outlet.instantPayOutletId || outlet.outletId || "",
+    outletId:
+      outlet.instantpayOutletId ||
+      outlet.instantPayOutletId ||
+      outlet.outletId ||
+      "",
+    instantpayOutletId:
+      outlet.instantpayOutletId || outlet.instantPayOutletId || "",
     address: outlet.address || mapped.address || "",
     pincode: outlet.pincode || mapped.pincode || "",
     city: outlet.city || mapped.city || "",
@@ -49,13 +61,24 @@ export function normalizeRetailer(user = {}) {
     village: outlet.village || "",
     businessType: outlet.businessType || "",
     gstNumber: outlet.gstNumber || "",
+    miniKycStatus: outlet.miniKycStatus || "",
+    biometricStatus: outlet.biometricStatus || "",
+    biometricStatusMessage:
+      bioResponse.status ||
+      outlet.biometricStatus ||
+      "",
     aadhaarNumber: kyc.aadhaarNumber || "",
     panNumber: kyc.panNumber || "",
     bankName: bank.bankName || "",
     accountHolderName: bank.accountHolderName || "",
     accountNumber: bank.accountNumber || "",
     ifscCode: bank.ifscCode || "",
-    walletBalance: mapped.walletBalance || mapped.wallet?.balance || 0,
+    passbookImage: bank.passbookImage || null,
+    cancelledChequeImage: bank.cancelledChequeImage || null,
+    bankDocumentImage: bankDocImage,
+    walletBalance: Number(
+      mapped.walletBalance ?? mapped.wallet?.balance ?? 0
+    ),
     status: String(
       mapped.status || (mapped.isActive === false ? "inactive" : "active")
     ).toLowerCase(),

@@ -16,6 +16,7 @@ import {
   clearEkycSession,
   resetSenderState,
   setEkycPidOptions,
+  setOtpVerified,
   setSenderMobile,
   setSenderProfile,
   setSenderReferenceKey,
@@ -57,6 +58,7 @@ import {
   useLazyFetchRemitterProfileQuery,
   useRegisterSenderMutation,
   useSearchSenderMutation,
+  useSendRemitterOtpMutation,
   useTransferMutation,
   useVerifyBeneficiaryDeleteMutation,
   useVerifyBeneficiaryOtpMutation,
@@ -82,6 +84,55 @@ import type { RootState } from "@/src/redux/types";
 function getErrorMessage(error: unknown): string {
   const err = error as { data?: { message?: string }; message?: string };
   return err?.data?.message || err?.message || "Request failed";
+}
+
+function isInvalidOtpError(error: unknown): boolean {
+  const err = error as {
+    data?: { code?: string; message?: string; error?: string };
+    code?: string;
+    message?: string;
+  };
+  const code = String(err?.data?.code || err?.code || "").toUpperCase();
+  const message = String(
+    err?.data?.message || err?.data?.error || err?.message || ""
+  ).toUpperCase();
+
+  if (
+    [
+      "INVALID_OTP",
+      "OTP_INVALID",
+      "OTP_EXPIRED",
+      "WRONG_OTP",
+      "OTP_MISMATCH",
+      "VALIDATION_ERROR",
+    ].includes(code) &&
+    (code !== "VALIDATION_ERROR" ||
+      message.includes("OTP") ||
+      message.includes("ONE TIME"))
+  ) {
+    return true;
+  }
+
+  return (
+    message.includes("INVALID OTP") ||
+    message.includes("INCORRECT OTP") ||
+    message.includes("WRONG OTP") ||
+    message.includes("OTP EXPIRED") ||
+    message.includes("OTP IS INVALID") ||
+    message.includes("OTP VERIFICATION FAILED")
+  );
+}
+
+/** Backend signals OTP was accepted but biometric eKYC is still required */
+function isOtpAcceptedKycRequiredError(error: unknown): boolean {
+  if (isInvalidOtpError(error)) return false;
+  const err = error as {
+    data?: { code?: string; message?: string };
+    code?: string;
+    message?: string;
+  };
+  const code = String(err?.data?.code || err?.code || "").toUpperCase();
+  return Boolean(codeToNextAction(code));
 }
 
 /** Backend signals that the active referenceKey must be refreshed */
@@ -130,6 +181,7 @@ export function useDmtOrchestrator() {
 
   const [searchSenderMutation] = useSearchSenderMutation();
   const [registerSenderMutation] = useRegisterSenderMutation();
+  const [sendRemitterOtpMutation] = useSendRemitterOtpMutation();
   const [verifySenderOtpMutation] = useVerifySenderOtpMutation();
   const [bioAuthMutation] = useBioAuthMutation();
   const [fetchRemitterPidOptions] = useLazyFetchRemitterPidOptionsQuery();
@@ -167,11 +219,22 @@ export function useDmtOrchestrator() {
 
   const applyResponse = useCallback(
     (response: DmtWorkflowResponse) => {
-      dispatch(applyWorkflowResponse(response));
-
       const latest = store.getState().dmtSender;
       const verifyLocked = latest.ekycReferenceKeySource === "verify-otp";
       const incomingKey = String(response.referenceKey || "").trim();
+
+      // Backend BIO_AUTH means InstantPay registration OTP is already done —
+      // never invent VERIFY_OTP here (that opens the dialog without sending SMS).
+      if (response.nextAction === "BIO_AUTH") {
+        dispatch(setOtpVerified(true));
+      }
+
+      const otpVerifiedNow =
+        latest.otpVerified ||
+        verifyLocked ||
+        response.nextAction === "BIO_AUTH";
+
+      dispatch(applyWorkflowResponse(response));
 
       // Never overwrite a locked verify-otp eKYC key with checkRemitter RNF keys
       if (incomingKey && !verifyLocked) {
@@ -196,9 +259,15 @@ export function useDmtOrchestrator() {
         persistSenderPidOptionWadh(response.pidOptionWadh);
       }
       if (response.sender) dispatch(setSenderProfile(response.sender));
-      if (response.beneficiaries) dispatch(setBeneficiaries(response.beneficiaries));
-      if (response.beneficiary) dispatch(setSelectedBeneficiary(response.beneficiary));
-      if (response.transaction) dispatch(setTransactionResult(response.transaction));
+      if (response.beneficiaries) {
+        dispatch(setBeneficiaries(response.beneficiaries));
+      }
+      if (response.beneficiary) {
+        dispatch(setSelectedBeneficiary(response.beneficiary));
+      }
+      if (response.transaction) {
+        dispatch(setTransactionResult(response.transaction));
+      }
       if (response.beneficiary?.id) {
         dispatch(
           setPendingBeneficiary({
@@ -208,7 +277,7 @@ export function useDmtOrchestrator() {
         );
       }
 
-      // Seed eKYC materials when BIO_AUTH is next — preserve verify-otp key if locked
+      // Seed eKYC materials only after OTP is verified
       const mobile = String(
         response.sender?.mobile || sender.mobile || ""
       ).trim();
@@ -216,7 +285,9 @@ export function useDmtOrchestrator() {
         ? latest.ekycReferenceKey
         : incomingKey;
       const pidOptionWadh = String(
-        response.pidOptionWadh || response.sender?.pidOptionWadh || ""
+        response.pidOptionWadh ||
+          response.sender?.pidOptionWadh ||
+          ""
       ).trim();
       const pidOptions = String(
         response.pidOptions ||
@@ -225,6 +296,7 @@ export function useDmtOrchestrator() {
 
       if (
         response.nextAction === "BIO_AUTH" &&
+        otpVerifiedNow &&
         mobile &&
         referenceKey &&
         pidOptions
@@ -422,9 +494,42 @@ export function useDmtOrchestrator() {
         dispatch(setSenderMobile(mobile));
         setActiveSenderMobile(mobile);
         const response = await searchSenderMutation({ mobile }).unwrap();
+
+        // Pending OTP after prior register — dispatch InstantPay OTP so the dialog is usable
+        if (response.nextAction === "VERIFY_OTP") {
+          try {
+            await sendRemitterOtpMutation({
+              mobile,
+              referenceKey:
+                response.referenceKey ||
+                getSenderReferenceKey() ||
+                undefined,
+            }).unwrap();
+            dispatch(
+              showSnackbar({
+                message: "OTP sent to sender mobile",
+                severity: "success",
+              })
+            );
+          } catch (otpError) {
+            dispatch(
+              showSnackbar({
+                message: getErrorMessage(otpError),
+                severity: "error",
+              })
+            );
+          }
+        }
+
         return applyResponse(response);
       }),
-    [applyResponse, dispatch, run, searchSenderMutation]
+    [
+      applyResponse,
+      dispatch,
+      run,
+      searchSenderMutation,
+      sendRemitterOtpMutation,
+    ]
   );
 
   const registerSender = useCallback(
@@ -452,7 +557,38 @@ export function useDmtOrchestrator() {
           ...payload,
           referenceKey,
         }).unwrap();
-        return applyResponse(response);
+
+        const otpKey =
+          response.referenceKey || referenceKey || getSenderReferenceKey() || undefined;
+
+        // Same as legacy SearchSenderStep: register then explicit send-otp.
+        // Register already hits InstantPay; if resend fails, still open verify dialog.
+        try {
+          await sendRemitterOtpMutation({
+            mobile: payload.mobile,
+            referenceKey: otpKey,
+            aadhaar: payload.aadhaar,
+          }).unwrap();
+          dispatch(
+            showSnackbar({
+              message: "OTP sent to sender mobile",
+              severity: "success",
+            })
+          );
+        } catch (otpError) {
+          dispatch(
+            showSnackbar({
+              message: getErrorMessage(otpError),
+              severity: "error",
+            })
+          );
+        }
+
+        return applyResponse({
+          ...response,
+          nextAction: "VERIFY_OTP",
+          referenceKey: otpKey || response.referenceKey,
+        });
       }),
     [
       applyResponse,
@@ -460,6 +596,37 @@ export function useDmtOrchestrator() {
       registerSenderMutation,
       run,
       searchSenderMutation,
+      sendRemitterOtpMutation,
+      sender.referenceKey,
+    ]
+  );
+
+  const resendSenderOtp = useCallback(
+    async () =>
+      run(async () => {
+        const mobile = String(sender.mobile || "").trim();
+        if (!mobile) throw new Error("Sender mobile is required to resend OTP.");
+
+        const referenceKey =
+          sender.referenceKey || getSenderReferenceKey() || undefined;
+
+        await sendRemitterOtpMutation({
+          mobile,
+          referenceKey,
+        }).unwrap();
+
+        dispatch(
+          showSnackbar({
+            message: "OTP resent to sender mobile",
+            severity: "success",
+          })
+        );
+      }),
+    [
+      dispatch,
+      run,
+      sendRemitterOtpMutation,
+      sender.mobile,
       sender.referenceKey,
     ]
   );
@@ -487,6 +654,7 @@ export function useDmtOrchestrator() {
 
         let otpNextAction: DmtNextAction | null = null;
         let verifyReferenceKey = "";
+        let otpSucceeded = false;
 
         try {
           const otpResponse = await verifySenderOtpMutation({
@@ -494,8 +662,11 @@ export function useDmtOrchestrator() {
             otp: payload.otp,
             referenceKey: otpReferenceKey || undefined,
           }).unwrap();
+          otpSucceeded = true;
           otpNextAction = otpResponse.nextAction;
           verifyReferenceKey = extractVerifyOtpReferenceKey(otpResponse);
+
+          dispatch(setOtpVerified(true));
 
           if (verifyReferenceKey) {
             dispatch(
@@ -507,22 +678,26 @@ export function useDmtOrchestrator() {
             persistSenderReferenceKey(verifyReferenceKey);
           }
         } catch (error) {
-          // OTP accepted but eKYC still required (KYC_REQUIRED, etc.)
-          const code = String(
-            (error as { code?: string; data?: { code?: string } })?.code ??
-              (error as { data?: { code?: string } })?.data?.code ??
-              ""
-          ).toUpperCase();
-          const action = codeToNextAction(code);
-          if (!action) throw error;
-          otpNextAction = action;
+          // Wrong / expired OTP → stay on OTP dialog, never open bio
+          if (isInvalidOtpError(error) || !isOtpAcceptedKycRequiredError(error)) {
+            dispatch(setOtpVerified(false));
+            throw error;
+          }
 
-          // Some backends return the new key on the error payload
+          // OTP accepted by provider but eKYC still required (KYC_REQUIRED, etc.)
+          otpSucceeded = true;
+          otpNextAction = codeToNextAction(
+            String(
+              (error as { code?: string; data?: { code?: string } })?.code ??
+                (error as { data?: { code?: string } })?.data?.code ??
+                ""
+            )
+          );
+          dispatch(setOtpVerified(true));
+
           const errData = (error as { data?: Record<string, unknown> })?.data;
           verifyReferenceKey = String(
-            errData?.referenceKey ||
-              errData?.verifyReferenceKey ||
-              ""
+            errData?.referenceKey || errData?.verifyReferenceKey || ""
           ).trim();
           if (verifyReferenceKey) {
             dispatch(
@@ -535,14 +710,23 @@ export function useDmtOrchestrator() {
           }
         }
 
+        // Hard gate: never continue to bio unless OTP verify succeeded
+        if (!otpSucceeded) {
+          dispatch(setOtpVerified(false));
+          throw new Error("Remitter OTP verification failed. Please enter a valid OTP.");
+        }
+
         // Fetch pidOptions/wadh via checkRemitter — do NOT replace verify-otp key
         const refreshed = await refreshEkycMaterialsAfterOtp(
           sender.mobile,
-          otpNextAction,
+          otpNextAction || "BIO_AUTH",
           verifyReferenceKey || store.getState().dmtSender.ekycReferenceKey
         );
 
-        return applyResponse(refreshed);
+        return applyResponse({
+          ...refreshed,
+          nextAction: refreshed.nextAction || "BIO_AUTH",
+        });
       }),
     [
       applyResponse,
@@ -1036,6 +1220,7 @@ export function useDmtOrchestrator() {
       : null,
     searchSender,
     registerSender,
+    resendSenderOtp,
     verifySenderOtp,
     bioAuth,
     addBeneficiary,

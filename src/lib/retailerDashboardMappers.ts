@@ -141,6 +141,7 @@ export interface BusinessVolumeCard {
   id: string;
   label: string;
   value: string;
+  amount: number;
 }
 
 export function mapBusinessVolumeCards(
@@ -148,10 +149,35 @@ export function mapBusinessVolumeCards(
 ): BusinessVolumeCard[] {
   if (!business) return [];
 
+  const today = business.today ?? 0;
+  const monthly = business.monthly ?? 0;
+  const yearly = business.yearly ?? 0;
+  const total = business.total ?? 0;
+
   return [
-    { id: "today", label: "Today's Business", value: formatCurrency(business.today ?? 0) },
-    { id: "monthly", label: "Monthly Business", value: formatCurrency(business.monthly ?? 0) },
-    { id: "yearly", label: "Yearly Business", value: formatCurrency(business.yearly ?? 0) },
-    { id: "total", label: "Total Business", value: formatCurrency(business.total ?? 0) },
+    {
+      id: "today",
+      label: "Today's Business",
+      value: formatCurrency(today),
+      amount: today,
+    },
+    {
+      id: "monthly",
+      label: "Monthly Business",
+      value: formatCurrency(monthly),
+      amount: monthly,
+    },
+    {
+      id: "yearly",
+      label: "Yearly Business",
+      value: formatCurrency(yearly),
+      amount: yearly,
+    },
+    {
+      id: "total",
+      label: "Total Business",
+      value: formatCurrency(total),
+      amount: total,
+    },
   ];
 }

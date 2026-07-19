@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSelector } from "react-redux";
 import { Eye, EyeOff, Wifi, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { getUserDisplayName } from "@/src/lib/userUtils";
+import { getRetailerDisplayName } from "@/src/lib/userUtils";
 import { RETAILER_USER } from "@/features/retailer/constants";
 import { selectRtWallet } from "@/src/redux/slices/walletSlice";
 import { selectUser } from "@/src/redux/slices/authSlice";
@@ -31,7 +31,7 @@ export default function WalletCard() {
 
   const holderName =
     apiWallet.cardHolderName ||
-    getUserDisplayName(user, RETAILER_USER.name);
+    getRetailerDisplayName(user, RETAILER_USER.name);
   const retailerId =
     apiWallet.retailerCode || user?.userId || RETAILER_USER.retailerId;
   const cardNumber = formatCardNumber(apiWallet.cardNumber);

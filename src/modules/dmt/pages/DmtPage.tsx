@@ -46,6 +46,7 @@ export default function DmtPage() {
     beneficiariesError,
     searchSender,
     registerSender,
+    resendSenderOtp,
     verifySenderOtp,
     bioAuth,
     addBeneficiary,
@@ -79,7 +80,8 @@ export default function DmtPage() {
     [workflow.nextAction]
   );
 
-  const showBioAuth = workflow.nextAction === "BIO_AUTH";
+  const showBioAuth =
+    workflow.nextAction === "BIO_AUTH" && Boolean(sender.otpVerified);
   const [bioModalOpen, setBioModalOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
 
@@ -121,7 +123,11 @@ export default function DmtPage() {
   const showFailed = workflow.nextAction === "FAILED";
 
   useEffect(() => {
-    if (showBioAuth) setBioModalOpen(true);
+    if (showBioAuth) {
+      setBioModalOpen(true);
+    } else {
+      setBioModalOpen(false);
+    }
   }, [showBioAuth]);
 
   const loading = workflow.loadingCount > 0;
@@ -296,6 +302,9 @@ export default function DmtPage() {
         submitting={loading}
         onClose={closeDialog}
         onSubmit={(otp) => verifySenderOtp({ otp })}
+        onResend={() => {
+          void resendSenderOtp();
+        }}
       />
 
       <AddBeneficiaryDialog

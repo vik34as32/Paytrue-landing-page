@@ -18,6 +18,7 @@ import { useFetchBanksQuery } from "../../redux/dmtApi";
 import DmtBankSelect from "../DmtBankSelect";
 import BankAccountVerifyField from "../BankAccountVerifyField";
 import { verifyBankAccount } from "@/src/services/dmtService";
+import type { VerifyBankAccountResponse } from "@/src/types/dmt";
 
 const schema = z
   .object({
@@ -77,9 +78,35 @@ export default function AddBeneficiaryDialog({
   const ifscCode = form.watch("ifscCode");
   const beneficiaryName = form.watch("name");
 
-  const handleBankVerified = (result: { payee?: { name?: string | null } }) => {
-    if (!form.getValues("name")?.trim() && result.payee?.name) {
-      form.setValue("name", result.payee.name, { shouldValidate: true });
+  /** Copy Account Number → Confirm Account as soon as Verify is clicked */
+  const handleVerifyClick = () => {
+    const accountNumber = form.getValues("accountNumber").trim();
+    if (!accountNumber) return;
+    form.setValue("confirmAccountNumber", accountNumber, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  };
+
+  /**
+   * On successful bank verify: keep Confirm Account in sync and
+   * always replace Beneficiary Name with InstantPay / payee verified name.
+   */
+  const handleBankVerified = (result: VerifyBankAccountResponse) => {
+    const accountNumber = form.getValues("accountNumber").trim();
+    if (accountNumber) {
+      form.setValue("confirmAccountNumber", accountNumber, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
+
+    const verifiedName = result.payee?.name?.trim();
+    if (verifiedName) {
+      form.setValue("name", verifiedName, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
     }
   };
 
@@ -169,6 +196,7 @@ export default function AddBeneficiaryDialog({
                     })
                   }
                   onVerified={handleBankVerified}
+                  onVerifyClick={handleVerifyClick}
                   error={!!fieldState.error}
                   helperText={fieldState.error?.message}
                   disabled={loading}

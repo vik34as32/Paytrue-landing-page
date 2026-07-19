@@ -217,99 +217,26 @@ export async function downloadStatementReceiptPdf(
 
   y += 28;
 
+  /* Compact status + amount strip (no Payment Summary section) */
   doc.setDrawColor(229, 231, 235);
   doc.setFillColor(236, 253, 245);
-  doc.roundedRect(margin, y, pageWidth - margin * 2, 28, 3, 3, "FD");
+  doc.roundedRect(margin, y, pageWidth - margin * 2, 18, 2, 2, "FD");
   doc.setTextColor(22, 163, 74);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
-  doc.text(receipt.statusLabel, pageWidth / 2, y + 10, { align: "center" });
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(71, 85, 105);
-  doc.text(
-    "Your transaction has been successfully completed.",
-    pageWidth / 2,
-    y + 16,
-    { align: "center" }
-  );
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
+  doc.setFontSize(11);
+  doc.text(receipt.statusLabel, pageWidth / 2, y + 7, { align: "center" });
+  doc.setFontSize(14);
   doc.setTextColor(0, 31, 91);
-  doc.text(formatCurrency(receipt.amount), pageWidth / 2, y + 24, {
+  doc.text(formatCurrency(receipt.amount), pageWidth / 2, y + 14, {
     align: "center",
   });
 
-  y += 36;
-
-  if (receipt.showBankDetailsCard) {
-    const bankLogoPath = resolveBankLogoFromIfsc(
-      receipt.bankName || "",
-      receipt.ifscCode
-    );
-    const bankLogoDataUrl = bankLogoPath
-      ? await loadImageAsDataUrl(bankLogoPath)
-      : null;
-
-    doc.setFillColor(0, 31, 91);
-    doc.roundedRect(margin, y, pageWidth - margin * 2, 16, 2, 2, "F");
-    if (bankLogoDataUrl) {
-      doc.addImage(bankLogoDataUrl, "SVG", margin + 3, y + 2, 12, 12);
-    }
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text(receipt.bankName || "Bank", margin + (bankLogoDataUrl ? 18 : 4), y + 10);
-
-    y += 18;
-
-    if (receipt.accountHolderName) {
-      doc.setFillColor(230, 126, 34);
-      doc.rect(margin, y, pageWidth - margin * 2, 8, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8.5);
-      doc.text(receipt.accountHolderName, pageWidth / 2, y + 5.5, {
-        align: "center",
-      });
-      y += 10;
-    }
-
-    autoTable(doc, {
-      startY: y,
-      theme: "plain",
-      styles: { fontSize: 8.5, cellPadding: 2.5, textColor: [17, 24, 39] },
-      headStyles: {
-        fillColor: [248, 250, 252],
-        textColor: [0, 31, 91],
-        fontStyle: "bold",
-      },
-      head: [["Beneficiary Bank Details", ""]],
-      body: [
-        ...(receipt.accountNumber
-          ? [["Account Number", receipt.accountNumber] as [string, string]]
-          : []),
-        ...(receipt.ifscCode
-          ? [["IFSC Code", receipt.ifscCode] as [string, string]]
-          : []),
-        ...(receipt.bankBranch
-          ? [["Branch", receipt.bankBranch] as [string, string]]
-          : []),
-        ...(receipt.bankAddress
-          ? [["Bank Address", receipt.bankAddress] as [string, string]]
-          : []),
-      ],
-      margin: { left: margin, right: margin },
-    });
-
-    y =
-      ((doc as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ??
-        y) + 6;
-  }
+  y += 24;
 
   autoTable(doc, {
     startY: y,
     theme: "plain",
-    styles: { fontSize: 8.5, cellPadding: 2.5, textColor: [17, 24, 39] },
+    styles: { fontSize: 8, cellPadding: 1.8, textColor: [17, 24, 39] },
     headStyles: {
       fillColor: [248, 250, 252],
       textColor: [0, 31, 91],
@@ -328,140 +255,162 @@ export async function downloadStatementReceiptPdf(
 
   y =
     ((doc as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ??
-      y) + 6;
+      y) + 4;
+
+  if (receipt.showBankDetailsCard) {
+    const bankLogoPath = resolveBankLogoFromIfsc(
+      receipt.bankName || "",
+      receipt.ifscCode
+    );
+    const bankLogoDataUrl = bankLogoPath
+      ? await loadImageAsDataUrl(bankLogoPath)
+      : null;
+
+    doc.setFillColor(0, 31, 91);
+    doc.roundedRect(margin, y, pageWidth - margin * 2, 12, 2, 2, "F");
+    if (bankLogoDataUrl) {
+      doc.addImage(bankLogoDataUrl, "SVG", margin + 2, y + 1.5, 9, 9);
+    }
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text(
+      receipt.bankName || "Bank",
+      margin + (bankLogoDataUrl ? 14 : 3),
+      y + 7.5
+    );
+
+    y += 14;
+
+    if (receipt.accountHolderName) {
+      doc.setFillColor(230, 126, 34);
+      doc.rect(margin, y, pageWidth - margin * 2, 7, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8);
+      doc.text(receipt.accountHolderName, pageWidth / 2, y + 4.8, {
+        align: "center",
+      });
+      y += 9;
+    }
+
+    autoTable(doc, {
+      startY: y,
+      theme: "plain",
+      styles: { fontSize: 8, cellPadding: 1.8, textColor: [17, 24, 39] },
+      headStyles: {
+        fillColor: [248, 250, 252],
+        textColor: [0, 31, 91],
+        fontStyle: "bold",
+      },
+      head: [["Beneficiary Bank Details", ""]],
+      body: [
+        ...(receipt.accountNumber
+          ? [["Account Number", receipt.accountNumber] as [string, string]]
+          : []),
+        ...(receipt.ifscCode
+          ? [["IFSC Code", receipt.ifscCode] as [string, string]]
+          : []),
+        ...(receipt.bankBranch
+          ? [["Branch", receipt.bankBranch] as [string, string]]
+          : []),
+      ],
+      margin: { left: margin, right: margin },
+    });
+
+    y =
+      ((doc as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ??
+        y) + 4;
+  }
+
+  const txnBody: [string, string][] = [
+    ["Amount", formatCurrency(receipt.amount)],
+    ["Transaction ID", receipt.transactionId],
+    ["Reference Number", receipt.referenceNumber],
+    ...(receipt.bankReference
+      ? [["Bank Reference / RRN", receipt.bankReference] as [string, string]]
+      : []),
+    ...(receipt.aepsTransactionLabel
+      ? [["Transaction Type", receipt.aepsTransactionLabel] as [string, string]]
+      : []),
+    ...(receipt.showBankDetailsCard
+      ? []
+      : receipt.bankName
+        ? [["Bank Name", receipt.bankName] as [string, string]]
+        : []),
+    ...(receipt.showBankDetailsCard
+      ? []
+      : receipt.accountNumber
+        ? [["Account Number", receipt.accountNumber] as [string, string]]
+        : []),
+    ...(receipt.txnMobile
+      ? [["Mobile Number", receipt.txnMobile] as [string, string]]
+      : []),
+    ["Payment Mode", receipt.paymentMode],
+    ["Status", receipt.status.toUpperCase()],
+    ["Date", receipt.date],
+    ["Time", receipt.time],
+  ];
 
   autoTable(doc, {
     startY: y,
     theme: "plain",
-    styles: { fontSize: 8.5, cellPadding: 2.5, textColor: [17, 24, 39] },
+    styles: { fontSize: 8, cellPadding: 1.8, textColor: [17, 24, 39] },
     headStyles: {
       fillColor: [248, 250, 252],
       textColor: [0, 31, 91],
       fontStyle: "bold",
     },
     head: [["Transaction Details", ""]],
-    body: [
-      ["Transaction ID", receipt.transactionId],
-      ["Reference Number", receipt.referenceNumber],
-      ...(receipt.bankReference
-        ? [["Bank Reference / RRN", receipt.bankReference] as [string, string]]
-        : []),
-      ...(receipt.aepsTransactionLabel
-        ? [["Transaction Type", receipt.aepsTransactionLabel] as [string, string]]
-        : []),
-      ["Operator", receipt.operator],
-      ["Service", receipt.service],
-      ...(receipt.showBankDetailsCard
-        ? []
-        : receipt.bankName
-          ? [["Bank Name", receipt.bankName] as [string, string]]
-          : []),
-      ...(receipt.showBankDetailsCard
-        ? []
-        : receipt.accountNumber
-          ? [["Bank Account Number", receipt.accountNumber] as [string, string]]
-          : []),
-      ...(receipt.txnMobile
-        ? [["Mobile Number", receipt.txnMobile] as [string, string]]
-        : []),
-      ["Payment Mode", receipt.paymentMode],
-      ["Status", receipt.status.toUpperCase()],
-      ["Date", receipt.date],
-      ["Time", receipt.time],
-      ...(receipt.showWalletBalance
-        ? [
-            ["Opening Balance", formatCurrency(receipt.openingBalance)] as [
-              string,
-              string,
-            ],
-            ["Commission", formatCurrency(receipt.commission)] as [string, string],
-            ["Charges", formatCurrency(receipt.charge)] as [string, string],
-            ["GST", formatCurrency(receipt.gst)] as [string, string],
-          ]
-        : []),
-    ],
+    body: txnBody,
     margin: { left: margin, right: margin },
   });
 
   y =
     ((doc as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ??
-      y) + 6;
-
-  autoTable(doc, {
-    startY: y,
-    theme: "grid",
-    styles: { fontSize: 8.5, cellPadding: 2.5, textColor: [17, 24, 39] },
-    headStyles: { fillColor: [10, 132, 255], textColor: 255, fontStyle: "bold" },
-    head: [["Payment Summary", "Amount"]],
-    body: [
-      ["Amount", formatCurrency(receipt.amount)],
-      ["Charges", formatCurrency(receipt.charge)],
-      ["Commission", formatCurrency(receipt.commission)],
-      ["GST", formatCurrency(receipt.gst)],
-      ["Net Amount", formatCurrency(receipt.netAmount)],
-      ...(receipt.showWalletBalance
-        ? [
-            ["Wallet Balance", formatCurrency(receipt.closingBalance)] as [
-              string,
-              string,
-            ],
-          ]
-        : []),
-    ],
-    margin: { left: margin, right: margin },
-  });
-
-  y =
-    ((doc as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ??
-      y) + 6;
+      y) + 4;
 
   doc.setFillColor(239, 246, 255);
   doc.setDrawColor(191, 219, 254);
-  doc.roundedRect(margin, y, pageWidth - margin * 2, 18, 2, 2, "FD");
-  doc.setFontSize(8);
+  doc.roundedRect(margin, y, pageWidth - margin * 2, 12, 2, 2, "FD");
+  doc.setFontSize(7.5);
   doc.setTextColor(0, 31, 91);
   const notice =
     "This transaction has been securely processed through the Paytrue Digital Payment Platform. Please keep this receipt for future reference.";
-  doc.text(doc.splitTextToSize(notice, pageWidth - margin * 2 - 8), margin + 4, y + 6);
+  doc.text(doc.splitTextToSize(notice, pageWidth - margin * 2 - 8), margin + 3, y + 5);
 
   const qrDataUrl = await QRCode.toDataURL(receipt.qrPayload, {
     margin: 1,
-    width: 120,
+    width: 100,
     color: { dark: "#001F5B", light: "#FFFFFF" },
   });
 
-  const qrY = y + 24;
-  if (qrY + 42 < 285) {
-    doc.addImage(qrDataUrl, "PNG", pageWidth - margin - 32, qrY, 32, 32);
-    doc.setFontSize(7);
+  const qrY = y + 16;
+  if (qrY + 34 < 275) {
+    doc.addImage(qrDataUrl, "PNG", pageWidth - margin - 28, qrY, 28, 28);
+    doc.setFontSize(6.5);
     doc.setTextColor(100, 116, 139);
-    doc.text("Scan to Verify", pageWidth - margin - 16, qrY + 36, {
-      align: "center",
-    });
-    doc.text("Transaction Verification", pageWidth - margin - 16, qrY + 40, {
+    doc.text("Scan to Verify", pageWidth - margin - 14, qrY + 31, {
       align: "center",
     });
   }
 
-  const footerY = Math.min(Math.max(qrY + 48, y + 48), 272);
+  const footerY = Math.min(Math.max(qrY + 36, y + 30), 280);
   doc.setDrawColor(229, 231, 235);
   doc.line(margin, footerY, pageWidth - margin, footerY);
   doc.setFontSize(8);
   doc.setTextColor(0, 31, 91);
   doc.setFont("helvetica", "bold");
-  doc.text("Powered by Paytrue", pageWidth / 2, footerY + 8, { align: "center" });
+  doc.text("Powered by Paytrue", pageWidth / 2, footerY + 6, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 116, 139);
-  doc.text("support@paytrue.co.in", pageWidth / 2, footerY + 13, { align: "center" });
-  doc.text("www.paytrue.co.in", pageWidth / 2, footerY + 18, { align: "center" });
-  doc.text("Thank you for using Paytrue.", pageWidth / 2, footerY + 25, {
-    align: "center",
-  });
   doc.setFontSize(7);
-  doc.text("Computer Generated Receipt", pageWidth / 2, footerY + 30, {
-    align: "center",
-  });
-  doc.text("No Signature Required", pageWidth / 2, footerY + 34, {
+  doc.text(
+    "support@paytrue.co.in · www.paytrue.co.in",
+    pageWidth / 2,
+    footerY + 11,
+    { align: "center" }
+  );
+  doc.text("Thank you for using Paytrue. · Computer Generated Receipt", pageWidth / 2, footerY + 16, {
     align: "center",
   });
 

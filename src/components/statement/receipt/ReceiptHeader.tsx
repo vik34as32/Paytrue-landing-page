@@ -18,33 +18,33 @@ export default function ReceiptHeader({ receipt }: ReceiptHeaderProps) {
         : "bg-red-50 text-red-600 border-red-200";
 
   return (
-    <header className="receipt-header receipt-no-print border-b border-[#E5E7EB] bg-white px-6 py-8 sm:px-8 lg:px-10">
-      <div className="receipt-header-row flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex items-start gap-4">
-          <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-2 shadow-sm">
+    <header className="receipt-header border-b border-[#E5E7EB] bg-white px-5 py-5 sm:px-7 lg:px-9">
+      <div className="receipt-header-row flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-1.5 shadow-sm">
             <Image
               src={PAYTRUE_LOGO_PATH}
               alt="PayTrue Logo"
-              width={42}
-              height={42}
+              width={36}
+              height={36}
               className="object-contain"
               priority
             />
           </div>
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight">
+            <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
               <span className="text-[#001F5B]">Pay</span>
               <span className="bg-gradient-to-r from-[#0A84FF] to-[#0057D9] bg-clip-text text-transparent">
                 true
               </span>
             </h1>
-            <p className="mt-1 text-sm font-medium text-slate-500">
+            <p className="mt-0.5 text-sm font-medium text-slate-500">
               Retailer Payment Receipt
             </p>
           </div>
         </div>
 
-        <div className="grid gap-2 text-sm lg:text-right">
+        <div className="grid gap-1 text-sm lg:text-right">
           <div className="flex flex-wrap items-center gap-2 lg:justify-end">
             <span
               className={cn(
@@ -57,7 +57,7 @@ export default function ReceiptHeader({ receipt }: ReceiptHeaderProps) {
           </div>
           <p className="text-[#111827]">
             <span className="font-medium text-slate-500">Receipt No.</span>{" "}
-            <span className="font-semibold">{receipt.receiptNo}</span>
+            <span className="font-semibold break-all">{receipt.receiptNo}</span>
           </p>
           <p className="text-[#111827]">
             <span className="font-medium text-slate-500">Transaction ID</span>{" "}
@@ -66,8 +66,7 @@ export default function ReceiptHeader({ receipt }: ReceiptHeaderProps) {
           <p className="text-[#111827]">
             <span className="font-medium text-slate-500">Date</span>{" "}
             <span className="font-semibold">{receipt.date}</span>
-          </p>
-          <p className="text-[#111827]">
+            <span className="mx-1.5 text-slate-300">·</span>
             <span className="font-medium text-slate-500">Time</span>{" "}
             <span className="font-semibold">{receipt.time}</span>
           </p>

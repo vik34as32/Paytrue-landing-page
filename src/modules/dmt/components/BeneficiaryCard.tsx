@@ -68,21 +68,60 @@ export default function BeneficiaryCard({
             </Box>
           </Box>
           <Chip
-            label={verified ? "VERIFIED" : "UNVERIFIED"}
-            color={verified ? "success" : "warning"}
+            label={verified ? "Verified" : "Unverified →"}
             size="small"
+            icon={
+              verified ? (
+                <VerifiedUserIcon sx={{ fontSize: "15px !important", color: "#fff !important" }} />
+              ) : undefined
+            }
+            onClick={verified ? undefined : () => onVerify(beneficiary)}
+            sx={{
+              fontWeight: 800,
+              height: 28,
+              fontSize: 11,
+              cursor: verified ? "default" : "pointer",
+              pointerEvents: verified ? "none" : "auto",
+              ...(verified
+                ? {
+                    bgcolor: "#16a34a",
+                    color: "#fff",
+                    border: "1px solid #15803d",
+                    boxShadow: "0 2px 8px rgba(22, 163, 74, 0.28)",
+                    "& .MuiChip-icon": { ml: 0.75 },
+                    "& .MuiChip-label": { px: 0.75 },
+                  }
+                : {
+                    bgcolor: "#f59e0b",
+                    color: "#fff",
+                    border: "1px solid #d97706",
+                    boxShadow: "0 2px 8px rgba(245, 158, 11, 0.35)",
+                    "&:hover": { bgcolor: "#d97706" },
+                    "& .MuiChip-label": { px: 0.75 },
+                  }),
+            }}
           />
         </Box>
         <Divider sx={{ my: 1.5 }} />
-        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
           {!verified ? (
             <Button
               size="small"
               variant="contained"
               startIcon={<VerifiedUserIcon />}
               onClick={() => onVerify(beneficiary)}
+              sx={{
+                fontWeight: 800,
+                boxShadow: "0 0 0 0 rgba(21, 101, 216, 0.5)",
+                animation: "dmtCardVerifyPulse 1.6s ease-out infinite",
+                "@keyframes dmtCardVerifyPulse": {
+                  "0%": { boxShadow: "0 0 0 0 rgba(21, 101, 216, 0.5)" },
+                  "70%": { boxShadow: "0 0 0 10px rgba(21, 101, 216, 0)" },
+                  "100%": { boxShadow: "0 0 0 0 rgba(21, 101, 216, 0)" },
+                },
+              }}
             >
-              Verify
+              Verify now
             </Button>
           ) : null}
           <Button

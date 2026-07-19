@@ -5,6 +5,7 @@
 export const DMT_MODULE_ENDPOINTS = {
   searchSender: "/dmt/remitter/check",
   registerSender: "/dmt/remitter/register",
+  sendRemitterOtp: "/dmt/remitter/send-otp",
   verifySenderOtp: "/dmt/remitter/verify-otp",
   bioAuth: "/dmt/remitter/ekyc",
   remitterPidOptions: (mobile: string) =>

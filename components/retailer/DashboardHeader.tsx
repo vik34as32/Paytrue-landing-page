@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
+import { getRetailerDisplayName } from "@/src/lib/userUtils";
 import { formatDashboardGreeting, formatLastLogin } from "@/src/lib/retailerDashboardMappers";
 import type { RetailerDashboardData } from "@/src/types/retailerDashboard";
 
@@ -14,10 +15,7 @@ export default function DashboardHeader({
   dashboard,
   loading = false,
 }: DashboardHeaderProps) {
-  const displayName =
-    dashboard?.user?.name?.trim() ||
-    [dashboard?.user?.firstName, dashboard?.user?.lastName].filter(Boolean).join(" ").trim() ||
-    "Retailer";
+  const displayName = getRetailerDisplayName(dashboard?.user, "Retailer");
   const retailerId =
     dashboard?.user?.userCode || dashboard?.user?.id || "—";
   const greeting = formatDashboardGreeting(dashboard?.greeting);

@@ -97,6 +97,39 @@ export const dmtApi = createApi({
       transformErrorResponse: mapApiError,
     }),
 
+    /** POST /dmt/remitter/send-otp — InstantPay remitter registration OTP dispatch / resend */
+    sendRemitterOtp: builder.mutation<
+      { mobile: string; sent: boolean; message?: string; referenceKey?: string },
+      { mobile: string; referenceKey?: string; aadhaar?: string }
+    >({
+      query: (body) => ({
+        url: DMT_MODULE_ENDPOINTS.sendRemitterOtp,
+        method: "POST",
+        body: {
+          mobile: body.mobile.trim(),
+          ...(body.referenceKey ? { referenceKey: body.referenceKey } : {}),
+          ...(body.aadhaar ? { aadhaar: body.aadhaar.trim() } : {}),
+        },
+      }),
+      transformResponse: (response: unknown) => {
+        const root = (response && typeof response === "object" ? response : {}) as {
+          data?: Record<string, unknown>;
+          message?: string;
+        };
+        const data = (root.data && typeof root.data === "object" ? root.data : root) as Record<
+          string,
+          unknown
+        >;
+        return {
+          mobile: String(data.mobile || "").trim(),
+          sent: Boolean(data.sent ?? true),
+          message: String(data.message || root.message || "OTP sent successfully"),
+          referenceKey: data.referenceKey ? String(data.referenceKey) : undefined,
+        };
+      },
+      transformErrorResponse: mapApiError,
+    }),
+
     verifySenderOtp: builder.mutation<DmtWorkflowResponse, VerifySenderOtpRequest>({
       query: (body) => ({
         url: DMT_MODULE_ENDPOINTS.verifySenderOtp,
@@ -428,6 +461,7 @@ export const dmtApi = createApi({
 export const {
   useSearchSenderMutation,
   useRegisterSenderMutation,
+  useSendRemitterOtpMutation,
   useVerifySenderOtpMutation,
   useFetchRemitterPidOptionsQuery,
   useLazyFetchRemitterPidOptionsQuery,

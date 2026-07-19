@@ -102,7 +102,7 @@ export default function BankDetailsCard({
         className
       )}
     >
-      <div className="bg-gradient-to-r from-[#001F5B] via-[#0057D9] to-[#1565d8] px-5 py-4 text-white">
+      <div className="bg-gradient-to-r from-[#001F5B] via-[#0057D9] to-[#1565d8] px-4 py-3 text-white">
         <div className="flex items-center gap-3">
           <BankLogo
             bank={{
@@ -110,24 +110,24 @@ export default function BankDetailsCard({
               shortName: bankName,
               ifscPrefix: ifscCode.slice(0, 4) || ifscDetails?.BANKCODE || "",
             }}
-            size={48}
-            className="rounded-xl bg-white p-1.5"
+            size={40}
+            className="rounded-xl bg-white p-1"
           />
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-100">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-100">
               Beneficiary Bank
             </p>
-            <h3 className="truncate text-base font-bold sm:text-lg">{bankName}</h3>
+            <h3 className="truncate text-sm font-bold sm:text-base">{bankName}</h3>
           </div>
         </div>
       </div>
 
       {receipt.accountHolderName ? (
-        <header className="bg-[#E67E22] px-4 py-3 text-center">
-          <p className="text-xs font-semibold uppercase tracking-wide text-orange-100">
+        <header className="bg-[#E67E22] px-4 py-2 text-center">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-100">
             Account Holder
           </p>
-          <h4 className="mt-0.5 text-sm font-bold uppercase leading-snug tracking-wide text-white sm:text-[15px]">
+          <h4 className="mt-0.5 text-sm font-bold uppercase leading-snug tracking-wide text-white">
             {receipt.accountHolderName}
           </h4>
         </header>
@@ -137,12 +137,15 @@ export default function BankDetailsCard({
         {rows.map(({ key, label, value, mono, copyable }) => (
           <div
             key={key}
-            className="grid grid-cols-[minmax(120px,34%)_1fr] text-sm sm:grid-cols-[minmax(150px,32%)_1fr]"
+            className={cn(
+              "grid grid-cols-[minmax(120px,34%)_1fr] text-sm sm:grid-cols-[minmax(150px,32%)_1fr]",
+              key === "address" && "receipt-print-hide"
+            )}
           >
-            <div className="border-r border-[#E5E7EB] bg-[#F8FAFC] px-4 py-3 font-semibold text-[#475569]">
+            <div className="border-r border-[#E5E7EB] bg-[#F8FAFC] px-3 py-2.5 font-semibold text-[#475569]">
               {label}
             </div>
-            <div className="flex items-start justify-between gap-2 bg-white px-4 py-3 font-semibold text-[#111827]">
+            <div className="flex items-start justify-between gap-2 bg-white px-3 py-2.5 font-semibold text-[#111827]">
               <span
                 className={cn(
                   "break-words leading-snug",
@@ -173,7 +176,7 @@ export default function BankDetailsCard({
         ) : null}
 
         {ifscCode ? (
-          <div className="receipt-no-print flex items-start gap-2 bg-[#F8FAFC] px-4 py-3 text-xs text-slate-500">
+          <div className="receipt-no-print flex items-start gap-2 bg-[#F8FAFC] px-4 py-2.5 text-xs text-slate-500">
             <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#0057D9]" />
             <span className="leading-relaxed">
               Branch details verified via Razorpay IFSC lookup · {ifscCode}

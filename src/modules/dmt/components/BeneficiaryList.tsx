@@ -22,6 +22,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import SendIcon from "@mui/icons-material/Send";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
+import EastIcon from "@mui/icons-material/East";
+import ProcessLoadingOverlay from "@/src/components/common/ProcessLoadingOverlay";
 import { toast } from "sonner";
 import { BankLogo } from "@/components/retailer/BankLogo";
 import {
@@ -51,6 +53,7 @@ function ActionIcon({
   disabled,
   loading,
   color = "default",
+  highlight = false,
   children,
 }: {
   title: string;
@@ -58,6 +61,8 @@ function ActionIcon({
   disabled?: boolean;
   loading?: boolean;
   color?: "default" | "primary" | "error" | "success";
+  /** Draws retailer attention — filled primary + soft pulse */
+  highlight?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -70,17 +75,46 @@ function ActionIcon({
           disabled={disabled || loading}
           aria-label={title}
           sx={{
-            width: 32,
-            height: 32,
+            width: highlight ? 36 : 32,
+            height: highlight ? 36 : 32,
             border: "1px solid",
-            borderColor:
-              color === "error"
+            borderColor: highlight
+              ? "primary.main"
+              : color === "error"
                 ? "rgba(211,47,47,0.35)"
                 : color === "primary" || color === "success"
                   ? "rgba(21,101,216,0.35)"
                   : "#e2e8f0",
-            borderRadius: 1,
-            bgcolor: "#fff",
+            borderRadius: highlight ? "50%" : 1,
+            bgcolor: highlight
+              ? "primary.main"
+              : color === "primary"
+                ? "rgba(21,101,216,0.08)"
+                : "#fff",
+            color: highlight ? "#fff" : undefined,
+            boxShadow: highlight
+              ? "0 0 0 0 rgba(21, 101, 216, 0.55)"
+              : "none",
+            animation: highlight
+              ? "dmtVerifyPulse 1.6s ease-out infinite"
+              : "none",
+            "@keyframes dmtVerifyPulse": {
+              "0%": {
+                boxShadow: "0 0 0 0 rgba(21, 101, 216, 0.55)",
+              },
+              "70%": {
+                boxShadow: "0 0 0 10px rgba(21, 101, 216, 0)",
+              },
+              "100%": {
+                boxShadow: "0 0 0 0 rgba(21, 101, 216, 0)",
+              },
+            },
+            "&:hover": highlight
+              ? {
+                  bgcolor: "primary.dark",
+                  color: "#fff",
+                }
+              : undefined,
           }}
         >
           {loading ? <CircularProgress size={14} color="inherit" /> : children}
@@ -228,27 +262,83 @@ export default function BeneficiaryList({
         selector: (row) => (row.isVerified ? "verified" : "unverified"),
         sortable: true,
         grow: 0,
-        width: "112px",
-        center: true,
-        cell: (row) => (
-          <Chip
-            label={row.isVerified ? "Verified" : "Unverified"}
-            color={row.isVerified ? "success" : "warning"}
-            size="small"
-            sx={{
-              fontWeight: 700,
-              fontSize: 11,
-              height: 24,
-              "& .MuiChip-label": { px: 1, whiteSpace: "nowrap" },
-            }}
-          />
-        ),
+        minWidth: "168px",
+        width: "168px",
+        cell: (row) =>
+          row.isVerified ? (
+            <Chip
+              label="Verified"
+              size="small"
+              icon={
+                <CheckCircleIcon
+                  sx={{ fontSize: "15px !important", color: "#fff !important" }}
+                />
+              }
+              sx={{
+                fontWeight: 800,
+                fontSize: 11,
+                height: 28,
+                bgcolor: "#16a34a",
+                color: "#fff",
+                border: "1px solid #15803d",
+                boxShadow: "0 2px 8px rgba(22, 163, 74, 0.28)",
+                cursor: "default",
+                pointerEvents: "none",
+                "& .MuiChip-label": {
+                  px: 0.75,
+                  whiteSpace: "nowrap",
+                },
+                "& .MuiChip-icon": { ml: 0.75 },
+              }}
+            />
+          ) : (
+            <Tooltip title="Tap to verify this beneficiary" arrow>
+              <Chip
+                label="Unverified"
+                color="warning"
+                size="small"
+                onClick={() => onVerify(row)}
+                onDelete={() => onVerify(row)}
+                deleteIcon={
+                  <EastIcon
+                    sx={{
+                      fontSize: "15px !important",
+                      color: "#fff !important",
+                    }}
+                  />
+                }
+                icon={
+                  <CheckCircleIcon
+                    sx={{ fontSize: "15px !important", color: "#fff !important" }}
+                  />
+                }
+                sx={{
+                  cursor: "pointer",
+                  fontWeight: 800,
+                  fontSize: 11,
+                  height: 28,
+                  bgcolor: "#f59e0b",
+                  color: "#fff",
+                  border: "1px solid #d97706",
+                  boxShadow: "0 2px 8px rgba(245, 158, 11, 0.35)",
+                  "& .MuiChip-label": {
+                    px: 0.75,
+                    whiteSpace: "nowrap",
+                  },
+                  "& .MuiChip-icon": { ml: 0.75 },
+                  "&:hover": {
+                    bgcolor: "#d97706",
+                  },
+                }}
+              />
+            </Tooltip>
+          ),
       },
       {
         id: "actions",
         name: "Actions",
         grow: 0,
-        width: "120px",
+        width: "160px",
         right: true,
         ignoreRowClick: true,
         button: true,
@@ -256,7 +346,7 @@ export default function BeneficiaryList({
           const verifyingThis = bankVerifying && bankVerifyId === row.id;
 
           return (
-            <div className="flex flex-nowrap items-center justify-end gap-0.5">
+            <div className="flex flex-nowrap items-center justify-end gap-1">
               {row.isVerified ? (
                 <>
                   <ActionIcon
@@ -284,13 +374,43 @@ export default function BeneficiaryList({
                 </>
               ) : (
                 <>
-                  <ActionIcon
-                    title="Beneficiary Bank Account"
-                    color="primary"
-                    onClick={() => onVerify(row)}
+                  <Box
+                    sx={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 0.5,
+                      mr: 0.25,
+                    }}
                   >
-                    <CheckCircleIcon sx={{ fontSize: 16 }} />
-                  </ActionIcon>
+                    <Typography
+                      component="span"
+                      sx={{
+                        display: { xs: "none", md: "inline" },
+                        fontSize: 10,
+                        fontWeight: 800,
+                        color: "primary.main",
+                        letterSpacing: 0.2,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Verify
+                    </Typography>
+                    <EastIcon
+                      sx={{
+                        display: { xs: "none", sm: "inline" },
+                        fontSize: 14,
+                        color: "primary.main",
+                      }}
+                    />
+                    <ActionIcon
+                      title="Click here to verify this beneficiary"
+                      color="primary"
+                      highlight
+                      onClick={() => onVerify(row)}
+                    >
+                      <CheckCircleIcon sx={{ fontSize: 18 }} />
+                    </ActionIcon>
+                  </Box>
                   <ActionIcon
                     title="Bank Verification"
                     onClick={() => void handleBankVerification(row)}
@@ -538,6 +658,12 @@ export default function BeneficiaryList({
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ProcessLoadingOverlay
+        open={bankVerifying}
+        message="Please wait..."
+        detail="Connecting to bank server — verifying account"
+      />
     </Box>
   );
 }

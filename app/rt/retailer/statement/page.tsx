@@ -56,6 +56,7 @@ import {
   downloadStatementReceiptPdf,
   formatTransactionId as formatReceiptTransactionId,
 } from "@/src/lib/statementReceiptUtils";
+import { RECEIPT_PRINT_PAGE_STYLE } from "@/src/constants/receiptPrint";
 import { enrichStatementWithIfsc } from "@/src/services/ifscService";
 import TransactionReceipt from "@/src/components/statement/TransactionReceipt";
 import ReceiptActions from "@/src/components/statement/ReceiptActions";
@@ -299,14 +300,6 @@ function buildReceiptCustomerInfo(
       "India",
   };
 }
-
-const RECEIPT_PRINT_PAGE_STYLE = `
-  @page { size: A4 portrait; margin: 10mm; }
-  @media print {
-    html, body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .receipt-no-print, .print\\:hidden { display: none !important; }
-  }
-`;
 
 function matchesServiceFilter(
   service: string,

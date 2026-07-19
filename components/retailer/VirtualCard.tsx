@@ -3,14 +3,14 @@
 import { Wifi } from "lucide-react";
 import { useSelector } from "react-redux";
 import { selectUser } from "@/src/redux/slices/authSlice";
-import { getUserDisplayName } from "@/src/lib/userUtils";
+import { getRetailerDisplayName } from "@/src/lib/userUtils";
 import { useWalletStore, selectRetailerDisplayBalance } from "@/features/retailer/store/walletStore";
 import { formatCurrency } from "@/lib/utils";
 
 export default function VirtualCard() {
   const balance = useWalletStore(selectRetailerDisplayBalance);
   const user = useSelector(selectUser);
-  const displayName = getUserDisplayName(user, "Retailer");
+  const displayName = getRetailerDisplayName(user, "Retailer");
   const retailerId = user?.userId || user?.retailerId || user?.id || "0000";
 
   const cardNumber = `4532 •••• •••• ${String(retailerId).slice(-4)}`;

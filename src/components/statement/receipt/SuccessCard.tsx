@@ -35,21 +35,21 @@ export default function SuccessCard({ receipt }: SuccessCardProps) {
   return (
     <section
       className={cn(
-        "receipt-success-card receipt-no-print rounded-2xl border px-6 py-8 text-center shadow-sm",
+        "receipt-success-card receipt-no-print rounded-2xl border px-5 py-5 text-center shadow-sm",
         cardStyles
       )}
     >
       <div
         className={cn(
-          "mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full",
+          "mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full",
           iconStyles
         )}
       >
-        <StatusIcon className="h-9 w-9" strokeWidth={2.25} />
+        <StatusIcon className="h-7 w-7" strokeWidth={2.25} />
       </div>
       <h2
         className={cn(
-          "text-xl font-bold sm:text-2xl",
+          "text-lg font-bold sm:text-xl",
           isSuccess && "text-[#16A34A]",
           isPending && "text-amber-700",
           !isSuccess && !isPending && "text-red-600"
@@ -57,8 +57,10 @@ export default function SuccessCard({ receipt }: SuccessCardProps) {
       >
         {receipt.statusLabel}
       </h2>
-      <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">{subtitle}</p>
-      <p className="mt-6 bg-gradient-to-r from-[#0A84FF] to-[#0057D9] bg-clip-text text-3xl font-extrabold tabular-nums text-transparent sm:text-4xl">
+      <p className="mx-auto mt-1 max-w-md text-xs text-slate-600 sm:text-sm">
+        {subtitle}
+      </p>
+      <p className="mt-3 bg-gradient-to-r from-[#0A84FF] to-[#0057D9] bg-clip-text text-2xl font-extrabold tabular-nums text-transparent sm:text-3xl">
         {formatCurrency(receipt.amount)}
       </p>
     </section>

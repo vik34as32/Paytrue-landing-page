@@ -10,6 +10,7 @@ export const API_ENDPOINTS = {
   walletDeduct: "/wallet/deduct",
   walletTransfers: "/wallet/transfers",
   walletSummary: "/wallet/summary",
+  walletLedger: "/retailer/wallet-ledger",
   walletCommission: "/wallet/commission",
   walletCommissionLedger: "/wallet/commission/ledger",
   walletCommissionTransferToMain: "/wallet/commission/transfer-to-main",

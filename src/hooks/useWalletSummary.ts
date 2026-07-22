@@ -16,7 +16,7 @@ export function useWalletSummary(
 ) {
   return useQuery({
     queryKey: [...walletSummaryQueryKey(role), params],
-    queryFn: () => fetchWalletSummary(params),
+    queryFn: () => fetchWalletSummary(params, role),
     staleTime: 20_000,
     placeholderData: (previous) => previous,
   });

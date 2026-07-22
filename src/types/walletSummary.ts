@@ -3,8 +3,6 @@ export type WalletSummaryTypeFilter = "ALL" | "CREDIT" | "DEDUCT";
 export type WalletSummaryStatusFilter =
   | "All"
   | "SUCCESS"
-  | "PENDING"
-  | "PROCESSING"
   | "FAILED"
   | "REVERSED"
   | "REFUNDED";
@@ -19,21 +17,42 @@ export interface WalletSummaryPerformer {
   roleLabel?: string | null;
 }
 
+/** Unified wallet ledger row (API: Retailer wallet ledger) */
 export interface WalletSummaryTransaction {
   id: string;
+  rowNumber: number;
+  ledgerId: string;
+  ledgerNo: string;
+  date: string;
+  time: string;
+  createdAt: string;
+  transactionId: string;
+  referenceId: string;
+  /** Legacy alias used by older exports */
   reference: string;
+  service: string;
+  serviceLabel: string;
+  serviceType: string;
+  transactionType: string;
+  description: string;
+  status: string;
+  openingBalance: number;
+  transactionAmount: number;
+  charge: number;
+  gst: number;
+  commission: number;
+  tds: number;
+  amountCr: number;
+  amountDr: number;
+  closingBalance: number;
+  walletType: string;
+  remarks?: string | null;
+  /** Legacy fields kept for older table/export paths */
   type: "CREDIT" | "DEDUCT";
   operationType: string;
   action: string;
   amount: number;
-  openingBalance: number;
-  closingBalance: number;
   updatedBalance: number;
-  status: string;
-  remarks?: string | null;
-  createdAt: string;
-  date?: string;
-  time?: string;
   performedBy?: WalletSummaryPerformer | null;
   message?: string | null;
 }

@@ -8,11 +8,7 @@ import PageHeader from "@/src/components/common/PageHeader";
 import WalletSummaryTable from "@/src/components/walletSummary/WalletSummaryTable";
 import { useDebounce } from "@/src/hooks/useDebounce";
 import { useWalletSummary } from "@/src/hooks/useWalletSummary";
-import type {
-  WalletSummaryPortalRole,
-  WalletSummaryStatusFilter,
-  WalletSummaryTypeFilter,
-} from "@/src/types/walletSummary";
+import type { WalletSummaryPortalRole } from "@/src/types/walletSummary";
 
 const PAGE_CONFIG: Record<
   WalletSummaryPortalRole,
@@ -40,8 +36,6 @@ function WalletSummaryContent({ role }: { role: WalletSummaryPortalRole }) {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<WalletSummaryTypeFilter>("ALL");
-  const [statusFilter, setStatusFilter] = useState<WalletSummaryStatusFilter>("All");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
@@ -52,14 +46,13 @@ function WalletSummaryContent({ role }: { role: WalletSummaryPortalRole }) {
       page,
       limit,
       search: debouncedSearch.trim() || undefined,
-      type: typeFilter,
-      status: statusFilter !== "All" ? statusFilter : undefined,
+      type: "ALL" as const,
       startDate: dateFrom || undefined,
       endDate: dateTo || undefined,
       sortBy: "createdAt",
       sortOrder: "desc" as const,
     }),
-    [page, limit, debouncedSearch, typeFilter, statusFilter, dateFrom, dateTo]
+    [page, limit, debouncedSearch, dateFrom, dateTo]
   );
 
   const { data, isLoading, isFetching, error, refetch } = useWalletSummary(
@@ -82,22 +75,6 @@ function WalletSummaryContent({ role }: { role: WalletSummaryPortalRole }) {
   const handleSearchChange = useCallback(
     (value: string) => {
       setSearch(value);
-      resetPage();
-    },
-    [resetPage]
-  );
-
-  const handleTypeFilterChange = useCallback(
-    (value: WalletSummaryTypeFilter) => {
-      setTypeFilter(value);
-      resetPage();
-    },
-    [resetPage]
-  );
-
-  const handleStatusFilterChange = useCallback(
-    (value: WalletSummaryStatusFilter) => {
-      setStatusFilter(value);
       resetPage();
     },
     [resetPage]
@@ -147,15 +124,11 @@ function WalletSummaryContent({ role }: { role: WalletSummaryPortalRole }) {
         page={data?.meta.page ?? page}
         limit={data?.meta.limit ?? limit}
         search={search}
-        typeFilter={typeFilter}
-        statusFilter={statusFilter}
         dateFrom={dateFrom}
         dateTo={dateTo}
         loading={loading}
         onRefresh={() => refetch()}
         onSearchChange={handleSearchChange}
-        onTypeFilterChange={handleTypeFilterChange}
-        onStatusFilterChange={handleStatusFilterChange}
         onDateFromChange={handleDateFromChange}
         onDateToChange={handleDateToChange}
         onPageChange={setPage}

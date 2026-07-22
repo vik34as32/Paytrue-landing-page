@@ -9,75 +9,40 @@ export const WALLET_SUMMARY_TYPE_FILTERS = ["ALL", "CREDIT", "DEDUCT"] as const;
 export const WALLET_SUMMARY_STATUS_FILTERS = [
   "All",
   "SUCCESS",
-  "PENDING",
-  "PROCESSING",
   "FAILED",
   "REVERSED",
   "REFUNDED",
 ] as const;
 
-export const WALLET_SUMMARY_EXPORT_COLUMNS = [
-  {
-    label: "Date",
-    selector: (row: WalletSummaryTransaction) =>
-      row.date && row.time ? `${row.date} ${row.time}` : formatWalletSummaryDate(row.createdAt),
-  },
-  {
-    label: "Reference",
-    selector: (row: WalletSummaryTransaction) => row.reference || "—",
-  },
-  {
-    label: "Performed By",
-    selector: (row: WalletSummaryTransaction) => row.performedBy?.name || "—",
-  },
-  {
-    label: "User Code",
-    selector: (row: WalletSummaryTransaction) => row.performedBy?.userCode || "—",
-  },
-  {
-    label: "Role",
-    selector: (row: WalletSummaryTransaction) =>
-      row.performedBy?.roleLabel || row.performedBy?.role || "—",
-  },
-  {
-    label: "Previous Balance",
-    selector: (row: WalletSummaryTransaction) => formatWalletSummaryAmount(row.openingBalance),
-  },
-  {
-    label: "Credit Amount",
-    selector: (row: WalletSummaryTransaction) =>
-      row.type === "CREDIT" ? formatWalletSummaryAmount(row.amount) : "—",
-  },
-  {
-    label: "Deduct Amount",
-    selector: (row: WalletSummaryTransaction) =>
-      row.type === "DEDUCT" ? formatWalletSummaryAmount(row.amount) : "—",
-  },
-  {
-    label: "Updated Balance",
-    selector: (row: WalletSummaryTransaction) => formatWalletSummaryAmount(row.updatedBalance),
-  },
-  {
-    label: "Status",
-    selector: (row: WalletSummaryTransaction) => row.status || "—",
-  },
-  {
-    label: "Remarks",
-    selector: (row: WalletSummaryTransaction) => row.remarks || "—",
-  },
-  {
-    label: "Message",
-    selector: (row: WalletSummaryTransaction) => row.message || "—",
-  },
-] as const;
-
 export function formatWalletSummaryAmount(value: number | null | undefined): string {
   const amount = Number(value ?? 0);
-  if (!Number.isFinite(amount)) return "₹0.00";
-  return `₹${amount.toLocaleString("en-IN", {
+  if (!Number.isFinite(amount)) return "0.00";
+  return amount.toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })}`;
+  });
+}
+
+export function formatWalletSummaryDateTime(
+  date?: string,
+  time?: string,
+  createdAt?: string
+): string {
+  if (date && time) {
+    const [y, m, d] = date.split("-");
+    if (y && m && d) return `${d}-${m}-${y} ${time}`;
+    return `${date} ${time}`;
+  }
+  if (!createdAt) return "—";
+  const parsed = new Date(createdAt);
+  if (Number.isNaN(parsed.getTime())) return "—";
+  const dd = String(parsed.getDate()).padStart(2, "0");
+  const mm = String(parsed.getMonth() + 1).padStart(2, "0");
+  const yyyy = parsed.getFullYear();
+  const hh = String(parsed.getHours()).padStart(2, "0");
+  const min = String(parsed.getMinutes()).padStart(2, "0");
+  const ss = String(parsed.getSeconds()).padStart(2, "0");
+  return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
 }
 
 export function formatWalletSummaryDate(value: string): string {
@@ -96,6 +61,18 @@ function toNumber(value: unknown): number {
   return Number.isFinite(num) ? num : 0;
 }
 
+function titleCaseService(value: string): string {
+  const raw = value.trim();
+  if (!raw) return "—";
+  if (raw.includes(" ")) return raw;
+  return raw
+    .toLowerCase()
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function normalizePerformer(raw: Record<string, unknown> | null | undefined) {
   if (!raw) return null;
   return {
@@ -109,31 +86,119 @@ function normalizePerformer(raw: Record<string, unknown> | null | undefined) {
   };
 }
 
+export function isCommissionLedgerRow(row: {
+  service?: string;
+  serviceType?: string;
+  transactionType?: string;
+  walletType?: string;
+}): boolean {
+  const service = String(row.service || "").toUpperCase();
+  const serviceType = String(row.serviceType || "").toUpperCase();
+  const transactionType = String(row.transactionType || "").toUpperCase();
+  const walletType = String(row.walletType || "").toUpperCase();
+
+  return (
+    walletType === "COMMISSION" ||
+    serviceType === "COMMISSION" ||
+    transactionType === "COMMISSION" ||
+    service.includes("COMMISSION")
+  );
+}
+
+export function isPendingLedgerRow(row: { status?: string }): boolean {
+  return String(row.status || "").toUpperCase() === "PENDING";
+}
+
+/** Hide Pending + Commission rows from wallet summary grid */
+export function shouldShowWalletLedgerRow(row: {
+  status?: string;
+  service?: string;
+  serviceType?: string;
+  transactionType?: string;
+  walletType?: string;
+}): boolean {
+  return !isPendingLedgerRow(row) && !isCommissionLedgerRow(row);
+}
+
 export function normalizeWalletSummaryTransaction(
-  raw: Record<string, unknown>
+  raw: Record<string, unknown>,
+  index = 0
 ): WalletSummaryTransaction {
-  const type = String(raw.type || "").toUpperCase() === "CREDIT" ? "CREDIT" : "DEDUCT";
-  const amount = toNumber(raw.amount);
+  const service = String(raw.service || raw.operationType || raw.action || "");
+  const serviceType = String(raw.serviceType || "");
+  const transactionType = String(
+    raw.transactionType || raw.type || ""
+  ).toUpperCase();
+  const status = String(raw.status || "SUCCESS").toUpperCase();
   const openingBalance = toNumber(raw.openingBalance);
-  const closingBalance = toNumber(raw.closingBalance ?? raw.updatedBalance);
-  const updatedBalance = toNumber(raw.updatedBalance ?? raw.closingBalance);
+  const closingBalance = toNumber(
+    raw.closingBalance ?? raw.updatedBalance ?? raw.openingBalance
+  );
+  const transactionAmount = toNumber(
+    raw.transactionAmount ?? raw.amount ?? raw.txnAmount
+  );
+  const amountCr = toNumber(raw.amountCr ?? raw.credit);
+  const amountDr = toNumber(raw.amountDr ?? raw.debit);
+  const charge = toNumber(raw.charge);
+  const commission = toNumber(raw.commission);
+  const tds = toNumber(raw.tds);
+  const ledgerNo = String(
+    raw.ledgerNo || raw.reference || raw.referenceId || raw.id || ""
+  );
+  const description = String(
+    raw.description || raw.remarks || raw.message || ""
+  ).trim();
+  const remarks = raw.remarks ? String(raw.remarks) : null;
+  const displayDescription =
+    status === "FAILED" && remarks
+      ? remarks.split(".")[0]?.trim() || description
+      : description;
+
+  const isCredit =
+    amountCr > 0 ||
+    transactionType === "CREDIT" ||
+    transactionType === "TOPUP" ||
+    transactionType === "COMMISSION" ||
+    String(raw.type || "").toUpperCase() === "CREDIT";
 
   return {
-    id: String(raw.id || ""),
-    reference: String(raw.reference || ""),
-    type,
-    operationType: String(raw.operationType || ""),
-    action: String(raw.action || ""),
-    amount,
-    openingBalance,
-    closingBalance,
-    updatedBalance,
-    status: String(raw.status || "SUCCESS"),
-    remarks: raw.remarks ? String(raw.remarks) : null,
+    id: String(raw.id || raw.ledgerId || `${index}`),
+    rowNumber: toNumber(raw.rowNumber) || index + 1,
+    ledgerId: String(raw.ledgerId || raw.id || ""),
+    ledgerNo,
+    date: raw.date ? String(raw.date) : "",
+    time: raw.time ? String(raw.time) : "",
     createdAt: String(raw.createdAt || ""),
-    date: raw.date ? String(raw.date) : undefined,
-    time: raw.time ? String(raw.time) : undefined,
-    performedBy: normalizePerformer(raw.performedBy as Record<string, unknown> | undefined),
+    transactionId: String(raw.transactionId || ""),
+    referenceId: String(raw.referenceId || ""),
+    reference: ledgerNo,
+    service,
+    serviceLabel: titleCaseService(service),
+    serviceType,
+    transactionType,
+    description: displayDescription || "—",
+    status,
+    openingBalance,
+    transactionAmount,
+    charge,
+    gst: toNumber(raw.gst),
+    commission,
+    tds,
+    amountCr,
+    amountDr,
+    closingBalance,
+    walletType: String(raw.walletType || "MAIN"),
+    remarks,
+    type: isCredit ? "CREDIT" : "DEDUCT",
+    operationType: serviceType || service,
+    action: String(raw.action || service),
+    amount: transactionAmount,
+    updatedBalance: closingBalance,
+    performedBy: normalizePerformer(
+      (raw.performedBy || raw.retailer || raw.agent) as
+        | Record<string, unknown>
+        | undefined
+    ),
     message: raw.message ? String(raw.message) : null,
   };
 }
@@ -156,8 +221,80 @@ export function buildWalletSummaryQuery(
   if (params.endDate) query.endDate = params.endDate;
   if (params.search?.trim()) query.search = params.search.trim();
 
+  // Prefer server-side exclusion when supported by API
+  query.excludePending = 1;
+  query.excludeCommission = 1;
+
   return query;
 }
+
+export const WALLET_SUMMARY_EXPORT_COLUMNS = [
+  {
+    label: "#",
+    selector: (row: WalletSummaryTransaction) => String(row.rowNumber || ""),
+  },
+  {
+    label: "Date & Time",
+    selector: (row: WalletSummaryTransaction) =>
+      formatWalletSummaryDateTime(row.date, row.time, row.createdAt),
+  },
+  {
+    label: "Ledger No",
+    selector: (row: WalletSummaryTransaction) => row.ledgerNo || "—",
+  },
+  {
+    label: "Service",
+    selector: (row: WalletSummaryTransaction) => row.serviceLabel || "—",
+  },
+  {
+    label: "Description",
+    selector: (row: WalletSummaryTransaction) => row.description || "—",
+  },
+  {
+    label: "Status",
+    selector: (row: WalletSummaryTransaction) => row.status || "—",
+  },
+  {
+    label: "Opening Balance",
+    selector: (row: WalletSummaryTransaction) =>
+      formatWalletSummaryAmount(row.openingBalance),
+  },
+  {
+    label: "Txn Amount",
+    selector: (row: WalletSummaryTransaction) =>
+      formatWalletSummaryAmount(row.transactionAmount),
+  },
+  {
+    label: "Charge",
+    selector: (row: WalletSummaryTransaction) =>
+      formatWalletSummaryAmount(row.charge),
+  },
+  {
+    label: "Comm.",
+    selector: (row: WalletSummaryTransaction) =>
+      formatWalletSummaryAmount(row.commission),
+  },
+  {
+    label: "TDS",
+    selector: (row: WalletSummaryTransaction) =>
+      formatWalletSummaryAmount(row.tds),
+  },
+  {
+    label: "Credit (Cr)",
+    selector: (row: WalletSummaryTransaction) =>
+      formatWalletSummaryAmount(row.amountCr),
+  },
+  {
+    label: "Debit (Dr)",
+    selector: (row: WalletSummaryTransaction) =>
+      formatWalletSummaryAmount(row.amountDr),
+  },
+  {
+    label: "Closing Balance",
+    selector: (row: WalletSummaryTransaction) =>
+      formatWalletSummaryAmount(row.closingBalance),
+  },
+] as const;
 
 export function exportWalletSummaryCsv(rows: WalletSummaryTransaction[]): void {
   exportToCsv(
@@ -207,7 +344,7 @@ export async function exportWalletSummaryPdf(
       WALLET_SUMMARY_EXPORT_COLUMNS.map((col) => String(col.selector(row) ?? ""))
     ),
     startY: 24,
-    styles: { fontSize: 7, cellPadding: 2 },
+    styles: { fontSize: 6.5, cellPadding: 1.5 },
     headStyles: { fillColor: [0, 87, 217], textColor: 255 },
     alternateRowStyles: { fillColor: [248, 250, 252] },
   });

@@ -11,6 +11,8 @@ export const API_ENDPOINTS = {
   walletTransfers: "/wallet/transfers",
   walletSummary: "/wallet/summary",
   walletLedger: "/retailer/wallet-ledger",
+  walletLedgerExport: "/retailer/wallet-ledger/export",
+  walletAepsBalance: "/wallet/aeps/balance",
   walletCommission: "/wallet/commission",
   walletCommissionLedger: "/wallet/commission/ledger",
   walletCommissionTransferToMain: "/wallet/commission/transfer-to-main",

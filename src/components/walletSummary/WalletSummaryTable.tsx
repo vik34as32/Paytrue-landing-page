@@ -15,6 +15,7 @@ import {
   Search,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,7 +39,10 @@ import {
   formatWalletSummaryDateTime,
   printWalletSummary,
 } from "@/src/lib/walletSummaryUtils";
+import { exportRetailerWalletLedger } from "@/src/services/walletSummaryService";
 import type {
+  WalletLedgerExportFormat,
+  WalletSummaryPortalRole,
   WalletSummaryTransaction,
   WalletSummaryUser,
   WalletSummaryWallet,
@@ -135,6 +139,7 @@ function ExportButton({
 }
 
 interface WalletSummaryTableProps {
+  role?: WalletSummaryPortalRole;
   transactions: WalletSummaryTransaction[];
   wallet?: WalletSummaryWallet | null;
   user?: WalletSummaryUser | null;
@@ -154,6 +159,7 @@ interface WalletSummaryTableProps {
 }
 
 export default function WalletSummaryTable({
+  role = "rt",
   transactions,
   wallet,
   total = 0,
@@ -171,9 +177,58 @@ export default function WalletSummaryTable({
   onLimitChange,
 }: WalletSummaryTableProps) {
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [excelLoading, setExcelLoading] = useState(false);
 
   const totalPages = Math.max(1, Math.ceil(total / limit) || 1);
-  const exportDisabled = loading || transactions.length === 0;
+  const clientExportDisabled = loading || transactions.length === 0;
+  const fileExportBusy = csvLoading || excelLoading;
+
+  function requireDateRange(): boolean {
+    if (!dateFrom?.trim() || !dateTo?.trim()) {
+      toast.error("Please select Start Date and End Date to export");
+      return false;
+    }
+    if (dateFrom > dateTo) {
+      toast.error("Start Date cannot be after End Date");
+      return false;
+    }
+    return true;
+  }
+
+  async function handleFileExport(format: WalletLedgerExportFormat) {
+    if (!requireDateRange()) return;
+
+    const setLoading = format === "csv" ? setCsvLoading : setExcelLoading;
+    setLoading(true);
+    try {
+      if (role === "rt") {
+        await exportRetailerWalletLedger({
+          fromDate: dateFrom,
+          toDate: dateTo,
+          format,
+          search: search.trim() || undefined,
+          sortBy: "createdAt",
+          sortOrder: "desc",
+        });
+        toast.success(
+          format === "csv" ? "CSV downloaded" : "Excel downloaded"
+        );
+      } else if (format === "csv") {
+        exportWalletSummaryCsv(transactions);
+      } else {
+        exportWalletSummaryExcel(transactions);
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Export failed. Please try again.";
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const columns = useMemo<TableColumn<WalletSummaryTransaction>[]>(
     () => [
@@ -345,19 +400,21 @@ export default function WalletSummaryTable({
             <ExportButton
               label="CSV"
               icon={Download}
-              disabled={exportDisabled}
-              onClick={() => exportWalletSummaryCsv(transactions)}
+              disabled={loading || fileExportBusy}
+              loading={csvLoading}
+              onClick={() => void handleFileExport("csv")}
             />
             <ExportButton
               label="Excel"
               icon={FileSpreadsheet}
-              disabled={exportDisabled}
-              onClick={() => exportWalletSummaryExcel(transactions)}
+              disabled={loading || fileExportBusy}
+              loading={excelLoading}
+              onClick={() => void handleFileExport("excel")}
             />
             <ExportButton
               label="PDF"
               icon={FileText}
-              disabled={exportDisabled}
+              disabled={clientExportDisabled || fileExportBusy}
               loading={pdfLoading}
               onClick={async () => {
                 setPdfLoading(true);
@@ -371,7 +428,7 @@ export default function WalletSummaryTable({
             <ExportButton
               label="Print"
               icon={Printer}
-              disabled={exportDisabled}
+              disabled={clientExportDisabled || fileExportBusy}
               onClick={() => printWalletSummary(transactions)}
             />
             <Button
@@ -419,21 +476,28 @@ export default function WalletSummaryTable({
           ) : null}
         </div>
 
-        <div className="flex gap-2">
-          <Input
-            type="date"
-            value={dateFrom}
-            onChange={(event) => onDateFromChange?.(event.target.value)}
-            className="h-10 w-[150px]"
-            disabled={loading}
-          />
-          <Input
-            type="date"
-            value={dateTo}
-            onChange={(event) => onDateToChange?.(event.target.value)}
-            className="h-10 w-[150px]"
-            disabled={loading}
-          />
+        <div className="flex flex-col gap-1 sm:items-end">
+          <div className="flex gap-2">
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(event) => onDateFromChange?.(event.target.value)}
+              className="h-10 w-[150px]"
+              disabled={loading}
+              aria-label="Start date"
+            />
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(event) => onDateToChange?.(event.target.value)}
+              className="h-10 w-[150px]"
+              disabled={loading}
+              aria-label="End date"
+            />
+          </div>
+          <p className="text-[11px] text-slate-400">
+            Start &amp; End date required for CSV / Excel
+          </p>
         </div>
       </div>
 

@@ -72,7 +72,11 @@ export interface WalletSummaryWallet {
 export interface WalletSummaryFilters {
   type: WalletSummaryTypeFilter;
   status: string | null;
+  fromDate: string | null;
+  toDate: string | null;
+  /** @deprecated use fromDate */
   startDate: string | null;
+  /** @deprecated use toDate */
   endDate: string | null;
   search: string | null;
   sortBy: string;
@@ -94,9 +98,27 @@ export interface WalletSummaryListParams {
   limit?: number;
   type?: WalletSummaryTypeFilter;
   status?: string;
+  fromDate?: string;
+  toDate?: string;
+  /** @deprecated use fromDate */
   startDate?: string;
+  /** @deprecated use toDate */
   endDate?: string;
   search?: string;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  service?: string;
+}
+
+export type WalletLedgerExportFormat = "csv" | "excel" | "xlsx";
+
+export interface WalletLedgerExportParams {
+  fromDate: string;
+  toDate: string;
+  format: WalletLedgerExportFormat;
+  search?: string;
+  service?: string;
+  status?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
 }

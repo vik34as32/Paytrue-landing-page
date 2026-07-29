@@ -47,8 +47,8 @@ function WalletSummaryContent({ role }: { role: WalletSummaryPortalRole }) {
       limit,
       search: debouncedSearch.trim() || undefined,
       type: "ALL" as const,
-      startDate: dateFrom || undefined,
-      endDate: dateTo || undefined,
+      fromDate: dateFrom || undefined,
+      toDate: dateTo || undefined,
       sortBy: "createdAt",
       sortOrder: "desc" as const,
     }),
@@ -117,6 +117,7 @@ function WalletSummaryContent({ role }: { role: WalletSummaryPortalRole }) {
       />
 
       <WalletSummaryTable
+        role={role}
         transactions={data?.transactions ?? []}
         wallet={data?.wallet}
         user={data?.user}

@@ -1,16 +1,19 @@
 import api from "@/src/lib/axios";
 import { API_ENDPOINTS } from "@/src/constants/api";
 import {
+  buildWalletLedgerExportQuery,
   buildWalletSummaryQuery,
   normalizeWalletSummaryTransaction,
   shouldShowWalletLedgerRow,
 } from "@/src/lib/walletSummaryUtils";
 import type {
+  WalletLedgerExportParams,
   WalletSummaryListParams,
   WalletSummaryPortalRole,
   WalletSummaryResult,
   WalletSummaryTransaction,
 } from "@/src/types/walletSummary";
+import { saveAs } from "file-saver";
 
 function toNumber(value: unknown): number {
   const num = Number(value);
@@ -33,21 +36,32 @@ function pickPagination(payload: Record<string, unknown>) {
   );
 }
 
+function parseFilenameFromDisposition(header?: string | null): string | null {
+  if (!header) return null;
+  const utfMatch = /filename\*=UTF-8''([^;]+)/i.exec(header);
+  if (utfMatch?.[1]) {
+    try {
+      return decodeURIComponent(utfMatch[1].trim());
+    } catch {
+      return utfMatch[1].trim();
+    }
+  }
+  const plainMatch = /filename="?([^";]+)"?/i.exec(header);
+  return plainMatch?.[1]?.trim() || null;
+}
+
 export async function fetchWalletSummary(
   params: WalletSummaryListParams = {},
   role: WalletSummaryPortalRole = "rt"
 ): Promise<WalletSummaryResult> {
   const query = buildWalletSummaryQuery(params);
 
-  // RT retailer wallet summary uses dedicated ledger API
   const endpoint =
     role === "rt" ? API_ENDPOINTS.walletLedger : API_ENDPOINTS.walletSummary;
 
   const response = await api.get(endpoint, { params: query });
   const body = (response.data ?? {}) as Record<string, unknown>;
 
-  // Shape: { success, message, data: [...], pagination }
-  // Legacy: { data: { transactions, wallet, user, meta } }
   const nestedPayload =
     body.data && !Array.isArray(body.data) && typeof body.data === "object"
       ? (body.data as Record<string, unknown>)
@@ -59,15 +73,12 @@ export async function fetchWalletSummary(
   const nestedUser = (payload.user as Record<string, unknown>) ?? {};
   const filtersRaw = (payload.filters as Record<string, unknown>) ?? {};
 
-  const rawRows = Array.isArray(body.data)
-    ? body.data
-    : pickRows(payload);
+  const rawRows = Array.isArray(body.data) ? body.data : pickRows(payload);
 
   const normalized: WalletSummaryTransaction[] = rawRows.map((item, index) =>
     normalizeWalletSummaryTransaction(item as Record<string, unknown>, index)
   );
 
-  // Hide Pending + Commission rows
   const page = toNumber(pagination.page) || Number(query.page) || 1;
   const limit = toNumber(pagination.limit) || Number(query.limit) || 20;
 
@@ -81,6 +92,17 @@ export async function fetchWalletSummary(
   const total = toNumber(pagination.total) || normalized.length;
   const totalPages =
     toNumber(pagination.totalPages) || Math.max(1, Math.ceil(total / limit) || 1);
+
+  const fromDate =
+    (filtersRaw.fromDate ? String(filtersRaw.fromDate) : null) ||
+    params.fromDate ||
+    params.startDate ||
+    null;
+  const toDate =
+    (filtersRaw.toDate ? String(filtersRaw.toDate) : null) ||
+    params.toDate ||
+    params.endDate ||
+    null;
 
   return {
     user: {
@@ -101,12 +123,10 @@ export async function fetchWalletSummary(
       status: filtersRaw.status
         ? String(filtersRaw.status)
         : params.status || null,
-      startDate: filtersRaw.startDate
-        ? String(filtersRaw.startDate)
-        : params.startDate || null,
-      endDate: filtersRaw.endDate
-        ? String(filtersRaw.endDate)
-        : params.endDate || null,
+      fromDate,
+      toDate,
+      startDate: fromDate,
+      endDate: toDate,
       search: filtersRaw.search
         ? String(filtersRaw.search)
         : params.search || null,
@@ -125,4 +145,48 @@ export async function fetchWalletSummary(
       count: transactions.length,
     },
   };
+}
+
+/** Download CSV / Excel from retailer wallet ledger export API */
+export async function exportRetailerWalletLedger(
+  params: WalletLedgerExportParams
+): Promise<void> {
+  const query = buildWalletLedgerExportQuery(params);
+  const response = await api.get(API_ENDPOINTS.walletLedgerExport, {
+    params: query,
+    responseType: "blob",
+  });
+
+  const contentType = String(response.headers?.["content-type"] || "");
+  if (contentType.includes("application/json")) {
+    const text = await (response.data as Blob).text();
+    let message = "Export failed";
+    try {
+      const parsed = JSON.parse(text) as { message?: string };
+      message = parsed.message || message;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message);
+  }
+
+  const disposition = response.headers?.["content-disposition"] as
+    | string
+    | undefined;
+  const fromApi = parseFilenameFromDisposition(disposition);
+  const ext = params.format === "csv" ? "csv" : "xlsx";
+  const fallback = `Wallet_Ledger_${params.fromDate}_to_${params.toDate}.${ext}`;
+  const filename = fromApi || fallback;
+
+  const mime =
+    params.format === "csv"
+      ? "text/csv;charset=utf-8"
+      : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+  const blob =
+    response.data instanceof Blob
+      ? response.data
+      : new Blob([response.data], { type: mime });
+
+  saveAs(blob, filename);
 }

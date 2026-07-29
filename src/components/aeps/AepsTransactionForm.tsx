@@ -22,6 +22,7 @@ import FormStatusAlert, {
 } from "@/src/components/common/FormStatusAlert";
 import { useFormStatus } from "@/src/hooks/useFormStatus";
 import { useFingerprint } from "@/src/hooks/useFingerprint";
+import { useRefreshAepsWalletBalance } from "@/src/hooks/useAepsWalletBalance";
 import { AEPS_OTP_AMOUNT_THRESHOLD } from "@/src/constants/aepsApi";
 import type { AepsTransactionPayload, AepsTransactionResult } from "@/src/types/aeps";
 
@@ -76,6 +77,7 @@ export default function AepsTransactionForm({
   const [lastResult, setLastResult] = useState<AepsTransactionResult | null>(null);
   const inlineResultRef = useRef<HTMLDivElement>(null);
   const { status, clearStatus, showError, showSuccess, showInfo } = useFormStatus();
+  const refreshAepsWalletBalance = useRefreshAepsWalletBalance();
 
   const {
     register,
@@ -143,6 +145,10 @@ export default function AepsTransactionForm({
           result.message || "Transaction completed successfully.",
           "Transaction successful"
         );
+      }
+      const txnStatus = String(result.status || "").toUpperCase();
+      if (txnStatus === "SUCCESS" || txnStatus === "TXN") {
+        void refreshAepsWalletBalance();
       }
       onSuccess?.(result);
       setStep("form");

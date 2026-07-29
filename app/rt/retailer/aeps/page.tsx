@@ -1,13 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useSelector } from "react-redux";
+import Link from "next/link";
 import {
   ArrowRight,
   Fingerprint,
   IndianRupee,
   Landmark,
   List,
+  Loader2,
   LogIn,
   Wallet,
 } from "lucide-react";
@@ -19,12 +20,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { formatCurrency } from "@/lib/utils";
 import AepsPageHeader from "@/src/components/aeps/AepsPageHeader";
 import DeviceStatusCard from "@/src/components/aeps/DeviceStatusCard";
 import DeviceSelector from "@/src/components/aeps/DeviceSelector";
 import { useRDService } from "@/src/hooks/useRDService";
 import { BIOMETRIC_DEVICE_OPTIONS } from "@/src/types/biometric";
 import { useAepsHealth } from "@/src/hooks/useAeps";
+import { useAepsWalletBalance } from "@/src/hooks/useAepsWalletBalance";
 import { selectAepsDailyLoginDone } from "@/src/redux/slices/aepsSlice";
 import PageLoader from "@/src/components/common/PageLoader";
 
@@ -44,7 +47,8 @@ export default function AepsDashboardPage() {
   } }) => state.aeps);
   const loginDone = useSelector(selectAepsDailyLoginDone);
   const { status, refresh, isChecking, selectedDevice } = useRDService();
-  const { data: health, isLoading: healthLoading } = useAepsHealth();
+  const { isLoading: healthLoading } = useAepsHealth();
+  const { balance, loading: balanceLoading } = useAepsWalletBalance();
 
   const deviceLabel =
     BIOMETRIC_DEVICE_OPTIONS.find((d) => d.value === selectedDevice)?.label ||
@@ -70,6 +74,19 @@ export default function AepsDashboardPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>AEPS Wallet Balance</CardDescription>
+            <CardTitle className="text-base">
+              {balanceLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+              ) : (
+                formatCurrency(balance ?? 0)
+              )}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Selected Device</CardDescription>

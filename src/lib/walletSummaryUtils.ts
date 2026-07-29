@@ -206,24 +206,50 @@ export function normalizeWalletSummaryTransaction(
 export function buildWalletSummaryQuery(
   params: WalletSummaryListParams = {}
 ): Record<string, string | number> {
+  const fromDate = params.fromDate || params.startDate;
+  const toDate = params.toDate || params.endDate;
+
   const query: Record<string, string | number> = {
     page: params.page ?? 1,
     limit: params.limit ?? 20,
     sortBy: params.sortBy ?? "createdAt",
     sortOrder: params.sortOrder ?? "desc",
-    type: params.type ?? "ALL",
   };
 
   if (params.status && params.status !== "All") {
     query.status = params.status;
   }
-  if (params.startDate) query.startDate = params.startDate;
-  if (params.endDate) query.endDate = params.endDate;
+  if (fromDate) query.fromDate = fromDate;
+  if (toDate) query.toDate = toDate;
   if (params.search?.trim()) query.search = params.search.trim();
+  if (params.service?.trim()) query.service = params.service.trim();
 
-  // Prefer server-side exclusion when supported by API
-  query.excludePending = 1;
-  query.excludeCommission = 1;
+  return query;
+}
+
+export function buildWalletLedgerExportQuery(
+  params: {
+    fromDate: string;
+    toDate: string;
+    format: "csv" | "excel" | "xlsx";
+    search?: string;
+    service?: string;
+    status?: string;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc";
+  }
+): Record<string, string> {
+  const query: Record<string, string> = {
+    fromDate: params.fromDate,
+    toDate: params.toDate,
+    format: params.format === "xlsx" ? "excel" : params.format,
+    sortBy: params.sortBy ?? "createdAt",
+    sortOrder: params.sortOrder ?? "desc",
+  };
+
+  if (params.search?.trim()) query.search = params.search.trim();
+  if (params.service?.trim()) query.service = params.service.trim();
+  if (params.status && params.status !== "All") query.status = params.status;
 
   return query;
 }

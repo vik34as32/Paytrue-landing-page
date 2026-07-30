@@ -10,6 +10,7 @@ export type DmtDialog =
   | "beneficiaryOtp"
   | "deleteBeneficiary"
   | "transactionOtp"
+  | "verifyMpin"
   | "success"
   | "failed";
 

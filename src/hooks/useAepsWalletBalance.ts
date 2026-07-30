@@ -27,7 +27,7 @@ export function useAepsWalletBalance(options: { enabled?: boolean } = {}) {
     queryKey: AEPS_WALLET_BALANCE_QUERY_KEY,
     queryFn: getAepsWalletBalance,
     enabled,
-    staleTime: 20_000,
+    staleTime: 10_000,
     retry: 1,
     refetchOnMount: true,
     refetchOnWindowFocus: false,
@@ -58,9 +58,34 @@ export function useAepsWalletBalance(options: { enabled?: boolean } = {}) {
   };
 }
 
-/** Call after a successful AEPS transaction to refresh wallet balance. */
+/**
+ * Refresh AEPS wallet after cash withdrawal (credit) / cash deposit (debit).
+ * Forces an immediate network refetch so the page balance updates right away.
+ */
 export function useRefreshAepsWalletBalance() {
   const queryClient = useQueryClient();
-  return () =>
-    queryClient.invalidateQueries({ queryKey: AEPS_WALLET_BALANCE_QUERY_KEY });
+  return async () => {
+    await queryClient.invalidateQueries({
+      queryKey: AEPS_WALLET_BALANCE_QUERY_KEY,
+    });
+    await queryClient.refetchQueries({
+      queryKey: AEPS_WALLET_BALANCE_QUERY_KEY,
+      type: "active",
+    });
+  };
+}
+
+/** Treat common InstantPay / PayTrue success statuses as wallet-moving txn. */
+export function isAepsWalletMovingSuccess(status?: string | null): boolean {
+  const value = String(status || "")
+    .trim()
+    .toUpperCase();
+  if (!value) return true;
+  return (
+    value === "SUCCESS" ||
+    value === "SUCCESSFUL" ||
+    value === "TXN" ||
+    value === "COMPLETED" ||
+    value === "OK"
+  );
 }

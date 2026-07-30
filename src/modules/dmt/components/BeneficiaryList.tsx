@@ -22,7 +22,6 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import SendIcon from "@mui/icons-material/Send";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
-import EastIcon from "@mui/icons-material/East";
 import ProcessLoadingOverlay from "@/src/components/common/ProcessLoadingOverlay";
 import { toast } from "sonner";
 import { BankLogo } from "@/components/retailer/BankLogo";
@@ -42,7 +41,6 @@ interface BeneficiaryListProps {
   actionError?: string | null;
   showHeader?: boolean;
   onAdd: () => void;
-  onVerify: (beneficiary: DmtBeneficiary) => void;
   onTransfer: (beneficiary: DmtBeneficiary) => void;
   onDelete: (beneficiary: DmtBeneficiary) => void;
 }
@@ -131,7 +129,6 @@ export default function BeneficiaryList({
   actionError,
   showHeader = true,
   onAdd,
-  onVerify,
   onTransfer,
   onDelete,
 }: BeneficiaryListProps) {
@@ -292,46 +289,25 @@ export default function BeneficiaryList({
               }}
             />
           ) : (
-            <Tooltip title="Tap to verify this beneficiary" arrow>
-              <Chip
-                label="Unverified"
-                color="warning"
-                size="small"
-                onClick={() => onVerify(row)}
-                onDelete={() => onVerify(row)}
-                deleteIcon={
-                  <EastIcon
-                    sx={{
-                      fontSize: "15px !important",
-                      color: "#fff !important",
-                    }}
-                  />
-                }
-                icon={
-                  <CheckCircleIcon
-                    sx={{ fontSize: "15px !important", color: "#fff !important" }}
-                  />
-                }
-                sx={{
-                  cursor: "pointer",
-                  fontWeight: 800,
-                  fontSize: 11,
-                  height: 28,
-                  bgcolor: "#f59e0b",
-                  color: "#fff",
-                  border: "1px solid #d97706",
-                  boxShadow: "0 2px 8px rgba(245, 158, 11, 0.35)",
-                  "& .MuiChip-label": {
-                    px: 0.75,
-                    whiteSpace: "nowrap",
-                  },
-                  "& .MuiChip-icon": { ml: 0.75 },
-                  "&:hover": {
-                    bgcolor: "#d97706",
-                  },
-                }}
-              />
-            </Tooltip>
+            <Chip
+              label="Unverified"
+              color="warning"
+              size="small"
+              sx={{
+                fontWeight: 800,
+                fontSize: 11,
+                height: 28,
+                bgcolor: "#f59e0b",
+                color: "#fff",
+                border: "1px solid #d97706",
+                cursor: "default",
+                pointerEvents: "none",
+                "& .MuiChip-label": {
+                  px: 0.75,
+                  whiteSpace: "nowrap",
+                },
+              }}
+            />
           ),
       },
       {
@@ -373,67 +349,20 @@ export default function BeneficiaryList({
                   </ActionIcon>
                 </>
               ) : (
-                <>
-                  <Box
-                    sx={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 0.5,
-                      mr: 0.25,
-                    }}
-                  >
-                    <Typography
-                      component="span"
-                      sx={{
-                        display: { xs: "none", md: "inline" },
-                        fontSize: 10,
-                        fontWeight: 800,
-                        color: "primary.main",
-                        letterSpacing: 0.2,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      Verify
-                    </Typography>
-                    <EastIcon
-                      sx={{
-                        display: { xs: "none", sm: "inline" },
-                        fontSize: 14,
-                        color: "primary.main",
-                      }}
-                    />
-                    <ActionIcon
-                      title="Click here to verify this beneficiary"
-                      color="primary"
-                      highlight
-                      onClick={() => onVerify(row)}
-                    >
-                      <CheckCircleIcon sx={{ fontSize: 18 }} />
-                    </ActionIcon>
-                  </Box>
-                  <ActionIcon
-                    title="Bank Verification"
-                    onClick={() => void handleBankVerification(row)}
-                    disabled={bankVerifying}
-                    loading={verifyingThis}
-                  >
-                    <AccountBalanceIcon sx={{ fontSize: 16 }} />
-                  </ActionIcon>
-                  <ActionIcon
-                    title="Delete"
-                    color="error"
-                    onClick={() => onDelete(row)}
-                  >
-                    <DeleteIcon sx={{ fontSize: 16 }} />
-                  </ActionIcon>
-                </>
+                <ActionIcon
+                  title="Delete"
+                  color="error"
+                  onClick={() => onDelete(row)}
+                >
+                  <DeleteIcon sx={{ fontSize: 16 }} />
+                </ActionIcon>
               )}
             </div>
           );
         },
       },
     ],
-    [bankVerifyId, bankVerifying, onDelete, onTransfer, onVerify]
+    [bankVerifyId, bankVerifying, onDelete, onTransfer]
   );
 
   return (

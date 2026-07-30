@@ -99,10 +99,38 @@ export function getUnauthorizedRedirectForPath(pathname, userType) {
 }
 
 export function extractAuthPayload(responseData) {
-  const data = responseData?.data || responseData;
+  const root =
+    responseData && typeof responseData === "object" ? responseData : {};
+  const data = root.data && typeof root.data === "object" ? root.data : root;
+
   const accessToken =
-    data?.accessToken || data?.token || data?.access_token || null;
-  const refreshToken = data?.refreshToken || data?.refresh_token || null;
-  const user = data?.user || data?.profile || null;
-  return { accessToken, refreshToken, user };
+    data.accessToken ||
+    data.token ||
+    data.access_token ||
+    root.accessToken ||
+    root.token ||
+    root.access_token ||
+    null;
+
+  const user = data.user || data.profile || root.user || root.profile || null;
+
+  // verify-login-otp returns the JWT as `loginToken` (with user present)
+  const loginTokenJwt =
+    (data.loginToken || root.loginToken || "").toString().trim() || null;
+  const resolvedAccessToken =
+    accessToken ||
+    (user && loginTokenJwt ? loginTokenJwt : null);
+
+  const refreshToken =
+    data.refreshToken ||
+    data.refresh_token ||
+    root.refreshToken ||
+    root.refresh_token ||
+    null;
+
+  return {
+    accessToken: resolvedAccessToken,
+    refreshToken,
+    user,
+  };
 }

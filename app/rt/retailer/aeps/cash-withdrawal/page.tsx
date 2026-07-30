@@ -4,6 +4,7 @@ import { useState } from "react";
 import AepsPageHeader from "@/src/components/aeps/AepsPageHeader";
 import AepsTransactionForm from "@/src/components/aeps/AepsTransactionForm";
 import AepsReceiptModal from "@/src/components/aeps/AepsReceiptModal";
+import AepsWalletBalanceChip from "@/src/components/aeps/AepsWalletBalanceChip";
 import {
   useAepsCashWithdrawal,
   useAepsTransactionOtp,
@@ -32,7 +33,8 @@ export default function AepsCashWithdrawalPage() {
     <div className="space-y-6">
       <AepsPageHeader
         title="Cash Withdrawal"
-        description="Withdraw cash using Aadhaar authentication via Mantra L1 device"
+        description="Successful withdrawal credits your AEPS wallet instantly"
+        actions={<AepsWalletBalanceChip />}
       />
 
       <AepsTransactionForm

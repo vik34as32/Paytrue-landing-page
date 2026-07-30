@@ -24,6 +24,10 @@ import RegisterSenderDialog from "../components/dialogs/RegisterSenderDialog";
 import AddBeneficiaryDialog from "../components/dialogs/AddBeneficiaryDialog";
 import DeleteBeneficiaryDialog from "../components/dialogs/DeleteBeneficiaryDialog";
 import BioAuthDialog from "../components/dialogs/BioAuthDialog";
+import {
+  VerifyMpinModal,
+  MpinAccountLockedDialog,
+} from "@/features/mpin";
 import type { DmtBeneficiary } from "../types";
 
 const theme = createTheme({
@@ -51,19 +55,23 @@ export default function DmtPage() {
     bioAuth,
     addBeneficiary,
     verifyBeneficiaryOtp,
-    openVerifyBeneficiary,
     deleteBeneficiary,
     verifyBeneficiaryDelete,
     startTransfer,
     cancelTransfer,
     initiateTransfer,
     generateTransactionOtp,
-    verifyTransactionOtpAndTransfer,
+    verifyTransactionOtp,
+    completeTransferAfterMpin,
+    cancelMpinVerification,
     resetAll,
     openAddBeneficiary,
     closeDialog,
     setTransactionDraft,
   } = useDmtOrchestrator();
+
+  const [mpinLockedOpen, setMpinLockedOpen] = useState(false);
+  const [mpinLockMessage, setMpinLockMessage] = useState<string | undefined>();
 
   const showBeneficiarySection = useMemo(
     () =>
@@ -118,7 +126,8 @@ export default function DmtPage() {
   const transferModalOpen = Boolean(
     beneficiary.selected?.isVerified &&
       sender.mobile &&
-      workflow.activeDialog !== "transactionOtp"
+      workflow.activeDialog !== "transactionOtp" &&
+      workflow.activeDialog !== "verifyMpin"
   );
   const showFailed = workflow.nextAction === "FAILED";
 
@@ -256,7 +265,6 @@ export default function DmtPage() {
                   error={beneficiariesError}
                   actionError={workflow.error}
                   onAdd={openAddBeneficiary}
-                  onVerify={(item) => openVerifyBeneficiary(item)}
                   onTransfer={(item: DmtBeneficiary) => startTransfer(item)}
                   onDelete={(item) => deleteBeneficiary(item)}
                 />
@@ -314,7 +322,8 @@ export default function DmtPage() {
         onSubmit={(values) =>
           addBeneficiary({
             name: values.name,
-            instantPayBankId: values.bankId,
+            bankId: values.bankId,
+            instantPayBankId: values.instantPayBankId,
             accountNumber: values.accountNumber,
             ifscCode: values.ifscCode,
             beneficiaryMobileNumber: values.beneficiaryMobileNumber,
@@ -353,7 +362,34 @@ export default function DmtPage() {
         description={`Enter OTP to transfer ₹${Number(transaction.draft.amount || 0).toLocaleString("en-IN")} via ${transaction.draft.transferMode} to ${beneficiary.selected?.name || "beneficiary"}.`}
         submitting={loading}
         onClose={closeDialog}
-        onSubmit={verifyTransactionOtpAndTransfer}
+        onSubmit={verifyTransactionOtp}
+      />
+
+      <VerifyMpinModal
+        open={workflow.activeDialog === "verifyMpin"}
+        title="Verify MPIN"
+        description={`Authorize ₹${Number(transaction.draft.amount || 0).toLocaleString("en-IN")} ${transaction.draft.transferMode} transfer to ${beneficiary.selected?.name || "beneficiary"}.`}
+        cancelLabel="Cancel Transfer"
+        onOpenChange={(open) => {
+          if (!open && workflow.activeDialog === "verifyMpin") {
+            closeDialog();
+          }
+        }}
+        onCancel={cancelMpinVerification}
+        onVerified={() => void completeTransferAfterMpin()}
+        onAccountLocked={(message) => {
+          cancelTransfer();
+          closeDialog();
+          setMpinLockMessage(message);
+          setMpinLockedOpen(true);
+        }}
+      />
+
+      <MpinAccountLockedDialog
+        open={mpinLockedOpen}
+        message={mpinLockMessage}
+        onOpenChange={setMpinLockedOpen}
+        dashboardHref="/rt/retailer"
       />
 
       <LoadingOverlay open={loading} />

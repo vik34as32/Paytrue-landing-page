@@ -3,6 +3,8 @@ export const API_BASE_URL =
 
 export const API_ENDPOINTS = {
   login: "/auth/login",
+  verifyLoginOtp: "/auth/verify-login-otp",
+  resendLoginOtp: "/auth/resend-login-otp",
   profile: "/auth/profile",
   users: "/users",
   wallet: "/wallet",
@@ -12,6 +14,8 @@ export const API_ENDPOINTS = {
   walletSummary: "/wallet/summary",
   walletLedger: "/retailer/wallet-ledger",
   walletLedgerExport: "/retailer/wallet-ledger/export",
+  aepsLedger: "/retailer/aeps-ledger",
+  aepsLedgerExport: "/retailer/aeps-ledger/export",
   walletAepsBalance: "/wallet/aeps/balance",
   walletCommission: "/wallet/commission",
   walletCommissionLedger: "/wallet/commission/ledger",
@@ -29,4 +33,8 @@ export const API_ENDPOINTS = {
   sendMobileOtp: "/auth/send-otp",
   verifyMobileOtp: "/auth/verify-otp",
   resendMobileOtp: "/auth/resend-otp",
+  mpinStatus: "/retailer/mpin/status",
+  mpinCreate: "/retailer/mpin/create",
+  mpinChange: "/retailer/mpin/change",
+  mpinVerify: "/retailer/mpin/verify",
 };

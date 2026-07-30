@@ -78,14 +78,41 @@ api.interceptors.request.use(
     const hasBody =
       config.data !== undefined && config.data !== null && config.data !== "";
 
+    const getHeader = (name) => {
+      if (!config.headers) return undefined;
+      if (typeof config.headers.get === "function") {
+        return config.headers.get(name);
+      }
+      return config.headers[name] || config.headers[name.toLowerCase()];
+    };
+
+    const setHeader = (name, value) => {
+      if (!config.headers) config.headers = {};
+      if (typeof config.headers.set === "function") {
+        config.headers.set(name, value);
+      } else {
+        config.headers[name] = value;
+      }
+    };
+
     if (config.data instanceof FormData) {
-      delete config.headers["Content-Type"];
+      if (typeof config.headers?.delete === "function") {
+        config.headers.delete("Content-Type");
+      } else if (config.headers) {
+        delete config.headers["Content-Type"];
+        delete config.headers["content-type"];
+      }
     } else if (["post", "put", "patch"].includes(method) && hasBody) {
-      if (!config.headers["Content-Type"]) {
-        config.headers["Content-Type"] = "application/json";
+      if (!getHeader("Content-Type")) {
+        setHeader("Content-Type", "application/json");
       }
     } else {
-      delete config.headers["Content-Type"];
+      if (typeof config.headers?.delete === "function") {
+        config.headers.delete("Content-Type");
+      } else if (config.headers) {
+        delete config.headers["Content-Type"];
+        delete config.headers["content-type"];
+      }
       if (!hasBody) {
         delete config.data;
       }

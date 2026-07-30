@@ -2,6 +2,7 @@ import { clearAuthCookies } from "@/src/lib/cookies";
 import { resetAppState } from "@/src/redux/actions";
 import { store } from "@/src/redux/store";
 import { clearDmtSessionStorage } from "@/src/lib/dmtSession";
+import { clearLoginOtpSession } from "@/src/lib/loginOtpSession";
 import { AEPS_SESSION_KEY } from "@/src/lib/aepsSession";
 
 const ZUSTAND_PERSIST_KEYS = [
@@ -28,6 +29,7 @@ export function isSessionClearInProgress() {
 export function clearClientSession({ resetStore = true } = {}) {
   if (typeof window === "undefined") {
     clearAuthCookies();
+    clearLoginOtpSession();
     if (resetStore) {
       store.dispatch(resetAppState());
     }
@@ -38,6 +40,7 @@ export function clearClientSession({ resetStore = true } = {}) {
 
   try {
     clearAuthCookies();
+    clearLoginOtpSession();
     clearDmtSessionStorage();
 
     AUTH_LOCAL_STORAGE_KEYS.forEach((key) => {

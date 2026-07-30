@@ -16,9 +16,9 @@ import {
 } from "@mui/material";
 import { useFetchBanksQuery } from "../../redux/dmtApi";
 import DmtBankSelect from "../DmtBankSelect";
-import BankAccountVerifyField from "../BankAccountVerifyField";
-import { verifyBankAccount } from "@/src/services/dmtService";
-import type { VerifyBankAccountResponse } from "@/src/types/dmt";
+import { resolveBeneficiaryBankFields } from "@/src/lib/dmtUtils";
+
+const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 
 const schema = z
   .object({
@@ -26,7 +26,7 @@ const schema = z
     bankId: z.string().min(1, "Select bank"),
     accountNumber: z.string().regex(/^\d{9,18}$/, "Enter valid account number"),
     confirmAccountNumber: z.string(),
-    ifscCode: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Enter valid IFSC"),
+    ifscCode: z.string().regex(IFSC_REGEX, "Enter valid IFSC"),
     beneficiaryMobileNumber: z
       .string()
       .regex(/^[6-9]\d{9}$/, "Enter valid 10-digit mobile")
@@ -40,11 +40,21 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
+export type AddBeneficiaryFormSubmit = {
+  name: string;
+  accountNumber: string;
+  confirmAccountNumber: string;
+  ifscCode: string;
+  beneficiaryMobileNumber?: string;
+  bankId?: string;
+  instantPayBankId?: string | number;
+};
+
 interface AddBeneficiaryDialogProps {
   open: boolean;
   loading?: boolean;
   onClose: () => void;
-  onSubmit: (values: FormValues) => void;
+  onSubmit: (values: AddBeneficiaryFormSubmit) => void;
 }
 
 export default function AddBeneficiaryDialog({
@@ -56,6 +66,8 @@ export default function AddBeneficiaryDialog({
   const { data: banks = [], isLoading: banksLoading } = useFetchBanksQuery(undefined, {
     skip: !open,
   });
+
+  const selectableBanks = banks.filter((bank) => String(bank.id || "").trim());
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
@@ -75,45 +87,35 @@ export default function AddBeneficiaryDialog({
     }
   }, [open, form]);
 
-  const ifscCode = form.watch("ifscCode");
-  const beneficiaryName = form.watch("name");
-
-  /** Copy Account Number → Confirm Account as soon as Verify is clicked */
-  const handleVerifyClick = () => {
-    const accountNumber = form.getValues("accountNumber").trim();
-    if (!accountNumber) return;
-    form.setValue("confirmAccountNumber", accountNumber, {
-      shouldValidate: true,
-      shouldDirty: true,
+  const handleFormSubmit = form.handleSubmit((values) => {
+    const bank = selectableBanks.find((item) => item.id === values.bankId);
+    const bankFields = resolveBeneficiaryBankFields({
+      bankId: values.bankId,
+      instantPayBankId: bank?.instantPayBankId,
     });
-  };
 
-  /**
-   * On successful bank verify: keep Confirm Account in sync and
-   * always replace Beneficiary Name with InstantPay / payee verified name.
-   */
-  const handleBankVerified = (result: VerifyBankAccountResponse) => {
-    const accountNumber = form.getValues("accountNumber").trim();
-    if (accountNumber) {
-      form.setValue("confirmAccountNumber", accountNumber, {
-        shouldValidate: true,
-        shouldDirty: true,
+    if (!bankFields.bankId && !bankFields.instantPayBankId) {
+      form.setError("bankId", {
+        type: "manual",
+        message: "Select a valid bank from the list",
       });
+      return;
     }
 
-    const verifiedName = result.payee?.name?.trim();
-    if (verifiedName) {
-      form.setValue("name", verifiedName, {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
-    }
-  };
+    onSubmit({
+      name: values.name.trim(),
+      accountNumber: values.accountNumber.trim(),
+      confirmAccountNumber: values.confirmAccountNumber.trim(),
+      ifscCode: values.ifscCode.trim().toUpperCase(),
+      beneficiaryMobileNumber: values.beneficiaryMobileNumber || undefined,
+      ...bankFields,
+    });
+  });
 
   return (
     <Dialog open={open} onClose={loading ? undefined : onClose} fullWidth maxWidth="sm">
       <DialogTitle sx={{ fontWeight: 700 }}>Add Beneficiary</DialogTitle>
-      <Box component="form" onSubmit={form.handleSubmit(onSubmit)}>
+      <Box component="form" onSubmit={handleFormSubmit}>
         <DialogContent dividers>
           <Box sx={{ display: "grid", gap: 2 }}>
             <Controller
@@ -152,13 +154,38 @@ export default function AddBeneficiaryDialog({
               control={form.control}
               render={({ field, fieldState }) => (
                 <DmtBankSelect
-                  banks={banks}
+                  banks={selectableBanks}
                   value={field.value}
-                  onChange={field.onChange}
+                  onChange={(bankId) => {
+                    field.onChange(bankId);
+                    const bank = selectableBanks.find((item) => item.id === bankId);
+                    if (!bank) return;
+
+                    const currentIfsc = form.getValues("ifscCode").trim().toUpperCase();
+                    const fullIfsc = String(bank.ifsc || "").trim().toUpperCase();
+                    const prefix = String(bank.ifscPrefix || "").trim().toUpperCase();
+
+                    if (fullIfsc && IFSC_REGEX.test(fullIfsc)) {
+                      form.setValue("ifscCode", fullIfsc, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      });
+                    } else if (prefix && (!currentIfsc || currentIfsc.length <= 4)) {
+                      form.setValue("ifscCode", prefix, {
+                        shouldValidate: false,
+                        shouldDirty: true,
+                      });
+                    }
+                  }}
                   loading={banksLoading}
                   disabled={loading}
                   error={!!fieldState.error}
-                  helperText={fieldState.error?.message}
+                  helperText={
+                    fieldState.error?.message ||
+                    (selectableBanks.length === 0 && !banksLoading
+                      ? "No banks loaded. Close and try again."
+                      : undefined)
+                  }
                 />
               )}
             />
@@ -173,7 +200,10 @@ export default function AddBeneficiaryDialog({
                   fullWidth
                   onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                   error={!!fieldState.error}
-                  helperText={fieldState.error?.message}
+                  helperText={
+                    fieldState.error?.message ||
+                    "Enter full 11-character IFSC (e.g. HDFC0001234)"
+                  }
                 />
               )}
             />
@@ -182,24 +212,16 @@ export default function AddBeneficiaryDialog({
               name="accountNumber"
               control={form.control}
               render={({ field, fieldState }) => (
-                <BankAccountVerifyField
-                  value={field.value}
-                  onChange={field.onChange}
-                  ifscCode={ifscCode}
-                  name={beneficiaryName}
-                  verifyFn={(input) =>
-                    verifyBankAccount({
-                      accountNumber: input.accountNumber,
-                      ifscCode: input.ifscCode,
-                      name: input.name,
-                      pennyDrop: "YES",
-                    })
+                <TextField
+                  {...field}
+                  label="Account Number"
+                  fullWidth
+                  inputMode="numeric"
+                  onChange={(e) =>
+                    field.onChange(e.target.value.replace(/\D/g, "").slice(0, 18))
                   }
-                  onVerified={handleBankVerified}
-                  onVerifyClick={handleVerifyClick}
                   error={!!fieldState.error}
                   helperText={fieldState.error?.message}
-                  disabled={loading}
                 />
               )}
             />
@@ -213,6 +235,9 @@ export default function AddBeneficiaryDialog({
                   label="Confirm Account"
                   fullWidth
                   inputMode="numeric"
+                  onChange={(e) =>
+                    field.onChange(e.target.value.replace(/\D/g, "").slice(0, 18))
+                  }
                   error={!!fieldState.error}
                   helperText={fieldState.error?.message}
                 />
@@ -227,7 +252,7 @@ export default function AddBeneficiaryDialog({
           <Button
             type="submit"
             variant="contained"
-            disabled={loading || banksLoading}
+            disabled={loading || banksLoading || selectableBanks.length === 0}
             startIcon={loading ? <CircularProgress size={16} color="inherit" /> : undefined}
           >
             Submit

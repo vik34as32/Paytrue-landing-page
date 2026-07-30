@@ -9,6 +9,7 @@ import Sidebar from "@/components/retailer/Sidebar";
 import Header from "@/components/retailer/Header";
 import RetailerWalletSync from "@/components/retailer/RetailerWalletSync";
 import RetailerServicesBootstrap from "@/components/retailer/RetailerServicesBootstrap";
+import { MpinRequiredGate } from "@/features/mpin";
 import { USER_TYPES } from "@/src/constants/auth";
 
 export default function RetailerLayout({
@@ -32,21 +33,23 @@ export default function RetailerLayout({
       <AuthGuard allowedTypes={[USER_TYPES.RETAILER]}>
         <IdleSessionGuard>
           <BiometricVerificationGuard>
-            <RetailerWalletSync />
-            <RetailerServicesBootstrap />
-            <div className="rt-portal-bg min-h-screen">
-              <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+            <MpinRequiredGate>
+              <RetailerWalletSync />
+              <RetailerServicesBootstrap />
+              <div className="rt-portal-bg min-h-screen">
+                <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-              <div className="rt-main-shell flex min-h-screen min-w-0 flex-col overflow-x-hidden">
-                <Header onMenuClick={() => setSidebarOpen(true)} />
+                <div className="rt-main-shell flex min-h-screen min-w-0 flex-col overflow-x-hidden">
+                  <Header onMenuClick={() => setSidebarOpen(true)} />
 
-                <div className="w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto">
-                  <main className="w-full min-w-0 max-w-full px-4 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6">
-                    {children}
-                  </main>
+                  <div className="w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto">
+                    <main className="w-full min-w-0 max-w-full px-4 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6">
+                      {children}
+                    </main>
+                  </div>
                 </div>
               </div>
-            </div>
+            </MpinRequiredGate>
           </BiometricVerificationGuard>
         </IdleSessionGuard>
       </AuthGuard>

@@ -3,6 +3,7 @@ import {
   loginUser,
   hydrateAuth,
   logoutUser,
+  verifyLoginOtp,
 } from "@/src/redux/thunks/authThunk";
 import { fetchProfile } from "@/src/redux/thunks/profileThunk";
 
@@ -16,6 +17,12 @@ const initialState = {
   error: null,
   remember: false,
 };
+
+function errorMessage(payload) {
+  if (!payload) return "Something went wrong";
+  if (typeof payload === "string") return payload;
+  return payload.message || "Something went wrong";
+}
 
 const authSlice = createSlice({
   name: "auth",
@@ -37,6 +44,15 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
+        state.error = null;
+        if (action.payload?.requiresOtp) {
+          state.isAuthenticated = false;
+          state.accessToken = null;
+          state.refreshToken = null;
+          state.user = null;
+          state.remember = Boolean(action.payload.remember);
+          return;
+        }
         state.isAuthenticated = true;
         state.user = action.payload.user;
         state.accessToken = action.payload.accessToken;
@@ -46,8 +62,26 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error = errorMessage(action.payload);
         state.isAuthenticated = false;
+      })
+      .addCase(verifyLoginOtp.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(verifyLoginOtp.fulfilled, (state, action) => {
+        state.loading = false;
+        state.isAuthenticated = true;
+        state.user = action.payload.user;
+        state.accessToken = action.payload.accessToken;
+        state.refreshToken = action.payload.refreshToken;
+        state.remember = action.payload.remember;
+        state.hydrated = true;
+        state.error = null;
+      })
+      .addCase(verifyLoginOtp.rejected, (state, action) => {
+        state.loading = false;
+        state.error = errorMessage(action.payload);
       })
       .addCase(hydrateAuth.fulfilled, (state, action) => {
         state.isAuthenticated = true;

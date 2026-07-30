@@ -127,6 +127,16 @@ export default function ProfileDropdown() {
             Change Password
           </DropdownMenuItem>
 
+          <DropdownMenuItem asChild>
+            <Link
+              href="/rt/retailer/mpin/change"
+              className="cursor-pointer rounded-lg"
+            >
+              <KeyRound className="h-4 w-4 text-[#1565d8]" />
+              Change MPIN
+            </Link>
+          </DropdownMenuItem>
+
           <DropdownMenuSeparator />
 
           <DropdownMenuItem

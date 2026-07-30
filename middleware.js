@@ -63,7 +63,20 @@ export function middleware(request) {
     }
   }
 
-  if (pathname === LOGIN_PATH && token && user?.userType) {
+  if (
+    (pathname === LOGIN_PATH || pathname.startsWith(`${LOGIN_PATH}/`)) &&
+    token &&
+    user?.userType &&
+    pathname !== `${LOGIN_PATH}/verify-otp`
+  ) {
+    const dashboard = ROLE_DASHBOARD_PATHS[user.userType];
+    if (dashboard) {
+      return NextResponse.redirect(new URL(dashboard, request.url));
+    }
+  }
+
+  // OTP page: if already authenticated with JWT, skip OTP and go dashboard
+  if (pathname.startsWith(`${LOGIN_PATH}/verify-otp`) && token && user?.userType) {
     const dashboard = ROLE_DASHBOARD_PATHS[user.userType];
     if (dashboard) {
       return NextResponse.redirect(new URL(dashboard, request.url));
@@ -82,10 +95,12 @@ export const config = {
     "/md/:path*",
     "/dd/:path*",
     "/dashboard/:path*",
+    "/admin/:path*",
     "/rt/retailer",
     "/rt/retailer/:path*",
     "/rt/balance-transfer",
     "/auth/login",
+    "/auth/login/:path*",
     "/auth/forgot-password",
     "/auth/reset-password",
     "/unauthorized",

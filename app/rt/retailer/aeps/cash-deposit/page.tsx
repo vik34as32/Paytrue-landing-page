@@ -4,6 +4,7 @@ import { useState } from "react";
 import AepsPageHeader from "@/src/components/aeps/AepsPageHeader";
 import AepsTransactionForm from "@/src/components/aeps/AepsTransactionForm";
 import AepsReceiptModal from "@/src/components/aeps/AepsReceiptModal";
+import AepsWalletBalanceChip from "@/src/components/aeps/AepsWalletBalanceChip";
 import { useAepsCashDeposit } from "@/src/hooks/useAeps";
 import type { AepsTransactionResult } from "@/src/types/aeps";
 
@@ -16,7 +17,8 @@ export default function AepsCashDepositPage() {
     <div className="space-y-6">
       <AepsPageHeader
         title="Cash Deposit"
-        description="Deposit cash to customer account using Aadhaar authentication"
+        description="Successful deposit deducts from your AEPS wallet instantly"
+        actions={<AepsWalletBalanceChip />}
       />
 
       <AepsTransactionForm

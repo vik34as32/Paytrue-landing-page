@@ -36,8 +36,10 @@ import {
 import {
   clearSenderPidOptionWadh,
   clearSenderReferenceKey as clearPersistedSenderReferenceKey,
+  getBeneficiaryReferenceKey,
   getSenderReferenceKey,
   setActiveSenderMobile,
+  setBeneficiaryReferenceKey,
   setSenderPidOptionWadh as persistSenderPidOptionWadh,
   setSenderReferenceKey as persistSenderReferenceKey,
 } from "@/src/lib/dmtSession";
@@ -236,8 +238,14 @@ export function useDmtOrchestrator() {
 
       dispatch(applyWorkflowResponse(response));
 
-      // Never overwrite a locked verify-otp eKYC key with checkRemitter RNF keys
-      if (incomingKey && !verifyLocked) {
+      // Never overwrite a locked verify-otp eKYC key with checkRemitter RNF keys.
+      // Also never store beneficiary OTP referenceKey as the sender eKYC key —
+      // that causes "Mobile number not associated with referenceKey" on verify.
+      const isBeneficiaryOtpKey =
+        response.nextAction === "BENEFICIARY_OTP" ||
+        Boolean(response.beneficiary?.id && incomingKey);
+
+      if (incomingKey && !verifyLocked && !isBeneficiaryOtpKey) {
         dispatch(setSenderReferenceKey(incomingKey));
         persistSenderReferenceKey(incomingKey);
       } else if (incomingKey && verifyLocked && incomingKey !== latest.ekycReferenceKey) {
@@ -269,12 +277,18 @@ export function useDmtOrchestrator() {
         dispatch(setTransactionResult(response.transaction));
       }
       if (response.beneficiary?.id) {
+        const pendingKey = String(
+          response.referenceKey || response.beneficiary.referenceKey || ""
+        ).trim();
         dispatch(
           setPendingBeneficiary({
             id: response.beneficiary.id,
-            referenceKey: response.referenceKey,
+            referenceKey: pendingKey || undefined,
           })
         );
+        if (pendingKey) {
+          setBeneficiaryReferenceKey(response.beneficiary.id, pendingKey);
+        }
       }
 
       // Seed eKYC materials only after OTP is verified
@@ -811,15 +825,47 @@ export function useDmtOrchestrator() {
           ...payload,
           senderMobile: sender.mobile,
         }).unwrap();
-        const applied = applyResponse(response);
-        if (applied?.beneficiary?.id) {
+
+        const refKey = String(
+          response.referenceKey || response.beneficiary?.referenceKey || ""
+        ).trim();
+        const beneficiaryId = String(response.beneficiary?.id || "").trim();
+
+        // InstantPay sends OTP on add — always open verify OTP dialog with that key.
+        const applied = applyResponse({
+          ...response,
+          nextAction:
+            refKey || response.nextAction === "BENEFICIARY_OTP"
+              ? "BENEFICIARY_OTP"
+              : response.nextAction,
+          referenceKey: refKey || response.referenceKey,
+        });
+
+        if (beneficiaryId) {
+          if (refKey) {
+            setBeneficiaryReferenceKey(beneficiaryId, refKey);
+            verifyContextRef.current = { id: beneficiaryId, referenceKey: refKey };
+          }
           dispatch(
             setPendingBeneficiary({
-              id: applied.beneficiary.id,
-              referenceKey: applied.referenceKey ?? applied.beneficiary.referenceKey,
+              id: beneficiaryId,
+              referenceKey: refKey || undefined,
+            })
+          );
+          if (response.beneficiary) {
+            dispatch(setSelectedBeneficiary(response.beneficiary));
+          }
+          dispatch(openDialog("beneficiaryOtp"));
+          dispatch(
+            showSnackbar({
+              message:
+                applied?.message ||
+                "OTP sent to remitter mobile. Enter OTP to verify beneficiary.",
+              severity: "success",
             })
           );
         }
+
         return applied;
       } catch (error) {
         const message = getErrorMessage(error);
@@ -844,38 +890,6 @@ export function useDmtOrchestrator() {
     [addBeneficiaryMutation, applyResponse, beneficiariesQuery, dispatch, sender.mobile]
   );
 
-  const openVerifyBeneficiary = useCallback(
-    (item: DmtBeneficiary) => {
-      const referenceKey = (item.referenceKey || sender.referenceKey || "").trim();
-      if (!item.id?.trim()) {
-        dispatch(
-          showSnackbar({ message: "Beneficiary ID is missing.", severity: "error" })
-        );
-        return;
-      }
-      if (!referenceKey) {
-        dispatch(
-          showSnackbar({
-            message: "Reference key missing. Search sender again or re-add beneficiary.",
-            severity: "error",
-          })
-        );
-        return;
-      }
-
-      verifyContextRef.current = { id: item.id, referenceKey };
-      dispatch(setSelectedBeneficiary(item));
-      dispatch(
-        setPendingBeneficiary({
-          id: item.id,
-          referenceKey,
-        })
-      );
-      dispatch(openDialog("beneficiaryOtp"));
-    },
-    [dispatch, sender.referenceKey]
-  );
-
   const verifyBeneficiaryOtp = useCallback(
     async (otp: string) =>
       run(async () => {
@@ -885,8 +899,8 @@ export function useDmtOrchestrator() {
         const referenceKey = (
           ctx?.referenceKey ||
           beneficiary.pendingReferenceKey ||
+          (beneficiaryId ? getBeneficiaryReferenceKey(beneficiaryId) : "") ||
           beneficiary.selected?.referenceKey ||
-          sender.referenceKey ||
           ""
         ).trim();
 
@@ -894,7 +908,12 @@ export function useDmtOrchestrator() {
           throw new Error("Beneficiary not selected for verification.");
         }
         if (!referenceKey) {
-          throw new Error("Reference key is required to verify beneficiary.");
+          throw new Error(
+            "Reference key missing. Please add the beneficiary again to receive OTP."
+          );
+        }
+        if (!otp.trim()) {
+          throw new Error("OTP is required.");
         }
 
         const response = await verifyBeneficiaryOtpMutation({
@@ -906,6 +925,7 @@ export function useDmtOrchestrator() {
         const applied = applyResponse(response);
         verifyContextRef.current = null;
         dispatch(closeDialog());
+        dispatch(setPendingBeneficiary({ id: "", referenceKey: "" }));
         await beneficiariesQuery.refetch();
         dispatch(
           showSnackbar({
@@ -925,7 +945,6 @@ export function useDmtOrchestrator() {
       dispatch,
       run,
       sender.mobile,
-      sender.referenceKey,
       verifyBeneficiaryOtpMutation,
     ]
   );
@@ -1106,7 +1125,8 @@ export function useDmtOrchestrator() {
 
   const generateTransactionOtp = initiateTransfer;
 
-  const verifyTransactionOtpAndTransfer = useCallback(
+  /** Step 1 after amount: verify transaction OTP only — then open MPIN modal. */
+  const verifyTransactionOtp = useCallback(
     async (otp: string) =>
       run(async () => {
         const ctx = transferContextRef.current;
@@ -1114,7 +1134,6 @@ export function useDmtOrchestrator() {
           ctx?.beneficiaryId || beneficiary.selected?.id || "";
         const amount = ctx?.amount || transaction.draft.amount;
         const transferMode = ctx?.transferMode || transaction.draft.transferMode;
-        const remarks = ctx?.remarks ?? transaction.draft.remarks;
         const referenceKey = (
           ctx?.referenceKey ||
           transaction.draft.referenceKey ||
@@ -1137,6 +1156,50 @@ export function useDmtOrchestrator() {
 
         await verifyTransactionOtpMutation(verifyPayload).unwrap();
         dispatch(setTransactionDraft({ otp: otp.trim() }));
+        dispatch(closeDialog());
+        dispatch(openDialog("verifyMpin"));
+        dispatch(
+          showSnackbar({
+            message: "OTP verified. Enter MPIN to authorize transfer.",
+            severity: "success",
+          })
+        );
+      }),
+    [
+      beneficiary.selected?.id,
+      dispatch,
+      run,
+      sender.mobile,
+      sender.referenceKey,
+      transaction.draft.amount,
+      transaction.draft.referenceKey,
+      transaction.draft.transferMode,
+      verifyTransactionOtpMutation,
+    ]
+  );
+
+  /** Step 2: money transfer — call ONLY after successful MPIN verification. */
+  const completeTransferAfterMpin = useCallback(
+    async () =>
+      run(async () => {
+        const ctx = transferContextRef.current;
+        const beneficiaryId =
+          ctx?.beneficiaryId || beneficiary.selected?.id || "";
+        const amount = ctx?.amount || transaction.draft.amount;
+        const transferMode = ctx?.transferMode || transaction.draft.transferMode;
+        const remarks = ctx?.remarks ?? transaction.draft.remarks;
+        const otp = (transaction.draft.otp || "").trim();
+        const referenceKey = (
+          ctx?.referenceKey ||
+          transaction.draft.referenceKey ||
+          sender.referenceKey ||
+          ""
+        ).trim();
+
+        if (!beneficiaryId) throw new Error("Select a beneficiary first.");
+        if (!amount || amount < 1) throw new Error("Enter a valid transfer amount.");
+        if (!referenceKey) throw new Error("Reference key missing. Search sender again.");
+        if (!otp) throw new Error("OTP missing. Please verify OTP again.");
 
         let latitude = "28.6139";
         let longitude = "77.2090";
@@ -1158,7 +1221,7 @@ export function useDmtOrchestrator() {
           beneficiaryId,
           amount,
           transferMode,
-          otp: otp.trim(),
+          otp,
           referenceKey,
           latitude,
           longitude,
@@ -1186,19 +1249,35 @@ export function useDmtOrchestrator() {
       }),
     [
       applyResponse,
-      beneficiary.selected?.id,
+      beneficiary.selected,
       dispatch,
       run,
       sender.mobile,
       sender.referenceKey,
       transaction.draft.amount,
+      transaction.draft.otp,
       transaction.draft.referenceKey,
       transaction.draft.remarks,
       transaction.draft.transferMode,
       transferMutation,
-      verifyTransactionOtpMutation,
     ]
   );
+
+  /**
+   * @deprecated Prefer verifyTransactionOtp → MPIN → completeTransferAfterMpin.
+   * Kept only if a caller still expects a single-step path (must not be used for DMT money move).
+   */
+  const verifyTransactionOtpAndTransfer = verifyTransactionOtp;
+
+  const cancelMpinVerification = useCallback(() => {
+    dispatch(closeDialog());
+    dispatch(
+      showSnackbar({
+        message: "Transfer cancelled. MPIN verification was not completed.",
+        severity: "info",
+      })
+    );
+  }, [dispatch]);
 
   const resetAll = useCallback(() => {
     dispatch(resetWorkflowState());
@@ -1225,14 +1304,16 @@ export function useDmtOrchestrator() {
     bioAuth,
     addBeneficiary,
     verifyBeneficiaryOtp,
-    openVerifyBeneficiary,
     deleteBeneficiary,
     verifyBeneficiaryDelete,
     startTransfer,
     cancelTransfer,
     initiateTransfer,
     generateTransactionOtp,
+    verifyTransactionOtp,
     verifyTransactionOtpAndTransfer,
+    completeTransferAfterMpin,
+    cancelMpinVerification,
     resetAll,
     openAddBeneficiary: () => dispatch(openDialog("addBeneficiary")),
     closeDialog: () => dispatch(closeDialog()),

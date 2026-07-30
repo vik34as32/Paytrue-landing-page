@@ -28,6 +28,21 @@ import {
   clearAuthError,
 } from "@/src/redux/slices/authSlice";
 import { resolvePostLoginRedirect } from "@/src/lib/authUtils";
+import { USER_TYPES } from "@/src/constants/auth";
+import { fetchMpinStatus } from "@/features/mpin/services/mpinApi";
+import { toast } from "sonner";
+import { saveLoginOtpSession } from "@/src/lib/loginOtpSession";
+import {
+  extractLoginTokenFromPayload,
+  isOtpSentMessage,
+} from "@/src/services/loginOtpService";
+
+function goToVerifyOtp(redirectParam) {
+  const otpUrl = redirectParam
+    ? `/auth/login/verify-otp?redirect=${encodeURIComponent(redirectParam)}`
+    : "/auth/login/verify-otp";
+  window.location.assign(otpUrl);
+}
 
 function LoginForm() {
   const router = useRouter();
@@ -37,6 +52,8 @@ function LoginForm() {
   const authError = useSelector(selectAuthError);
   const [showPassword, setShowPassword] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState("");
+  const [accountLocked, setAccountLocked] = useState(false);
+  const [lockMessage, setLockMessage] = useState("");
 
   const {
     register,
@@ -55,14 +72,14 @@ function LoginForm() {
 
   const onSubmit = async (data) => {
     setLoginSuccess("");
+    setAccountLocked(false);
+    setLockMessage("");
     dispatch(clearAuthError());
 
     const identifier = String(data.identifier ?? "").trim();
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
     const mobile = identifier.replace(/\D/g, "").replace(/^91(?=\d{10}$)/, "");
 
-    // Email login → { email, password }
-    // Mobile login → { mobile, password }
     const payload = {
       password: data.password,
       remember: Boolean(data.remember),
@@ -74,16 +91,84 @@ function LoginForm() {
     const action = await dispatch(loginUser(payload));
 
     if (loginUser.fulfilled.match(action)) {
+      if (action.payload?.requiresOtp) {
+        const otpMessage =
+          action.payload.message || "OTP sent successfully. Redirecting…";
+        setLoginSuccess(otpMessage);
+        toast.success(otpMessage);
+        goToVerifyOtp(searchParams.get("redirect"));
+        return;
+      }
+
       await dispatch(fetchProfile());
 
       setLoginSuccess("Login successful. Redirecting to your dashboard...");
+      toast.success(action.payload.message || "Login successful");
 
-      const redirect = resolvePostLoginRedirect(
+      const userType = action.payload.user?.userType;
+      let redirect = resolvePostLoginRedirect(
         searchParams.get("redirect"),
-        action.payload.user?.userType
+        userType
       );
 
+      if (userType === USER_TYPES.RETAILER) {
+        try {
+          const status = await fetchMpinStatus();
+          if (!status.isMpinCreated) {
+            redirect = "/rt/retailer/mpin/create";
+          }
+        } catch {
+          /* fall through to normal dashboard; gate will retry */
+        }
+      }
+
       router.replace(redirect);
+      return;
+    }
+
+    if (loginUser.rejected.match(action)) {
+      const rejectPayload = action.payload;
+      const status = rejectPayload?.status;
+      const message =
+        typeof rejectPayload === "string"
+          ? rejectPayload
+          : rejectPayload?.message || "Login failed";
+
+      // Safety net: OTP-sent with a real loginToken in error payload
+      if (isOtpSentMessage(message)) {
+        const hint = isEmail ? identifier.toLowerCase() : mobile;
+        const tokenFromData = extractLoginTokenFromPayload(
+          rejectPayload?.data ?? rejectPayload
+        );
+
+        if (tokenFromData) {
+          saveLoginOtpSession({
+            loginToken: tokenFromData,
+            remember: Boolean(data.remember),
+            identifierHint: hint,
+          });
+          setLoginSuccess(message);
+          toast.success(message);
+          dispatch(clearAuthError());
+          goToVerifyOtp(searchParams.get("redirect"));
+          return;
+        }
+      }
+
+      if (status === 423 || rejectPayload?.locked) {
+        setAccountLocked(true);
+        setLockMessage(
+          message ||
+            "Your account has been locked for 1 hour due to multiple invalid OTP attempts."
+        );
+        toast.error(
+          message ||
+            "Your account has been locked for 1 hour due to multiple invalid OTP attempts."
+        );
+        return;
+      }
+
+      toast.error(message);
     }
   };
 
@@ -210,7 +295,17 @@ function LoginForm() {
                   Remember me
                 </label>
 
-                {authError ? (
+                {accountLocked ? (
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                    <p className="font-bold">Account Locked</p>
+                    <p className="mt-1 leading-relaxed">
+                      {lockMessage ||
+                        "Your account has been locked for 1 hour due to multiple invalid OTP attempts."}
+                    </p>
+                  </div>
+                ) : null}
+
+                {authError && !accountLocked ? (
                   <FormStatusAlert
                     variant="error"
                     title="Login failed"
@@ -220,7 +315,7 @@ function LoginForm() {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || accountLocked}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0A84FF] to-[#0057D9] py-3 text-base font-bold text-white shadow-lg transition-all duration-300 hover:scale-[1.01] disabled:opacity-70"
                 >
                   {loading ? (

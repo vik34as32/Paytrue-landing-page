@@ -1,10 +1,14 @@
 export const USER_TYPES = {
+  SUPER_ADMIN: "SUPER_ADMIN",
+  ADMIN: "ADMIN",
   MASTER_DISTRIBUTOR: "MASTER_DISTRIBUTOR",
   DISTRIBUTOR: "DISTRIBUTOR",
   RETAILER: "RETAILER",
 };
 
 export const USER_TYPE_LABELS = {
+  [USER_TYPES.SUPER_ADMIN]: "Super Admin",
+  [USER_TYPES.ADMIN]: "Admin",
   [USER_TYPES.MASTER_DISTRIBUTOR]: "Master Distributor",
   [USER_TYPES.DISTRIBUTOR]: "Distributor",
   [USER_TYPES.RETAILER]: "Retailer",
@@ -12,6 +16,8 @@ export const USER_TYPE_LABELS = {
 
 /** Role-based dashboard paths (canonical redirects after login) */
 export const ROLE_DASHBOARD_PATHS = {
+  [USER_TYPES.SUPER_ADMIN]: "/md/dashboard",
+  [USER_TYPES.ADMIN]: "/md/dashboard",
   [USER_TYPES.MASTER_DISTRIBUTOR]: "/dashboard/master-distributor",
   [USER_TYPES.DISTRIBUTOR]: "/dashboard/distributor",
   [USER_TYPES.RETAILER]: "/dashboard/retailer",
@@ -19,6 +25,8 @@ export const ROLE_DASHBOARD_PATHS = {
 
 /** Existing portal paths used by the app */
 export const ROLE_PORTAL_PATHS = {
+  [USER_TYPES.SUPER_ADMIN]: "/md/dashboard",
+  [USER_TYPES.ADMIN]: "/md/dashboard",
   [USER_TYPES.MASTER_DISTRIBUTOR]: "/md/dashboard",
   [USER_TYPES.DISTRIBUTOR]: "/dd/dashboard",
   [USER_TYPES.RETAILER]: "/rt/retailer",
@@ -26,6 +34,8 @@ export const ROLE_PORTAL_PATHS = {
 
 /** Route prefixes each role is allowed to access */
 export const ROLE_PATH_PREFIXES = {
+  [USER_TYPES.SUPER_ADMIN]: ["/md", "/dashboard", "/admin"],
+  [USER_TYPES.ADMIN]: ["/md", "/dashboard", "/admin"],
   [USER_TYPES.MASTER_DISTRIBUTOR]: ["/md", "/dashboard/master-distributor"],
   [USER_TYPES.DISTRIBUTOR]: ["/dd", "/dashboard/distributor"],
   [USER_TYPES.RETAILER]: [
@@ -35,7 +45,14 @@ export const ROLE_PATH_PREFIXES = {
   ],
 };
 
-export const PROTECTED_PREFIXES = ["/md", "/dd", "/dashboard", "/rt/retailer", "/rt/balance-transfer"];
+export const PROTECTED_PREFIXES = [
+  "/md",
+  "/dd",
+  "/dashboard",
+  "/rt/retailer",
+  "/rt/balance-transfer",
+  "/admin",
+];
 
 export const PUBLIC_PATHS = [
   "/auth/login",
@@ -57,6 +74,9 @@ export const COOKIE_KEYS = {
   user: "pt_user",
   remember: "pt_remember",
 };
+
+/** Temporary login OTP session (sessionStorage only — never JWT) */
+export const LOGIN_OTP_SESSION_KEY = "pt_login_otp_session";
 
 /** Auto-logout after 1 hour of no user activity (retailer / DD / MD portals) */
 export const IDLE_SESSION_TIMEOUT_MS = 60 * 60 * 1000;

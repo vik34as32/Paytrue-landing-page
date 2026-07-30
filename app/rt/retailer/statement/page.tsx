@@ -69,7 +69,7 @@ import type {
   TransactionType,
 } from "@/types/statementReceipt";
 import { useRetailerStatement } from "@/src/hooks/useRetailerStatement";
-import { useAepsLedger } from "@/src/hooks/useAepsLedger";
+import { useAepsStatementLedger } from "@/src/hooks/useAepsStatementLedger";
 import ReferenceCopyCell from "@/src/components/statement/ReferenceCopyCell";
 import StatementBankCell from "@/src/components/statement/StatementBankCell";
 import { buildUpiAtmStatementColumns } from "@/src/components/statement/buildUpiAtmStatementColumns";
@@ -564,7 +564,7 @@ export default function StatementPage() {
     isError: aepsError,
     isFetching: aepsFetching,
     refetch: refetchAeps,
-  } = useAepsLedger(
+  } = useAepsStatementLedger(
     {
       transactionType: aepsSubFilter,
       page: 1,

@@ -46,13 +46,18 @@ export const SIDEBAR_LINKS = [
     icon: "FileSpreadsheet",
   },
   {
+    label: "AEPS Ledger",
+    href: "/rt/retailer/aeps-ledger",
+    icon: "Landmark",
+  },
+  {
     label: "Commission Report",
     href: "/rt/retailer/commission",
     icon: "IndianRupee",
   },
 
   {
-    label: "Statement",
+    label: "Ledger",
     href: "/rt/retailer/statement",
     icon: "FileText",
   },

@@ -62,6 +62,7 @@ import {
   maskPan,
   resolveStatusBadge,
 } from "@/src/lib/profileUtils";
+import { MpinSecurityCard } from "@/features/mpin";
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 24 },
@@ -440,6 +441,7 @@ export default function RetailerProfileView() {
           </motion.div>
         ))}
       </motion.div>
+
 
       <div className="grid gap-6 lg:grid-cols-2">
         <SectionCard

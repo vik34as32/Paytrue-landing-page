@@ -19,6 +19,8 @@ import {
   Settings,
   FileSpreadsheet,
   IndianRupee,
+  ShieldCheck,
+  Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -42,6 +44,8 @@ const iconMap = {
   Settings,
   FileSpreadsheet,
   IndianRupee,
+  ShieldCheck,
+  Landmark,
 };
 
 type SidebarLinkItem = {

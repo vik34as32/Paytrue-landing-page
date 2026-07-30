@@ -26,6 +26,10 @@ import { getCurrentLocation } from "@/src/lib/rdService";
 import { formatCurrency } from "@/lib/utils";
 import { useDmtWorkflow, STEP } from "../DmtWorkflowContext";
 import OtpDialog from "../OtpDialog";
+import {
+  VerifyMpinModal,
+  MpinAccountLockedDialog,
+} from "@/features/mpin";
 import type { DmtApiError, DmtTransferMode } from "@/src/types/dmt";
 
 const schema = z.object({
@@ -53,7 +57,11 @@ export default function TransferStep() {
   const transferNeftMutation = useTransferNeft();
 
   const [otpOpen, setOtpOpen] = useState(false);
+  const [mpinOpen, setMpinOpen] = useState(false);
+  const [mpinLockedOpen, setMpinLockedOpen] = useState(false);
+  const [mpinLockMessage, setMpinLockMessage] = useState<string | undefined>();
   const [txnReferenceKey, setTxnReferenceKey] = useState("");
+  const [verifiedOtp, setVerifiedOtp] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const form = useForm<TransferValues>({
@@ -96,7 +104,7 @@ export default function TransferStep() {
     }
   };
 
-  const onVerifyAndTransfer = async (otp: string) => {
+  const onVerifyOtp = async (otp: string) => {
     const values = form.getValues();
     const key = txnReferenceKey || referenceKey;
     try {
@@ -106,50 +114,59 @@ export default function TransferStep() {
         referenceKey: key,
         amount: values.amount,
       });
-
-      let coords = FALLBACK_COORDS;
-      try {
-        coords = await getCurrentLocation();
-      } catch {
-        toast.message("Using default location for transfer.");
-      }
-
-      const mode = values.transferMode as DmtTransferMode;
-      const payload = {
-        senderMobile: mobile,
-        beneficiaryId: selectedBeneficiary.id,
-        amount: values.amount,
-        transferMode: mode,
-        otp,
-        referenceKey: key,
-        latitude: coords.latitude,
-        longitude: coords.longitude,
-        remarks: values.remarks || undefined,
-      };
-
-      const result =
-        mode === "NEFT"
-          ? await transferNeftMutation.mutateAsync(payload)
-          : await transferImpsMutation.mutateAsync(payload);
-
-      const reference =
-        result.reference ||
-        result.transaction?.referenceNumber ||
-        result.transaction?.transactionId ||
-        "";
-
+      setVerifiedOtp(otp.trim());
       setOtpOpen(false);
-      if (!reference) {
-        toast.error("Transfer initiated but reference missing.");
-        return;
-      }
-      setTransferReference(reference);
-      toast.success("Transfer initiated");
-      goToStep(STEP.RECEIPT);
+      setMpinOpen(true);
+      toast.success("OTP verified. Enter MPIN to authorize transfer.");
     } catch (err) {
       const mapped = err as DmtApiError;
       toast.error(mapped.message);
     }
+  };
+
+  const executeTransfer = async () => {
+    const values = form.getValues();
+    const key = txnReferenceKey || referenceKey;
+    const otp = verifiedOtp;
+
+    let coords = FALLBACK_COORDS;
+    try {
+      coords = await getCurrentLocation();
+    } catch {
+      toast.message("Using default location for transfer.");
+    }
+
+    const mode = values.transferMode as DmtTransferMode;
+    const payload = {
+      senderMobile: mobile,
+      beneficiaryId: selectedBeneficiary.id,
+      amount: values.amount,
+      transferMode: mode,
+      otp,
+      referenceKey: key,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      remarks: values.remarks || undefined,
+    };
+
+    const result =
+      mode === "NEFT"
+        ? await transferNeftMutation.mutateAsync(payload)
+        : await transferImpsMutation.mutateAsync(payload);
+
+    const reference =
+      result.reference ||
+      result.transaction?.referenceNumber ||
+      result.transaction?.transactionId ||
+      "";
+
+    if (!reference) {
+      toast.error("Transfer initiated but reference missing.");
+      return;
+    }
+    setTransferReference(reference);
+    toast.success("Transfer initiated");
+    goToStep(STEP.RECEIPT);
   };
 
   const submitting =
@@ -282,7 +299,7 @@ export default function TransferStep() {
         )} to ${selectedBeneficiary.name}.`}
         submitting={submitting}
         onClose={() => (submitting ? undefined : setOtpOpen(false))}
-        onSubmit={onVerifyAndTransfer}
+        onSubmit={onVerifyOtp}
         onResend={() =>
           generateOtpMutation.mutate({
             senderMobile: mobile,
@@ -290,6 +307,42 @@ export default function TransferStep() {
             referenceKey: referenceKey || undefined,
           })
         }
+      />
+
+      <VerifyMpinModal
+        open={mpinOpen}
+        title="Verify MPIN"
+        description={`Authorize ${formatCurrency(
+          Number(form.getValues("amount") || 0)
+        )} ${form.getValues("transferMode")} transfer to ${selectedBeneficiary.name}.`}
+        cancelLabel="Cancel Transfer"
+        onOpenChange={setMpinOpen}
+        onCancel={() => {
+          setMpinOpen(false);
+          setVerifiedOtp("");
+          toast.message("Transfer cancelled. MPIN verification was not completed.");
+        }}
+        onVerified={async () => {
+          try {
+            await executeTransfer();
+          } catch (err) {
+            const mapped = err as DmtApiError;
+            toast.error(mapped.message || "Transfer failed");
+          }
+        }}
+        onAccountLocked={(message) => {
+          setMpinOpen(false);
+          setVerifiedOtp("");
+          setMpinLockMessage(message);
+          setMpinLockedOpen(true);
+        }}
+      />
+
+      <MpinAccountLockedDialog
+        open={mpinLockedOpen}
+        message={mpinLockMessage}
+        onOpenChange={setMpinLockedOpen}
+        dashboardHref="/rt/retailer"
       />
     </Box>
   );

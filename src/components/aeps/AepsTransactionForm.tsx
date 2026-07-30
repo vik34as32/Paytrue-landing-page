@@ -22,7 +22,7 @@ import FormStatusAlert, {
 } from "@/src/components/common/FormStatusAlert";
 import { useFormStatus } from "@/src/hooks/useFormStatus";
 import { useFingerprint } from "@/src/hooks/useFingerprint";
-import { useRefreshAepsWalletBalance } from "@/src/hooks/useAepsWalletBalance";
+import { useRefreshAepsWalletBalance, isAepsWalletMovingSuccess } from "@/src/hooks/useAepsWalletBalance";
 import { AEPS_OTP_AMOUNT_THRESHOLD } from "@/src/constants/aepsApi";
 import type { AepsTransactionPayload, AepsTransactionResult } from "@/src/types/aeps";
 
@@ -147,7 +147,7 @@ export default function AepsTransactionForm({
         );
       }
       const txnStatus = String(result.status || "").toUpperCase();
-      if (txnStatus === "SUCCESS" || txnStatus === "TXN") {
+      if (isAepsWalletMovingSuccess(txnStatus)) {
         void refreshAepsWalletBalance();
       }
       onSuccess?.(result);

@@ -41,6 +41,8 @@ interface BeneficiaryListProps {
   actionError?: string | null;
   showHeader?: boolean;
   onAdd: () => void;
+  /** Optional — some flows still wire verify from the list */
+  onVerify?: (beneficiary: DmtBeneficiary) => void;
   onTransfer: (beneficiary: DmtBeneficiary) => void;
   onDelete: (beneficiary: DmtBeneficiary) => void;
 }

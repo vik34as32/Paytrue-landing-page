@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useDispatch, useSelector } from "react-redux";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -33,6 +32,7 @@ import {
 import { resolvePostLoginRedirect } from "@/src/lib/authUtils";
 import { ROLE_PORTAL_PATHS, USER_TYPES } from "@/src/constants/auth";
 import { fetchMpinStatus } from "@/features/mpin/services/mpinApi";
+import { useAppDispatch, useAppSelector } from "@/src/redux/types";
 
 const otpSchema = z.object({
   otp: z
@@ -45,8 +45,8 @@ type OtpFormValues = z.infer<typeof otpSchema>;
 export default function VerifyOtpForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const dispatch = useDispatch();
-  const loading = useSelector(selectAuthLoading);
+  const dispatch = useAppDispatch();
+  const loading = useAppSelector(selectAuthLoading);
 
   const [sessionReady, setSessionReady] = useState(false);
   const [loginToken, setLoginToken] = useState("");
@@ -131,16 +131,16 @@ export default function VerifyOtpForm() {
         loginToken,
         otp: values.otp,
         remember,
-      }) as never
+      })
     );
 
     if (verifyLoginOtp.fulfilled.match(action)) {
       toast.success(action.payload.message || "Login Successful");
-      await dispatch(fetchProfile() as never);
+      await dispatch(fetchProfile());
 
       const userType = action.payload.user?.userType;
       let redirect = resolvePostLoginRedirect(
-        searchParams.get("redirect"),
+        searchParams?.get("redirect") ?? null,
         userType
       );
 
@@ -304,7 +304,9 @@ export default function VerifyOtpForm() {
 
       <ResendOtpButton
         disabled={busy}
-        onResend={() => resendMutation.mutateAsync()}
+        onResend={async () => {
+          await resendMutation.mutateAsync();
+        }}
       />
 
       <Link

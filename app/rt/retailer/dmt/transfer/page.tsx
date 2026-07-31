@@ -34,6 +34,7 @@ import { getCurrentLocation } from "@/src/lib/rdService";
 import { resolveSenderMobile, setActiveSenderMobile, setTransactionReferenceKey } from "@/src/lib/dmtSession";
 import { refreshRetailerWalletData } from "@/features/retailer/utils/walletValidation";
 import { validateRetailerWalletBalance } from "@/features/retailer/utils/walletValidation";
+import { VerifyMpinModal } from "@/features/mpin";
 import type { DmtApiError, DmtTransaction } from "@/src/types/dmt";
 
 const schema = z.object({
@@ -59,6 +60,8 @@ function TransferPageContent() {
 
   const [otpStep, setOtpStep] = useState(false);
   const [otp, setOtp] = useState("");
+  const [verifiedOtp, setVerifiedOtp] = useState("");
+  const [mpinOpen, setMpinOpen] = useState(false);
   const [referenceKey, setReferenceKey] = useState("");
   const [pendingPayload, setPendingPayload] = useState<FormValues | null>(null);
   const [successTxn, setSuccessTxn] = useState<DmtTransaction | null>(null);
@@ -121,7 +124,11 @@ function TransferPageContent() {
     }
   };
 
-  const completeTransfer = async (values: FormValues, otpValue: string) => {
+  const completeTransfer = async (
+    values: FormValues,
+    otpValue: string,
+    mpin: string
+  ) => {
     if (!mobile) return;
     if (!referenceKey) {
       toast.error("Generate transaction OTP first.");
@@ -131,17 +138,15 @@ function TransferPageContent() {
       toast.error("Enter valid OTP");
       return;
     }
+    const mpinDigits = String(mpin || "").replace(/\D/g, "");
+    if (!/^\d{4}$/.test(mpinDigits)) {
+      toast.error("MPIN is required for transfer.");
+      return;
+    }
 
     setError(null);
 
     try {
-      await verifyOtpMutation.mutateAsync({
-        senderMobile: mobile,
-        otp: otpValue,
-        referenceKey,
-        amount: values.amount,
-      });
-
       const location = await getCurrentLocation();
 
       const transferPayload = {
@@ -152,6 +157,7 @@ function TransferPageContent() {
         remarks: values.remark,
         referenceKey,
         otp: otpValue,
+        mpin: mpinDigits,
         latitude: location.latitude,
         longitude: location.longitude,
       };
@@ -165,6 +171,7 @@ function TransferPageContent() {
       setSuccessTxn(result.transaction ?? null);
       setOtpStep(false);
       setOtp("");
+      setVerifiedOtp("");
       setPendingPayload(null);
       toast.success("Transfer completed successfully");
     } catch (err) {
@@ -176,13 +183,33 @@ function TransferPageContent() {
 
   const onSubmit = (values: FormValues) => generateOtp(values);
 
-  const confirmOtp = () => {
+  const confirmOtp = async () => {
     if (!pendingPayload) return;
     if (otp.length < 4) {
       toast.error("Enter valid OTP");
       return;
     }
-    completeTransfer(pendingPayload, otp);
+    if (!mobile || !referenceKey) {
+      toast.error("Generate transaction OTP first.");
+      return;
+    }
+
+    setError(null);
+    try {
+      await verifyOtpMutation.mutateAsync({
+        senderMobile: mobile,
+        otp,
+        referenceKey,
+        amount: pendingPayload.amount,
+      });
+      setVerifiedOtp(otp.trim());
+      setMpinOpen(true);
+      toast.success("OTP verified. Enter MPIN to authorize transfer.");
+    } catch (err) {
+      const mapped = err as DmtApiError;
+      setError(mapped);
+      toast.error(mapped.message);
+    }
   };
 
   return (
@@ -306,15 +333,32 @@ function TransferPageContent() {
           </CardHeader>
           <CardContent className="space-y-4">
             <OtpInput value={otp} onChange={setOtp} disabled={isBusy} />
-            <Button className="w-full" disabled={isBusy} onClick={confirmOtp}>
+            <Button className="w-full" disabled={isBusy} onClick={() => void confirmOtp()}>
               {isBusy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : null}
-              Verify OTP & Transfer
+              Verify OTP & Continue
             </Button>
           </CardContent>
         </Card>
       )}
+
+      <VerifyMpinModal
+        open={mpinOpen}
+        title="Verify MPIN"
+        description="Enter your 4 digit MPIN to authorize this transfer."
+        cancelLabel="Cancel Transfer"
+        onOpenChange={setMpinOpen}
+        onCancel={() => {
+          setMpinOpen(false);
+          setVerifiedOtp("");
+          toast.message("Transfer cancelled. MPIN verification was not completed.");
+        }}
+        onVerified={async (mpin) => {
+          if (!pendingPayload || !verifiedOtp) return;
+          await completeTransfer(pendingPayload, verifiedOtp, mpin);
+        }}
+      />
 
       {error && (
         <DmtErrorState code={error.code} message={error.message} onRetry={() => setError(null)} />

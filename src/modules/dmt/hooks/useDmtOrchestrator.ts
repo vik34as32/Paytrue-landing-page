@@ -1180,8 +1180,13 @@ export function useDmtOrchestrator() {
 
   /** Step 2: money transfer — call ONLY after successful MPIN verification. */
   const completeTransferAfterMpin = useCallback(
-    async () =>
+    async (mpin: string) =>
       run(async () => {
+        const mpinDigits = String(mpin || "").replace(/\D/g, "");
+        if (!/^\d{4}$/.test(mpinDigits)) {
+          throw new Error("MPIN is required for transfer.");
+        }
+
         const ctx = transferContextRef.current;
         const beneficiaryId =
           ctx?.beneficiaryId || beneficiary.selected?.id || "";
@@ -1222,6 +1227,7 @@ export function useDmtOrchestrator() {
           amount,
           transferMode,
           otp,
+          mpin: mpinDigits,
           referenceKey,
           latitude,
           longitude,

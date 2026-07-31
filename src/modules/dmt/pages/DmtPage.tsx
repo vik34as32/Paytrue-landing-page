@@ -376,7 +376,7 @@ export default function DmtPage() {
           }
         }}
         onCancel={cancelMpinVerification}
-        onVerified={() => void completeTransferAfterMpin()}
+        onVerified={(mpin) => void completeTransferAfterMpin(mpin)}
         onAccountLocked={(message) => {
           cancelTransfer();
           closeDialog();

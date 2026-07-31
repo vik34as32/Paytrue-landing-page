@@ -120,11 +120,16 @@ async function buildTransferBody(payload: TransferPayload): Promise<Record<strin
     amount: payload.amount,
     transferMode: payload.transferMode,
     otp: payload.otp.trim(),
+    mpin: String(payload.mpin || "").replace(/\D/g, ""),
     referenceKey: payload.referenceKey.trim(),
     latitude: coords.latitude,
     longitude: coords.longitude,
     serviceId,
   };
+
+  if (!body.mpin) {
+    throw new Error("MPIN is required for transfer.");
+  }
 
   if (payload.remarks?.trim()) {
     body.remarks = payload.remarks.trim();

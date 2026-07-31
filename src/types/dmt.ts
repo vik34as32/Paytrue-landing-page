@@ -165,6 +165,8 @@ export interface TransferPayload {
   amount: number;
   transferMode: DmtTransferMode;
   otp: string;
+  /** 4-digit retailer MPIN — required by IMPS/NEFT transfer APIs */
+  mpin: string;
   referenceKey: string;
   latitude: string;
   longitude: string;

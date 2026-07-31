@@ -1,5 +1,5 @@
-import api from "@/src/lib/axios";
-import { API_ENDPOINTS } from "@/src/constants/api";
+import { API_BASE_URL, API_ENDPOINTS } from "@/src/constants/api";
+import { getAccessToken } from "@/src/lib/cookies";
 import type {
   ChangeMpinPayload,
   CreateMpinPayload,
@@ -104,19 +104,96 @@ export function toMpinVerifyApiError(
       ? mapMpinApiError(error, "Your account has been temporarily locked")
       : mapMpinApiError(error, fallback),
     status,
-    attemptsRemaining:
-      err.attemptsRemaining ?? pickAttempts(payload),
+    attemptsRemaining: err.attemptsRemaining ?? pickAttempts(payload),
     locked,
     data: payload,
   };
 }
 
+/**
+ * POST JSON via fetch so `mpin` is never dropped by axios serializers / AxiosHeaders.
+ * Backend error "must have required property 'mpin'" was caused by empty/malformed body.
+ */
+async function postMpinJson(
+  path: string,
+  body: Record<string, string>
+): Promise<{ status: number; data: unknown }> {
+  // Guarantee every value is a non-empty string before send
+  const safeBody: Record<string, string> = {};
+  for (const [key, value] of Object.entries(body)) {
+    const trimmed = String(value ?? "").trim();
+    if (trimmed) safeBody[key] = trimmed;
+  }
+
+  if (Object.keys(safeBody).length === 0) {
+    throw {
+      status: 400,
+      message: "Request body is empty",
+      data: { message: "Request body is empty" },
+    };
+  }
+
+  // Explicit stringify — never pass undefined keys
+  const raw = JSON.stringify(safeBody);
+  const token = getAccessToken();
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: raw,
+  });
+
+  let data: unknown = {};
+  try {
+    data = await response.json();
+  } catch {
+    data = {};
+  }
+
+  if (!response.ok) {
+    throw {
+      status: response.status,
+      message: pickMessage(data, "Request failed"),
+      data,
+      locked: isLockedPayload(response.status, data),
+      attemptsRemaining: pickAttempts(data),
+    };
+  }
+
+  return { status: response.status, data };
+}
+
 export async function fetchMpinStatus(): Promise<MpinStatus> {
-  const response = await api.get(API_ENDPOINTS.mpinStatus, {
-    skipSessionLogout: true,
-  } as never);
-  const data = unwrap(response.data);
-  const root = asRecord(response.data);
+  const token = getAccessToken();
+  const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.mpinStatus}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  let payload: unknown = {};
+  try {
+    payload = await response.json();
+  } catch {
+    payload = {};
+  }
+
+  if (!response.ok) {
+    throw {
+      status: response.status,
+      message: pickMessage(payload, "Unable to fetch MPIN status"),
+      data: payload,
+    };
+  }
+
+  const data = unwrap(payload);
+  const root = asRecord(payload);
 
   const isMpinCreated = Boolean(
     data.isMpinCreated ??
@@ -132,7 +209,7 @@ export async function fetchMpinStatus(): Promise<MpinStatus> {
     lockedUntil: data.lockedUntil ? String(data.lockedUntil) : null,
     attemptsRemaining:
       data.attemptsRemaining != null ? Number(data.attemptsRemaining) : null,
-    message: pickMessage(response.data, "MPIN status retrieved"),
+    message: pickMessage(payload, "MPIN status retrieved"),
   };
 }
 
@@ -142,16 +219,18 @@ export async function createMpin(
   const mpin = String(payload?.mpin ?? "").replace(/\D/g, "");
   const confirmMpin = String(payload?.confirmMpin ?? "").replace(/\D/g, "");
 
-  const response = await api.post(
-    API_ENDPOINTS.mpinCreate,
-    JSON.stringify({ mpin, confirmMpin }),
-    {
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-    } as never
-  );
+  if (!mpin || !confirmMpin) {
+    throw { status: 400, message: "MPIN and Confirm MPIN are required", data: null };
+  }
+
+  const { data } = await postMpinJson(API_ENDPOINTS.mpinCreate, {
+    mpin,
+    confirmMpin,
+  });
+
   return {
-    success: Boolean(asRecord(response.data).success ?? true),
-    message: pickMessage(response.data, "MPIN created successfully"),
+    success: Boolean(asRecord(data).success ?? true),
+    message: pickMessage(data, "MPIN created successfully"),
   };
 }
 
@@ -162,80 +241,69 @@ export async function changeMpin(
   const newMpin = String(payload?.newMpin ?? "").replace(/\D/g, "");
   const confirmMpin = String(payload?.confirmMpin ?? "").replace(/\D/g, "");
 
-  const response = await api.post(
-    API_ENDPOINTS.mpinChange,
-    JSON.stringify({ oldMpin, newMpin, confirmMpin }),
-    {
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-    } as never
-  );
+  if (!oldMpin || !newMpin || !confirmMpin) {
+    throw {
+      status: 400,
+      message: "Old MPIN, New MPIN and Confirm MPIN are required",
+      data: null,
+    };
+  }
+
+  const { data } = await postMpinJson(API_ENDPOINTS.mpinChange, {
+    oldMpin,
+    newMpin,
+    confirmMpin,
+  });
+
   return {
-    success: Boolean(asRecord(response.data).success ?? true),
-    message: pickMessage(response.data, "MPIN changed successfully"),
+    success: Boolean(asRecord(data).success ?? true),
+    message: pickMessage(data, "MPIN changed successfully"),
   };
 }
 
 /**
  * Verify retailer MPIN.
- * Uses skipSessionLogout so HTTP 403 (account lock) does not force logout.
+ * Always sends `{ "mpin": "1234" }` as a real JSON body (never empty / never dropped).
  */
 export async function verifyMpin(
   payload: VerifyMpinPayload
 ): Promise<VerifyMpinResult> {
-  // Always send a concrete digit string. JSON.stringify drops `undefined` keys,
-  // which caused: must have required property 'mpin'.
   const mpin = String(payload?.mpin ?? "").replace(/\D/g, "");
 
-  if (!mpin) {
+  if (!/^\d{4}$/.test(mpin)) {
     throw toMpinVerifyApiError(
-      { message: "MPIN is required", status: 400 },
-      "MPIN is required"
+      { message: "MPIN must be exactly 4 digits", status: 400, data: null },
+      "MPIN must be exactly 4 digits"
     );
   }
 
-  const body = { mpin };
-
   try {
-    // Explicit JSON body avoids AxiosHeaders / undefined-key issues
-    // that produced: must have required property 'mpin'
-    const response = await api.post(
-      API_ENDPOINTS.mpinVerify,
-      JSON.stringify(body),
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        skipSessionLogout: true,
-      } as never
-    );
+    const { data } = await postMpinJson(API_ENDPOINTS.mpinVerify, { mpin });
 
-    const data = unwrap(response.data);
-    const root = asRecord(response.data);
+    const nested = unwrap(data);
+    const root = asRecord(data);
     const verified = Boolean(
-      data.verified ?? data.success ?? root.verified ?? root.success ?? true
+      nested.verified ?? nested.success ?? root.verified ?? root.success ?? true
     );
-    const attemptsRemaining = pickAttempts(response.data);
+    const attemptsRemaining = pickAttempts(data);
 
     if (!verified) {
-      const error: MpinVerifyApiError = {
-        message: pickMessage(response.data, "Invalid MPIN"),
+      throw {
+        message: pickMessage(data, "Invalid MPIN"),
         status: 400,
         attemptsRemaining,
-        locked: isLockedPayload(undefined, response.data),
-        data: response.data,
-      };
-      throw error;
+        locked: isLockedPayload(undefined, data),
+        data,
+      } satisfies MpinVerifyApiError;
     }
 
     return {
       verified: true,
-      message: pickMessage(response.data, "MPIN verified successfully"),
+      message: pickMessage(data, "MPIN verified successfully"),
       attemptsRemaining,
       locked: false,
     };
   } catch (error) {
-    const mapped = toMpinVerifyApiError(error, "Invalid MPIN");
-    throw mapped;
+    throw toMpinVerifyApiError(error, "Invalid MPIN");
   }
 }

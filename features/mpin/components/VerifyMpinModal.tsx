@@ -27,8 +27,8 @@ export interface VerifyMpinModalProps {
   onOpenChange: (open: boolean) => void;
   title?: string;
   description?: string;
-  /** Called only after Verify MPIN API returns success */
-  onVerified: () => void | Promise<void>;
+  /** Called only after Verify MPIN API returns success — receives the verified 4-digit MPIN */
+  onVerified: (mpin: string) => void | Promise<void>;
   onCancel?: () => void;
   /** Fired when backend locks the account (HTTP 403) */
   onAccountLocked?: (message: string) => void;
@@ -59,6 +59,7 @@ export function VerifyMpinModal({
     setError,
     clearErrors,
     watch,
+    getValues,
     formState: { errors },
   } = useForm<VerifyMpinFormValues>({
     resolver: zodResolver(verifyMpinSchema) as Resolver<VerifyMpinFormValues>,
@@ -92,7 +93,16 @@ export function VerifyMpinModal({
     clearErrors("mpin");
     setSubmitting(true);
     try {
-      const mpinValue = String(values?.mpin ?? mpin ?? "").replace(/\D/g, "");
+      // Prefer form values, then watch — always force a 4-digit string body
+      const mpinValue = String(
+        values?.mpin ?? getValues("mpin") ?? mpin ?? ""
+      ).replace(/\D/g, "");
+
+      if (!/^\d{4}$/.test(mpinValue)) {
+        setError("mpin", { message: "MPIN must be exactly 4 digits" });
+        return;
+      }
+
       const result = await verifyMpin({ mpin: mpinValue });
       if (!result.verified) {
         setError("mpin", { message: "Invalid MPIN" });
@@ -106,7 +116,7 @@ export function VerifyMpinModal({
       reset({ mpin: "" });
       setAttemptsRemaining(null);
       onOpenChange(false);
-      await onVerified();
+      await onVerified(mpinValue);
     } catch (err) {
       const mapped = toMpinVerifyApiError(err, "Invalid MPIN");
 
@@ -119,16 +129,16 @@ export function VerifyMpinModal({
         return;
       }
 
+      const msg = mapped.message || "Invalid MPIN";
       setError("mpin", {
-        message:
-          mapped.message?.includes("required property")
-            ? "Unable to send MPIN. Please re-enter and try again."
-            : mapped.message || "Invalid MPIN",
+        message: /required property ['\"]?mpin['\"]?/i.test(msg)
+          ? "Unable to send MPIN. Please re-enter and try again."
+          : msg,
       });
       if (mapped.attemptsRemaining != null) {
         setAttemptsRemaining(mapped.attemptsRemaining);
       }
-      toast.error(mapped.message || "Invalid MPIN");
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }

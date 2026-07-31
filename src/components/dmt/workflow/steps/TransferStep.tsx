@@ -124,10 +124,16 @@ export default function TransferStep() {
     }
   };
 
-  const executeTransfer = async () => {
+  const executeTransfer = async (mpin: string) => {
     const values = form.getValues();
     const key = txnReferenceKey || referenceKey;
     const otp = verifiedOtp;
+    const mpinDigits = String(mpin || "").replace(/\D/g, "");
+
+    if (!/^\d{4}$/.test(mpinDigits)) {
+      toast.error("MPIN is required for transfer.");
+      return;
+    }
 
     let coords = FALLBACK_COORDS;
     try {
@@ -143,6 +149,7 @@ export default function TransferStep() {
       amount: values.amount,
       transferMode: mode,
       otp,
+      mpin: mpinDigits,
       referenceKey: key,
       latitude: coords.latitude,
       longitude: coords.longitude,
@@ -322,9 +329,9 @@ export default function TransferStep() {
           setVerifiedOtp("");
           toast.message("Transfer cancelled. MPIN verification was not completed.");
         }}
-        onVerified={async () => {
+        onVerified={async (mpin) => {
           try {
-            await executeTransfer();
+            await executeTransfer(mpin);
           } catch (err) {
             const mapped = err as DmtApiError;
             toast.error(mapped.message || "Transfer failed");

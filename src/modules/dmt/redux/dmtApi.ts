@@ -396,6 +396,7 @@ export const dmtApi = createApi({
           const senderMobile = String(body.senderMobile || "").trim();
           const referenceKey = String(body.referenceKey || "").trim();
           const otp = String(body.otp || "").trim();
+          const mpin = String(body.mpin || "").replace(/\D/g, "");
           const latitude = String(body.latitude || "").trim();
           const longitude = String(body.longitude || "").trim();
 
@@ -403,6 +404,7 @@ export const dmtApi = createApi({
           if (!senderMobile) throw new Error("Sender mobile is required.");
           if (!referenceKey) throw new Error("Reference key is required.");
           if (!otp) throw new Error("OTP is required.");
+          if (!/^\d{4}$/.test(mpin)) throw new Error("MPIN is required for transfer.");
           if (!latitude || !longitude) throw new Error("Location is required for transfer.");
 
           const serviceId = await resolveDmtTransferServiceId(body.transferMode);
@@ -413,6 +415,7 @@ export const dmtApi = createApi({
             amount: body.amount,
             transferMode: body.transferMode,
             otp,
+            mpin,
             referenceKey,
             latitude,
             longitude,

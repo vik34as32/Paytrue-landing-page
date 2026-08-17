@@ -16,6 +16,7 @@ import {
   normalizeAepsLoginResult,
   normalizeAepsTransactionResult,
   unwrapAepsData,
+
 } from "@/src/lib/aepsUtils";
 import type {
   AepsAccountVerifyPayload,
@@ -28,6 +29,7 @@ import type {
   AepsTransactionPayload,
   AepsTransactionResult,
   AepsTransactionStatusPayload,
+  AepsTopupRequest,
 } from "@/src/types/aeps";
 
 export interface AepsLedgerFilters {
@@ -268,4 +270,16 @@ export async function fetchAepsLedger(
       pagination: { page, limit, total, totalPages },
     };
   });
+}
+
+
+
+export async function topupAepsToMainWallet(
+  payload: AepsTopupRequest
+): Promise<unknown> {
+  const response = await api.post(AEPS_ENDPOINTS.transferToMainWallet, {
+    amount: payload.amount,
+    remarks: "Transfer Aeps walllet to Main wallet",
+  });
+  return response.data?.data ?? response.data;
 }

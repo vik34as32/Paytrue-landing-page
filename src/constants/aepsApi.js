@@ -14,6 +14,7 @@ export const AEPS_ENDPOINTS = {
   /** GET /aeps/ledger — retailer AEPS transaction history */
   ledger: "/aeps/ledger",
   health: "/aeps/health",
+  transferToMainWallet:"/wallet/aeps/topup"
 };
 
 export const AEPS_OTP_AMOUNT_THRESHOLD = 5000;

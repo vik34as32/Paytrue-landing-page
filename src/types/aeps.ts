@@ -147,3 +147,9 @@ export interface AepsHealthResult {
   message?: string;
   provider?: string;
 }
+
+
+
+export interface AepsTopupRequest {
+  amount: number;
+}

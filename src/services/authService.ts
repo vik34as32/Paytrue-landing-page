@@ -63,3 +63,5 @@ export async function resetPassword(
   const response = await api.post(API_ENDPOINTS.resetPassword, body);
   return (response.data?.data ?? response.data) as ResetPasswordResponse;
 }
+
+

@@ -1,9 +1,12 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import ProcessLoadingOverlay from "@/src/components/common/ProcessLoadingOverlay";
 import { useBankAccountVerification } from "@/src/hooks/useBankAccountVerification";
+import { validateBankVerifyInputs } from "@/src/lib/dmtBankVerify";
 import type { VerifyBankAccountResponse } from "@/src/types/dmt";
 
 interface BankAccountVerifyInputProps {
@@ -19,6 +22,8 @@ interface BankAccountVerifyInputProps {
   onVerified?: (result: VerifyBankAccountResponse) => void;
   error?: string;
   disabled?: boolean;
+  /** Run bank verify once account + IFSC become valid */
+  autoVerify?: boolean;
 }
 
 export default function BankAccountVerifyInput({
@@ -30,6 +35,7 @@ export default function BankAccountVerifyInput({
   onVerified,
   error,
   disabled = false,
+  autoVerify = false,
 }: BankAccountVerifyInputProps) {
   const { verify, verifying, verified, holderName, nameMatchPercent } =
     useBankAccountVerification({
@@ -39,6 +45,24 @@ export default function BankAccountVerifyInput({
       verifyFn,
       onVerified,
     });
+
+  const autoKeyRef = useRef("");
+
+  useEffect(() => {
+    if (!autoVerify || disabled || verifying || verified) return;
+    const invalid = validateBankVerifyInputs({
+      accountNumber: value,
+      ifscCode,
+    });
+    if (invalid) return;
+    const key = `${value.trim()}|${ifscCode.trim().toUpperCase()}`;
+    if (autoKeyRef.current === key) return;
+    autoKeyRef.current = key;
+    const timer = window.setTimeout(() => {
+      void verify();
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [autoVerify, disabled, ifscCode, value, verified, verifying, verify]);
 
   const helperText = verified
     ? holderName
@@ -70,9 +94,9 @@ export default function BankAccountVerifyInput({
               type="button"
               size="sm"
               variant="outline"
-              className="h-8 px-3 text-xs"
+              className="h-8 rounded-md border-slate-200 bg-slate-100 px-3 text-xs font-semibold text-slate-500 hover:bg-slate-200"
               disabled={disabled || verifying || !value.trim() || !ifscCode.trim()}
-              onClick={verify}
+              onClick={() => void verify()}
             >
               {verifying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Verify"}
             </Button>
@@ -85,6 +109,11 @@ export default function BankAccountVerifyInput({
           {helperText}
         </p>
       ) : null}
+      <ProcessLoadingOverlay
+        open={verifying}
+        message="Please wait..."
+        detail="Connecting to bank server — verifying account"
+      />
     </div>
   );
 }

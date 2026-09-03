@@ -2,33 +2,35 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useDmt3RetailerContext } from "../hooks/useDmt3RetailerContext";
 import { useDmt3Store } from "../lib/dmt3-store";
 
-export function RequireDmt3Session({
+export function RequireVerifiedRemitter({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const retailer = useDmt3RetailerContext();
+  const remitter = useDmt3Store((s) => s.remitter);
 
   useEffect(() => {
-    if (!retailer.senderMobile) {
-      router.replace("/rt/retailer");
+    if (!remitter.mobile || !remitter.otpVerified) {
+      router.replace("/rt/retailer/dmt3");
     }
-  }, [retailer.senderMobile, router]);
+  }, [remitter.mobile, remitter.otpVerified, router]);
 
-  if (!retailer.senderMobile) {
+  if (!remitter.mobile || !remitter.otpVerified) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-        Loading retailer session…
+        Redirecting to search retailer…
       </div>
     );
   }
 
   return <>{children}</>;
 }
+
+/** @deprecated use RequireVerifiedRemitter */
+export const RequireDmt3Session = RequireVerifiedRemitter;
 
 export function RequireSelectedBeneficiary({
   children,

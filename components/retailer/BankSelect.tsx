@@ -29,7 +29,8 @@ interface BankSelectProps {
   loading?: boolean;
   id?: string;
   /** Field used as the selected value — defaults to bank name */
-  valueKey?: "name" | "id";
+  valueKey?: "name" | "id" | "shortName";
+  searchPlaceholder?: string;
 }
 
 function BankSelectSkeleton() {
@@ -52,6 +53,7 @@ function BankSelectComponent({
   loading = false,
   id,
   valueKey = "name",
+  searchPlaceholder = "Search bank name...",
 }: BankSelectProps) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
@@ -69,7 +71,11 @@ function BankSelectComponent({
   const selectedBank = useMemo(
     () =>
       normalizedBanks.find(
-        (bank) => bank.name === value || bank.id === value
+        (bank) =>
+          bank.name === value ||
+          bank.id === value ||
+          bank.shortName === value ||
+          bank.ifscPrefix === value
       ) ?? null,
     [normalizedBanks, value]
   );
@@ -96,7 +102,13 @@ function BankSelectComponent({
 
   const selectBank = useCallback(
     (bank: BankOption) => {
-      onChange(valueKey === "id" ? bank.id : bank.name);
+      const next =
+        valueKey === "id"
+          ? bank.id
+          : valueKey === "shortName"
+            ? bank.shortName || bank.name
+            : bank.name;
+      onChange(next);
       closeDropdown();
     },
     [closeDropdown, onChange, valueKey]
@@ -189,7 +201,7 @@ function BankSelectComponent({
         onClick={() => !disabled && setOpen((current) => !current)}
         onKeyDown={handleTriggerKeyDown}
         className={cn(
-          "flex h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2 text-left text-sm shadow-sm transition-all",
+          "flex min-h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2 text-left text-sm shadow-sm transition-all",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
           "disabled:cursor-not-allowed disabled:opacity-50",
           open && "border-blue-300 ring-2 ring-blue-100",
@@ -230,7 +242,7 @@ function BankSelectComponent({
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   onKeyDown={handleSearchKeyDown}
-                  placeholder="Search bank name, IFSC..."
+                  placeholder={searchPlaceholder}
                   aria-label="Search banks"
                   className="h-10 rounded-lg pl-9"
                 />
@@ -255,7 +267,7 @@ function BankSelectComponent({
                 </div>
               ) : (
                 filteredBanks.map((bank, index) => {
-                  const isSelected = selectedBank?.name === bank.name;
+                  const isSelected = selectedBank?.id === bank.id;
                   const isHighlighted = highlightIndex === index;
 
                   return (

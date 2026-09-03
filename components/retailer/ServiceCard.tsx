@@ -23,6 +23,7 @@ import {
   Heart,
   Monitor,
   QrCode,
+  ArrowRightLeft,
   Lock,
   type LucideIcon,
 } from "lucide-react";
@@ -60,6 +61,7 @@ const iconMap: Record<string, LucideIcon> = {
   Heart,
   Monitor,
   QrCode,
+  ArrowRightLeft,
 };
 
 const iconBgMap: Record<string, string> = {

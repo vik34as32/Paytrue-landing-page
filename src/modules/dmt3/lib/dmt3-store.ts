@@ -6,10 +6,19 @@ import { createClientTxnId } from "../utils/dmt3.utils";
 import type {
   Dmt3Beneficiary,
   Dmt3CommissionPreview,
+  Dmt3Remitter,
   Dmt3Step,
   Dmt3Transaction,
   Dmt3TransferDraft,
 } from "../types/dmt3.types";
+
+const emptyRemitter: Dmt3Remitter = {
+  mobile: "",
+  fullName: "",
+  email: "",
+  otpVerified: false,
+  registered: false,
+};
 
 const emptyTransfer: Dmt3TransferDraft = {
   beneficiaryId: "",
@@ -19,6 +28,8 @@ const emptyTransfer: Dmt3TransferDraft = {
 };
 
 interface Dmt3State {
+  remitter: Dmt3Remitter;
+  knownRemitters: Record<string, Dmt3Remitter>;
   beneficiaries: Dmt3Beneficiary[];
   selectedBeneficiaryId: string | null;
   transfer: Dmt3TransferDraft;
@@ -27,6 +38,9 @@ interface Dmt3State {
   lastTxn: Dmt3Transaction | null;
   step: Dmt3Step;
   setStep: (step: Dmt3Step) => void;
+  setSearchMobile: (mobile: string) => void;
+  markRemitterRegistered: (remitter: Dmt3Remitter) => void;
+  markOtpVerified: (patch?: Partial<Dmt3Remitter>) => void;
   setBeneficiaries: (rows: Dmt3Beneficiary[]) => void;
   upsertBeneficiary: (row: Dmt3Beneficiary) => void;
   selectBeneficiary: (id: string | null) => void;
@@ -41,15 +55,57 @@ interface Dmt3State {
 export const useDmt3Store = create<Dmt3State>()(
   persist(
     (set, get) => ({
+      remitter: emptyRemitter,
+      knownRemitters: {},
       beneficiaries: [],
       selectedBeneficiaryId: null,
       transfer: emptyTransfer,
       commission: null,
       clientTxnId: null,
       lastTxn: null,
-      step: "start",
+      step: "search",
 
       setStep: (step) => set({ step }),
+
+      setSearchMobile: (mobile) =>
+        set((state) => {
+          const known = state.knownRemitters[mobile];
+          return {
+            remitter: known ? { ...known, mobile } : { ...emptyRemitter, mobile },
+            selectedBeneficiaryId: null,
+            transfer: emptyTransfer,
+            commission: null,
+            clientTxnId: null,
+            lastTxn: null,
+            beneficiaries: [],
+          };
+        }),
+
+      markRemitterRegistered: (remitter) =>
+        set((state) => ({
+          remitter: { ...remitter, registered: true },
+          knownRemitters: {
+            ...state.knownRemitters,
+            [remitter.mobile]: { ...remitter, registered: true },
+          },
+        })),
+
+      markOtpVerified: (patch) =>
+        set((state) => {
+          const remitter = {
+            ...state.remitter,
+            ...patch,
+            otpVerified: true,
+            registered: true,
+          };
+          return {
+            remitter,
+            knownRemitters: {
+              ...state.knownRemitters,
+              [remitter.mobile]: remitter,
+            },
+          };
+        }),
 
       setBeneficiaries: (rows) => set({ beneficiaries: rows }),
 
@@ -105,6 +161,8 @@ export const useDmt3Store = create<Dmt3State>()(
     {
       name: "paytrue-dmt3-storage",
       partialize: (state) => ({
+        remitter: state.remitter,
+        knownRemitters: state.knownRemitters,
         selectedBeneficiaryId: state.selectedBeneficiaryId,
         transfer: state.transfer,
         commission: state.commission,

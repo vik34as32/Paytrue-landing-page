@@ -77,7 +77,7 @@ export const SIDEBAR_MONEY_TRANSFER_LINKS = [
   { label: "DMT", href: "/rt/retailer/dmt", icon: "Send" },
   { label: "DMT2", href: "/rt/retailer/dmt2", icon: "Zap" },
   { label: "DMT3", href: "/rt/retailer/dmt3", icon: "ArrowRightLeft" },
-];
+] as const;
 
 export const SIDEBAR_BILL_PAY_LINKS = [
   { label: "Credit Card Bill", href: "/rt/retailer/credit-card", icon: "CreditCard" },
@@ -224,6 +224,14 @@ export const POPULAR_SERVICES: ServiceItem[] = [
    color: "from-indigo-500 to-indigo-700",
    category: "transfer",
  },
+  {
+    id: "dmt3",
+    title: "DMT3",
+    href: "/rt/retailer/dmt3",
+    icon: "ArrowRightLeft",
+    color: "from-sky-500 to-blue-700",
+    category: "transfer",
+  },
 
   {
     id: "icici_aeps",

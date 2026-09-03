@@ -31,6 +31,16 @@ export function formatDmt3Inr(amount: number): string {
   }).format(Number.isFinite(amount) ? amount : 0);
 }
 
+export function formatDmt3AmountChip(amount: number): string {
+  return new Intl.NumberFormat("en-IN").format(amount);
+}
+
+/** Hidden remarks sent with payout (max 50). */
+export function buildDmt3TransferRemarks(amount: number): string {
+  const n = Math.trunc(Number.isFinite(amount) ? amount : 0);
+  return `transfer for amount ${n}`.slice(0, 50);
+}
+
 export function createClientTxnId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
@@ -53,6 +63,12 @@ export function formatDmt3Date(value?: string): string {
 
 export function isPendingLikeStatus(status: string): boolean {
   return ["PENDING", "PROCESSING"].includes(status.toUpperCase());
+}
+
+export function maskMobile(mobile: string): string {
+  const digits = String(mobile || "").replace(/\D/g, "");
+  if (digits.length < 4) return mobile;
+  return `+91 XXXXXXX${digits.slice(-3)}`;
 }
 
 export function sanitizeMobile(value: string): string {

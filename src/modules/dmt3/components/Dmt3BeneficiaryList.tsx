@@ -26,7 +26,7 @@ interface Dmt3BeneficiaryListProps {
 }
 
 function isVerified(row: Dmt3Beneficiary): boolean {
-  return row.verificationStatus === "VERIFIED";
+  return row.isVerified || row.verificationStatus === "VERIFIED";
 }
 
 export default function Dmt3BeneficiaryList({
@@ -192,7 +192,7 @@ export default function Dmt3BeneficiaryList({
                 "&:hover": { bgcolor: "#0d47a1" },
               }}
             >
-              Transfer
+              Proceed to Pay
             </Button>
           </div>
         ),

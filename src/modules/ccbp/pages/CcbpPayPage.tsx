@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, ArrowRight, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -46,7 +46,7 @@ export default function CcbpPayPage() {
   const [paying, setPaying] = useState(false);
 
   const form = useForm<CcbpFormValues>({
-    resolver: zodResolver(ccbpFormSchema),
+    resolver: zodResolver(ccbpFormSchema) as Resolver<CcbpFormValues>,
     mode: "onBlur",
     defaultValues: {
       issuerId: "",

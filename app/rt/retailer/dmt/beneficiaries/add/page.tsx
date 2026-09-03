@@ -189,9 +189,17 @@ function AddBeneficiaryForm() {
                 name={beneficiaryName}
                 verifyFn={(input) => verifyBankMutation.mutateAsync(input)}
                 onVerified={(result) => {
-                  if (!form.getValues("name")?.trim() && result.payee?.name) {
-                    form.setValue("name", result.payee.name, { shouldValidate: true });
+                  const payeeName = result.payee?.name?.trim();
+                  if (payeeName) {
+                    form.setValue("name", payeeName, {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    });
                   }
+                  form.setValue("confirmAccountNumber", form.getValues("accountNumber"), {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  });
                 }}
                 disabled={addMutation.isPending}
               />

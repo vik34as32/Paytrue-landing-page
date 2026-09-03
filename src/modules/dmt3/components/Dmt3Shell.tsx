@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, type ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { ArrowRightLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { label: "Start", href: "/rt/retailer/dmt3" },
+  { label: "Search", href: "/rt/retailer/dmt3" },
+  { label: "Retailer", href: "/rt/retailer/dmt3/retailer" },
   { label: "Beneficiaries", href: "/rt/retailer/dmt3/beneficiaries" },
   { label: "History", href: "/rt/retailer/dmt3/transactions" },
 ];
@@ -37,7 +40,7 @@ function Dmt3Nav() {
           </p>
           <h2 className="text-lg font-extrabold sm:text-xl">DMT3</h2>
           <p className="mt-0.5 text-xs text-blue-100 sm:text-sm">
-            Live commission preview with secure MPIN authorization.
+            Finzeng payout workspace. Same remitter + beneficiary flow as DMT2.
           </p>
         </div>
       </div>
@@ -67,14 +70,28 @@ function Dmt3Nav() {
   );
 }
 
-export default function Dmt3Shell({ children }: { children: React.ReactNode }) {
+export default function Dmt3Shell({ children }: { children: ReactNode }) {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            refetchOnWindowFocus: false,
+            retry: 1,
+          },
+        },
+      })
+  );
+
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <div className="w-full max-w-none space-y-5">
-        <Dmt3Nav />
-        {children}
-      </div>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <div className="w-full max-w-none space-y-5">
+          <Dmt3Nav />
+          {children}
+        </div>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }

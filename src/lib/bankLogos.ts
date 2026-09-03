@@ -195,6 +195,13 @@ const INDIAN_BANK_ALIASES: Record<string, string> = {
   psib: indianBank("psb.svg"),
   jiop: indianBank("jio.svg"),
   pytm: indianBank("paytm.svg"),
+  airp: indianBank("apb.svg"),
+  ippb: indianBank("indiapost.svg"),
+  ipos: indianBank("indiapost.svg"),
+  ntbl: indianBank("ntb.svg"),
+  ioba: indianBank("iob.svg"),
+  dlxb: indianBank("dhanlaxmi.svg"),
+  jaka: indianBank("jnk.svg"),
 };
 
 /** Banks only available under public/assets/banks */

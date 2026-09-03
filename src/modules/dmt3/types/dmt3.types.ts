@@ -25,6 +25,9 @@ export type Dmt3FlowStep =
   | "status";
 
 export type Dmt3Step =
+  | "search"
+  | "register"
+  | "otp"
   | "start"
   | "beneficiary"
   | "transfer"
@@ -33,15 +36,29 @@ export type Dmt3Step =
   | "mpin"
   | "success";
 
+export interface Dmt3Remitter {
+  mobile: string;
+  fullName: string;
+  email?: string;
+  otpVerified: boolean;
+  registered: boolean;
+  remitterId?: string;
+}
+
 export interface Dmt3Beneficiary {
   id: string;
+  remitterId?: string;
   name: string;
   bankName: string;
   accountNumber: string;
   accountMasked?: string;
   ifsc: string;
+  accountType?: string;
   mobile: string;
+  email?: string;
+  isVerified: boolean;
   verificationStatus: Dmt3VerificationStatus;
+  verifiedAt?: string;
   createdAt?: string;
 }
 
@@ -59,6 +76,7 @@ export interface Dmt3CommissionPreview {
 export interface Dmt3Transaction {
   id: string;
   clientTxnId?: string;
+  reference?: string;
   beneficiaryId?: string;
   beneficiaryName: string;
   amount: number;
@@ -67,11 +85,25 @@ export interface Dmt3Transaction {
   totalDebit?: number;
   status: Dmt3TxnStatus;
   utr?: string;
+  bankRef?: string;
   transferMode: Dmt3TransferMode;
   remarks?: string;
   createdAt: string;
   updatedAt?: string;
   failureReason?: string;
+  bankName?: string;
+  ifscCode?: string;
+  accountNumber?: string;
+  payerName?: string;
+  payeeName?: string;
+  openingBalance?: number;
+  closingBalance?: number;
+  beneficiary?: Dmt3Beneficiary;
+  remitter?: {
+    name?: string;
+    mobile?: string;
+    email?: string;
+  };
 }
 
 export interface Dmt3PaginationMeta {
@@ -82,11 +114,14 @@ export interface Dmt3PaginationMeta {
 }
 
 export interface Dmt3AddBeneficiaryInput {
+  remitterMobile?: string;
+  remitterId?: string;
   name: string;
   mobile: string;
   bankName: string;
   accountNumber: string;
   ifscCode: string;
+  accountType?: string;
 }
 
 export interface Dmt3TransferDraft {
@@ -100,14 +135,16 @@ export interface Dmt3InitiateTransactionInput {
   beneficiaryId: string;
   amount: number;
   transferMode: Dmt3TransferMode;
-  remarks: string;
+  remarks?: string;
   mpin: string;
   latitude: string;
   longitude: string;
-  clientTxnId: string;
-  senderName: string;
-  senderMobile: string;
-  email: string;
+  clientTxnId?: string;
+  payerName?: string;
+  remitterMobile?: string;
+  email?: string;
+  serviceId?: string;
+  serviceCode?: string;
 }
 
 export interface Dmt3RetailerContext {

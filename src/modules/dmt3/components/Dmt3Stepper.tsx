@@ -9,28 +9,30 @@ import { useTheme } from "@mui/material/styles";
 import type { Dmt3Step } from "../types/dmt3.types";
 
 export const DMT3_STEPS = [
-  "Retailer",
+  "Search Retailer",
+  "Registration",
+  "OTP",
   "Beneficiary",
   "Transfer",
-  "Commission",
-  "Review",
   "MPIN",
 ] as const;
 
 export function dmt3StepIndex(step: Dmt3Step | string): number {
   switch (step) {
+    case "search":
     case "start":
       return 0;
-    case "beneficiary":
+    case "register":
       return 1;
-    case "transfer":
+    case "otp":
       return 2;
-    case "commission":
+    case "beneficiary":
       return 3;
-    case "review":
+    case "transfer":
+    case "commission":
       return 4;
+    case "review":
     case "mpin":
-      return 5;
     case "success":
       return 5;
     default:

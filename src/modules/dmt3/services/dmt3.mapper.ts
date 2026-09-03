@@ -2,11 +2,19 @@ import type {
   Dmt3Beneficiary,
   Dmt3CommissionPreview,
   Dmt3PaginationMeta,
+  Dmt3Remitter,
   Dmt3Transaction,
   Dmt3TransferMode,
   Dmt3TxnStatus,
   Dmt3VerificationStatus,
 } from "../types/dmt3.types";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isUuid(value?: string): boolean {
+  return Boolean(value && UUID_RE.test(value.trim()));
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -21,6 +29,25 @@ export function unwrapRecord(payload: unknown): Record<string, unknown> {
   return root;
 }
 
+function numericObjectValues(rec: Record<string, unknown>): unknown[] {
+  const numericKeys = Object.keys(rec)
+    .filter((key) => /^\d+$/.test(key))
+    .sort((a, b) => Number(a) - Number(b));
+  if (!numericKeys.length) return [];
+  return numericKeys
+    .map((key) => rec[key])
+    .filter((row) => row && typeof row === "object" && !Array.isArray(row));
+}
+
+function looksLikeBeneficiaryRow(value: unknown): boolean {
+  const rec = asRecord(value);
+  return Boolean(
+    pickString(rec.id, rec.beneficiaryId) &&
+      pickString(rec.name, rec.beneficiaryName, rec.accountHolderName) &&
+      pickString(rec.accountNumber, rec.account_number, rec.ifscCode, rec.ifsc)
+  );
+}
+
 function extractObjectArray(value: unknown, depth = 0): unknown[] {
   if (depth > 8 || value == null) return [];
   if (Array.isArray(value)) {
@@ -29,8 +56,12 @@ function extractObjectArray(value: unknown, depth = 0): unknown[] {
   if (typeof value !== "object") return [];
 
   const rec = value as Record<string, unknown>;
+  const fromNumeric = numericObjectValues(rec);
+  if (fromNumeric.length) return fromNumeric;
+
   const preferredKeys = [
     "beneficiaries",
+    "beneficiaryList",
     "items",
     "rows",
     "results",
@@ -48,11 +79,15 @@ function extractObjectArray(value: unknown, depth = 0): unknown[] {
     if (Array.isArray(rec[key])) return [];
   }
 
+  if (looksLikeBeneficiaryRow(rec)) return [rec];
+
   return [];
 }
 
 export function unwrapList(payload: unknown): unknown[] {
-  const root = unwrapRecord(payload);
+  const root = asRecord(payload);
+  const fromData = extractObjectArray(root.data ?? payload);
+  if (fromData.length) return fromData;
   const fromRoot = extractObjectArray(root);
   if (fromRoot.length) return fromRoot;
   return extractObjectArray(payload);
@@ -92,11 +127,14 @@ export function pickApiMessage(payload: unknown, fallback: string): string {
 export function dmt3ApiMessage(error: unknown, fallback: string): string {
   const err = error as {
     message?: string;
+    data?: { message?: string; error?: string };
     response?: { data?: { message?: string; error?: string }; status?: number };
     status?: number;
   };
   const status = err?.response?.status ?? err?.status;
   const msg =
+    err?.data?.message ||
+    err?.data?.error ||
     err?.response?.data?.message ||
     err?.response?.data?.error ||
     err?.message ||
@@ -123,6 +161,33 @@ const VERIFY_MAP: Record<string, Dmt3VerificationStatus> = {
   FAILED: "FAILED",
 };
 
+export function normalizeRemitter(
+  payload: unknown,
+  fallbackMobile = ""
+): Dmt3Remitter {
+  const data = unwrapRecord(payload);
+  const nested = unwrapRecord(data.remitter ?? data);
+  const row = { ...data, ...nested };
+  const status = pickString(row.status, row.kycStatus, row.otpStatus).toUpperCase();
+  const pending = ["PENDING", "PENDING_OTP", "UNVERIFIED", "OTP_PENDING"].includes(
+    status
+  );
+  const otpVerified =
+    !pending &&
+    (pickBoolean(row.verified, row.otpVerified, row.isVerified, row.isOtpVerified) ||
+      status === "VERIFIED" ||
+      status === "ACTIVE");
+
+  return {
+    mobile: pickString(row.mobile, row.remitterMobile, fallbackMobile),
+    fullName: pickString(row.name, row.fullName, row.remitterName),
+    email: pickString(row.email),
+    otpVerified,
+    registered: true,
+    remitterId: pickString(row.id, row.remitterId) || undefined,
+  };
+}
+
 export function normalizeVerificationStatus(
   payload: unknown
 ): Dmt3VerificationStatus {
@@ -147,8 +212,14 @@ export function normalizeBeneficiary(payload: unknown): Dmt3Beneficiary {
     row.bankAccount
   );
 
+  const verificationStatus = normalizeVerificationStatus(row);
+  const isVerified =
+    verificationStatus === "VERIFIED" ||
+    pickBoolean(row.isVerified, row.verified);
+
   return {
     id: pickString(row.id, row.beneficiaryId, row.uuid),
+    remitterId: pickString(row.remitterId) || undefined,
     name: pickString(
       row.name,
       row.beneficiaryName,
@@ -163,8 +234,12 @@ export function normalizeBeneficiary(payload: unknown): Dmt3Beneficiary {
       row.account_masked
     ),
     ifsc: pickString(row.ifscCode, row.ifsc, row.ifsc_code).toUpperCase(),
+    accountType: pickString(row.accountType, row.account_type) || undefined,
     mobile: pickString(row.mobile, row.mobileNumber, row.phone),
-    verificationStatus: normalizeVerificationStatus(row),
+    email: pickString(row.email) || undefined,
+    isVerified,
+    verificationStatus: isVerified ? "VERIFIED" : verificationStatus,
+    verifiedAt: pickString(row.verifiedAt, row.verified_at) || undefined,
     createdAt: pickString(row.createdAt, row.created_at),
   };
 }
@@ -215,7 +290,30 @@ export function normalizeTransaction(payload: unknown): Dmt3Transaction {
   const data = unwrapRecord(payload);
   const txn = unwrapRecord(data.transaction ?? data.txn ?? data);
   const row = { ...data, ...txn };
-  const statusKey = pickString(row.status, row.txnStatus).toUpperCase();
+  const wallet = unwrapRecord(row.wallet ?? data.wallet);
+  const nestedBeneficiary = row.beneficiary
+    ? normalizeBeneficiary(row.beneficiary)
+    : undefined;
+  const remitterRec = unwrapRecord(row.remitter);
+  const statusKey = pickString(row.status, row.txnStatus, row.apiOutcome).toUpperCase();
+  const accountNumber =
+    nestedBeneficiary?.accountNumber ||
+    pickString(row.accountNumber, row.beneficiaryAccount);
+  const ifscCode = (
+    nestedBeneficiary?.ifsc ||
+    pickString(row.ifscCode, row.ifsc)
+  ).toUpperCase();
+  const bankName =
+    nestedBeneficiary?.bankName ||
+    pickString(row.bankName, row.bank);
+  const payeeName =
+    pickString(row.payeeName, nestedBeneficiary?.name, row.beneficiaryName) ||
+    nestedBeneficiary?.name;
+  const payerName = pickString(
+    row.payerName,
+    remitterRec.name,
+    remitterRec.fullName
+  );
 
   return {
     id: pickString(
@@ -225,30 +323,66 @@ export function normalizeTransaction(payload: unknown): Dmt3Transaction {
       row.clientTxnId,
       row.referenceId
     ),
-    clientTxnId: pickString(row.clientTxnId, row.client_txn_id),
-    beneficiaryId: pickString(row.beneficiaryId, row.beneficiary_id),
-    beneficiaryName: pickString(
-      row.beneficiaryName,
-      row.customerName,
-      row.name
+    clientTxnId: pickString(row.clientTxnId, row.client_txn_id) || undefined,
+    reference: pickString(row.reference, row.referenceId) || undefined,
+    beneficiaryId:
+      pickString(row.beneficiaryId, nestedBeneficiary?.id) || undefined,
+    beneficiaryName: payeeName || "",
+    amount: pickNumber(row.amount, row.transferAmount, wallet.transferAmount, wallet.amount),
+    charges: pickNumber(
+      row.charges,
+      row.charge,
+      wallet.charges,
+      wallet.charge
     ),
-    amount: pickNumber(row.amount, row.transferAmount),
-    charges: pickNumber(row.charges, row.fees),
-    commission: pickNumber(row.commission),
-    totalDebit: pickNumber(row.totalDebit, row.totalAmount),
+    commission: pickNumber(
+      row.commissionAmount,
+      row.commission,
+      wallet.commissionAmount,
+      wallet.commission
+    ),
+    totalDebit: pickNumber(
+      row.totalDebited,
+      row.totalDebit,
+      wallet.totalDeducted,
+      wallet.debitAmount
+    ),
     status: STATUS_MAP[statusKey] ?? "PENDING",
-    utr: pickString(row.utr, row.UTR, row.bankReference, row.rrn) || undefined,
+    utr: pickString(row.utr, row.UTR, row.bankRef, row.rrn) || undefined,
+    bankRef: pickString(row.bankRef, row.utr, row.providerTxnId) || undefined,
     transferMode: (pickString(row.transferMode, row.mode, "IMPS").toUpperCase() ||
       "IMPS") as Dmt3TransferMode,
     remarks: pickString(row.remarks, row.remark, row.purpose) || undefined,
     createdAt: pickString(
+      row.finalizedAt,
       row.createdAt,
       row.created_at,
       row.txnDate,
       new Date().toISOString()
     ),
     updatedAt: pickString(row.updatedAt, row.updated_at) || undefined,
-    failureReason: pickString(row.failureReason, row.reason, row.message) || undefined,
+    failureReason: pickString(row.failureReason, row.reason) || undefined,
+    bankName: bankName || undefined,
+    ifscCode: ifscCode || undefined,
+    accountNumber: accountNumber || undefined,
+    payerName: payerName || undefined,
+    payeeName: payeeName || undefined,
+    openingBalance: pickNumber(
+      row.openingBalance,
+      wallet.openingBalance
+    ),
+    closingBalance: pickNumber(
+      row.closingBalance,
+      wallet.closingBalance
+    ),
+    beneficiary: nestedBeneficiary,
+    remitter: remitterRec.name || remitterRec.mobile
+      ? {
+          name: pickString(remitterRec.name) || undefined,
+          mobile: pickString(remitterRec.mobile) || undefined,
+          email: pickString(remitterRec.email) || undefined,
+        }
+      : undefined,
   };
 }
 

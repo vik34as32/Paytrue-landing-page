@@ -1,4 +1,8 @@
-export { default as Dmt3StartPage } from "./Dmt3StartPage";
+export { default as Dmt3StartPage } from "./Dmt3SearchPage";
+export { default as Dmt3SearchPage } from "./Dmt3SearchPage";
+export { default as Dmt3RegisterPage } from "./Dmt3RegisterPage";
+export { default as Dmt3VerifyPage } from "./Dmt3VerifyPage";
+export { default as Dmt3RetailerHubPage } from "./Dmt3RetailerHubPage";
 export { default as Dmt3BeneficiariesPage } from "./Dmt3BeneficiariesPage";
 export { default as Dmt3AddBeneficiaryPage } from "./Dmt3AddBeneficiaryPage";
 export { default as Dmt3TransferPage } from "./Dmt3TransferPage";

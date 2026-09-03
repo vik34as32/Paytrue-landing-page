@@ -2,9 +2,12 @@ import { create } from "zustand";
 import {
   findChildServiceId,
   normalizeRetailerServicesPayload,
+  normalizeServiceNameKey,
 } from "@/src/lib/retailerServices";
 import { fetchRetailerServices } from "@/src/services/retailerServicesService";
 import {
+  DMT3_SERVICE_CODE,
+  DMT3_SERVICE_NAME_ALIASES,
   RETAILER_SERVICE_NAMES,
   UPI_CASH_POINT_ALIASES,
 } from "@/src/constants/retailerServices";
@@ -140,6 +143,67 @@ export function getUpiCashPointServiceId(): string {
 export async function resolveUpiCashPointServiceId(): Promise<string> {
   await ensureRetailerServicesLoaded();
   return getUpiCashPointServiceId();
+}
+
+export interface ResolvedRetailerService {
+  serviceId: string;
+  serviceCode: string;
+  name: string;
+}
+
+function catalogRows(): Array<{ id: string; name: string; code?: string }> {
+  const { children, parents } = useRetailerServicesStore.getState();
+  return [
+    ...children,
+    ...parents.map((parent) => ({
+      id: parent.id,
+      name: parent.name,
+      code: parent.code,
+    })),
+  ];
+}
+
+/** Resolve DMT3 from GET /retailer/services — prefers serviceCode 104. */
+export function getDmt3Service(): ResolvedRetailerService {
+  const { loaded } = useRetailerServicesStore.getState();
+  if (!loaded) {
+    throw new Error(
+      "Retailer services are not loaded yet. Please wait and try again."
+    );
+  }
+
+  const rows = catalogRows();
+  const byCode = rows.find(
+    (row) => String(row.code || "").trim() === DMT3_SERVICE_CODE
+  );
+  if (byCode?.id) {
+    return {
+      serviceId: byCode.id,
+      serviceCode: String(byCode.code || DMT3_SERVICE_CODE).trim(),
+      name: byCode.name,
+    };
+  }
+
+  for (const alias of DMT3_SERVICE_NAME_ALIASES) {
+    const target = normalizeServiceNameKey(alias);
+    const match = rows.find(
+      (row) => normalizeServiceNameKey(row.name) === target
+    );
+    if (match?.id) {
+      return {
+        serviceId: match.id,
+        serviceCode: String(match.code || DMT3_SERVICE_CODE).trim() || DMT3_SERVICE_CODE,
+        name: match.name,
+      };
+    }
+  }
+
+  throw new Error("DMT3 service (code 104) is not configured. Contact support.");
+}
+
+export async function resolveDmt3Service(): Promise<ResolvedRetailerService> {
+  await ensureRetailerServicesLoaded();
+  return getDmt3Service();
 }
 
 export function appendServiceId<T extends Record<string, unknown>>(

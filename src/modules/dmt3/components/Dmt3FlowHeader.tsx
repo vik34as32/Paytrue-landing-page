@@ -4,7 +4,7 @@ import Dmt3Stepper from "./Dmt3Stepper";
 
 export default function Dmt3FlowHeader({
   title = "Domestic Money Transfer",
-  description = "Manage beneficiaries, preview commission, and transfer securely.",
+  description = "Search retailer, manage beneficiaries, and transfer money securely.",
   activeStep,
 }: {
   title?: string;

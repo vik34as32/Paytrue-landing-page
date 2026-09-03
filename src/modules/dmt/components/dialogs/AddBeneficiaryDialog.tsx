@@ -13,10 +13,15 @@ import {
   TextField,
   Box,
   CircularProgress,
+  InputAdornment,
 } from "@mui/material";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { useFetchBanksQuery } from "../../redux/dmtApi";
 import DmtBankSelect from "../DmtBankSelect";
+import ProcessLoadingOverlay from "@/src/components/common/ProcessLoadingOverlay";
+import { useBankAccountVerification } from "@/src/hooks/useBankAccountVerification";
 import { resolveBeneficiaryBankFields } from "@/src/lib/dmtUtils";
+import { verifyBankAccount } from "@/src/services/dmtService";
 
 const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 
@@ -86,6 +91,27 @@ export default function AddBeneficiaryDialog({
       form.reset();
     }
   }, [open, form]);
+
+  const accountNumber = form.watch("accountNumber");
+  const ifscCode = form.watch("ifscCode");
+  const beneficiaryName = form.watch("name");
+
+  const { verify, verifying, verified, holderName } = useBankAccountVerification({
+    accountNumber,
+    ifscCode,
+    name: beneficiaryName,
+    verifyFn: (input) => verifyBankAccount(input),
+    onVerified: (result) => {
+      const payeeName = result.payee?.name?.trim();
+      if (payeeName) {
+        form.setValue("name", payeeName, { shouldValidate: true, shouldDirty: true });
+      }
+      form.setValue("confirmAccountNumber", form.getValues("accountNumber"), {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    },
+  });
 
   const handleFormSubmit = form.handleSubmit((values) => {
     const bank = selectableBanks.find((item) => item.id === values.bankId);
@@ -217,11 +243,62 @@ export default function AddBeneficiaryDialog({
                   label="Account Number"
                   fullWidth
                   inputMode="numeric"
+                  disabled={loading || verifying}
                   onChange={(e) =>
                     field.onChange(e.target.value.replace(/\D/g, "").slice(0, 18))
                   }
                   error={!!fieldState.error}
-                  helperText={fieldState.error?.message}
+                  helperText={
+                    fieldState.error?.message ||
+                    (verified && holderName ? `Verified: ${holderName}` : undefined)
+                  }
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          {verified ? (
+                            <CheckCircleIcon sx={{ color: "success.main", fontSize: 22 }} />
+                          ) : (
+                            <Button
+                              type="button"
+                              size="small"
+                              disabled={
+                                loading ||
+                                verifying ||
+                                !accountNumber.trim() ||
+                                !ifscCode.trim()
+                              }
+                              onClick={() => void verify()}
+                              sx={{
+                                textTransform: "none",
+                                minWidth: 0,
+                                px: 1.5,
+                                py: 0.4,
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: "#64748b",
+                                bgcolor: "#f1f5f9",
+                                border: "1px solid #e2e8f0",
+                                borderRadius: 1,
+                                boxShadow: "none",
+                                "&:hover": {
+                                  bgcolor: "#e2e8f0",
+                                  borderColor: "#cbd5e1",
+                                  boxShadow: "none",
+                                },
+                              }}
+                            >
+                              {verifying ? (
+                                <CircularProgress size={14} color="inherit" />
+                              ) : (
+                                "Verify"
+                              )}
+                            </Button>
+                          )}
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
                 />
               )}
             />
@@ -252,13 +329,18 @@ export default function AddBeneficiaryDialog({
           <Button
             type="submit"
             variant="contained"
-            disabled={loading || banksLoading || selectableBanks.length === 0}
+            disabled={loading || verifying || banksLoading || selectableBanks.length === 0}
             startIcon={loading ? <CircularProgress size={16} color="inherit" /> : undefined}
           >
             Submit
           </Button>
         </DialogActions>
       </Box>
+      <ProcessLoadingOverlay
+        open={verifying}
+        message="Please wait..."
+        detail="Connecting to bank server — verifying account"
+      />
     </Dialog>
   );
 }

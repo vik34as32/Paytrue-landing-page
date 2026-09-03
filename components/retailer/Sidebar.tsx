@@ -73,6 +73,9 @@ function isLinkActive(pathname: string, href: string) {
   if (href === "/rt/retailer") {
     return pathname === "/rt/retailer";
   }
+  if (href === "/rt/retailer/dmt") {
+    return pathname === "/rt/retailer/dmt" || pathname.startsWith("/rt/retailer/dmt/");
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -212,20 +215,20 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               onClose={onClose}
             />
           ))}
-
+{/* 
           <SidebarSection
             title="Money Transfer"
             links={SIDEBAR_MONEY_TRANSFER_LINKS as SidebarLinkItem[]}
             pathname={pathname}
             onClose={onClose}
-          />
-
+          /> */}
+{/* 
           <SidebarSection
             title="Bill Payments"
             links={SIDEBAR_BILL_PAY_LINKS as SidebarLinkItem[]}
             pathname={pathname}
             onClose={onClose}
-          />
+          /> */}
 
           <SidebarSection
             title="Support & Help"

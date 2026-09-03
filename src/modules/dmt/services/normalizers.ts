@@ -541,6 +541,7 @@ export function normalizeDmtBankList(payload: unknown): DmtBank[] {
       code: code || undefined,
       ifsc: ifscGlobal || ifscPrefix || undefined,
       ifscPrefix: ifscPrefix || undefined,
+      ifscGlobal: ifscGlobal || undefined,
       instantPayBankId,
     };
   });

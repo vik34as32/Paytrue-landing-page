@@ -179,6 +179,7 @@ export interface DmtBank {
   code?: string;
   ifsc?: string;
   ifscPrefix?: string;
+  ifscGlobal?: string;
   instantPayBankId?: string | number;
 }
 

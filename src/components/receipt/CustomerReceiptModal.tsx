@@ -77,8 +77,8 @@ export default function CustomerReceiptModal({
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent
-        className="!flex h-[90vh] max-h-[90vh] w-[calc(100%-1.5rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
-        style={{ display: "flex" }}
+        className="!flex h-[96vh] max-h-[96vh] w-[calc(100%-0.75rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
+        style={{ display: "flex", height: "96vh", maxHeight: "96vh" }}
       >
         <DialogHeader className="receipt-no-print shrink-0 border-b border-slate-100 px-5 py-4 pr-12">
           <DialogTitle className="flex items-center gap-2 text-lg">

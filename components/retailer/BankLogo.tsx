@@ -59,6 +59,7 @@ interface BankOptionLabelProps {
   logoSize?: number;
   className?: string;
   showShortName?: boolean;
+  showIfsc?: boolean;
 }
 
 export function BankOptionLabel({
@@ -66,14 +67,22 @@ export function BankOptionLabel({
   logoSize = 28,
   className,
   showShortName = false,
+  showIfsc = false,
 }: BankOptionLabelProps) {
   const normalized = normalizeBankOption(bank);
 
   return (
     <span className={cn("flex min-w-0 items-center gap-3", className)}>
       <BankLogo bank={normalized} size={logoSize} />
-      <span className="min-w-0 truncate text-base font-medium text-slate-800">
-        {showShortName ? normalized.shortName : normalized.name}
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-semibold text-slate-800">
+          {showShortName ? normalized.shortName : normalized.name}
+        </span>
+        {showIfsc && normalized.ifscPrefix ? (
+          <span className="block truncate text-[11px] text-slate-500">
+            IFSC: {normalized.ifscPrefix}
+          </span>
+        ) : null}
       </span>
     </span>
   );

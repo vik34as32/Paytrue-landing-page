@@ -14,20 +14,19 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Dmt3FlowHeader from "../components/Dmt3FlowHeader";
-import Dmt3BeneficiaryList from "../components/Dmt3BeneficiaryList";
-import { RequireDmt3Session } from "../components/Dmt3Guards";
-import { useDmt3RetailerContext } from "../hooks/useDmt3RetailerContext";
+import BeneficiaryList from "@/src/modules/dmt/components/BeneficiaryList";
+import { RequireVerifiedRemitter } from "../components/Dmt3Guards";
 import { useDmt3Store } from "../lib/dmt3-store";
 import {
   deleteBeneficiaryApi,
   fetchBeneficiaries,
-  verifyBeneficiaryApi,
 } from "../lib/dmt3-service";
 import type { Dmt3Beneficiary } from "../types/dmt3.types";
+import type { DmtBeneficiary } from "@/src/modules/dmt/types";
 
 export default function Dmt3BeneficiariesPage() {
   const router = useRouter();
-  const retailer = useDmt3RetailerContext();
+  const remitter = useDmt3Store((s) => s.remitter);
   const setBeneficiaries = useDmt3Store((s) => s.setBeneficiaries);
   const selectBeneficiary = useDmt3Store((s) => s.selectBeneficiary);
   const setStep = useDmt3Store((s) => s.setStep);
@@ -37,11 +36,26 @@ export default function Dmt3BeneficiariesPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const toDmtRow = (item: Dmt3Beneficiary): DmtBeneficiary => ({
+    id: item.id,
+    name: item.name,
+    mobile: item.mobile,
+    bankName: item.bankName,
+    accountNumber: item.accountNumber,
+    ifscCode: item.ifsc,
+    isVerified: item.isVerified || item.verificationStatus === "VERIFIED",
+    status: item.verificationStatus,
+  });
+
   const load = useCallback(async () => {
+    if (!remitter.mobile) return;
     setLoading(true);
     setError("");
     try {
-      const list = await fetchBeneficiaries();
+      const list = await fetchBeneficiaries({
+        remitterMobile: remitter.mobile,
+        remitterId: remitter.remitterId,
+      });
       setRows(list);
       setBeneficiaries(list);
     } catch (err) {
@@ -53,7 +67,7 @@ export default function Dmt3BeneficiariesPage() {
     } finally {
       setLoading(false);
     }
-  }, [setBeneficiaries]);
+  }, [remitter.mobile, remitter.remitterId, setBeneficiaries]);
 
   useEffect(() => {
     void load();
@@ -72,7 +86,7 @@ export default function Dmt3BeneficiariesPage() {
     );
   }, [rows, search]);
 
-  const onPay = (item: Dmt3Beneficiary) => {
+  const onPay = (item: DmtBeneficiary) => {
     if (!item.id) {
       toast.error("Beneficiary id missing from API");
       return;
@@ -82,24 +96,12 @@ export default function Dmt3BeneficiariesPage() {
     router.push("/rt/retailer/dmt3/transfer");
   };
 
-  const onVerify = async (id: string) => {
-    setActionLoading(true);
-    try {
-      await verifyBeneficiaryApi(id);
-      toast.success("Beneficiary verified");
-      await load();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Verification failed");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const onDelete = async (id: string) => {
+  const onDelete = async (item: DmtBeneficiary) => {
+    if (!item.id) return;
     if (!window.confirm("Delete this beneficiary?")) return;
     setActionLoading(true);
     try {
-      await deleteBeneficiaryApi(id);
+      await deleteBeneficiaryApi(item.id);
       toast.success("Beneficiary deleted");
       await load();
     } catch (err) {
@@ -110,16 +112,16 @@ export default function Dmt3BeneficiariesPage() {
   };
 
   return (
-    <RequireDmt3Session>
+    <RequireVerifiedRemitter>
       <div className="space-y-5">
-        <Dmt3FlowHeader activeStep={1} />
+        <Dmt3FlowHeader activeStep={3} />
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <CardTitle>Beneficiary List</CardTitle>
                 <CardDescription>
-                  {retailer.senderName} • {retailer.senderMobile}
+                  {remitter.fullName || "Remitter"} • {remitter.mobile}
                   {!loading && !error ? ` • ${filtered.length} beneficiary records` : ""}
                 </CardDescription>
               </div>
@@ -154,19 +156,19 @@ export default function Dmt3BeneficiariesPage() {
                 </Button>
               </div>
             ) : (
-              <Dmt3BeneficiaryList
-                beneficiaries={filtered}
-                loading={loading}
-                actionLoading={actionLoading}
+              <BeneficiaryList
+                beneficiaries={filtered.map(toDmtRow)}
+                loading={loading || actionLoading}
+                error={null}
+                showHeader={false}
                 onAdd={() => router.push("/rt/retailer/dmt3/beneficiaries/add")}
-                onPay={onPay}
-                onVerify={(id) => void onVerify(id)}
-                onDelete={(id) => void onDelete(id)}
+                onTransfer={onPay}
+                onDelete={(item) => void onDelete(item)}
               />
             )}
           </CardContent>
         </Card>
       </div>
-    </RequireDmt3Session>
+    </RequireVerifiedRemitter>
   );
 }

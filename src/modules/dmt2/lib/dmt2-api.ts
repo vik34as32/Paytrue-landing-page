@@ -1,9 +1,10 @@
+import type { AxiosRequestConfig } from "axios";
 import api from "@/src/lib/axios";
 import { DMT2_ENDPOINTS } from "./dmt2-endpoints";
 import { isUuid, unwrapList, unwrapRecord } from "./dmt2-normalizers";
 import type { Dmt2TransferMode } from "../types";
 
-const skipAuthLogout = { skipSessionLogout: true };
+const skipAuthLogout: AxiosRequestConfig = { skipSessionLogout: true };
 
 export async function apiGetRemitter(mobile: string): Promise<unknown | null> {
   try {

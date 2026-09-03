@@ -73,6 +73,16 @@ export const SIDEBAR_LINKS = [
   // },
 ];
 
+export const SIDEBAR_MONEY_TRANSFER_LINKS = [
+  { label: "DMT", href: "/rt/retailer/dmt", icon: "Send" },
+  { label: "DMT2", href: "/rt/retailer/dmt2", icon: "Zap" },
+  { label: "DMT3", href: "/rt/retailer/dmt3", icon: "ArrowRightLeft" },
+];
+
+export const SIDEBAR_BILL_PAY_LINKS = [
+  { label: "Credit Card Bill", href: "/rt/retailer/credit-card", icon: "CreditCard" },
+];
+
 export const SIDEBAR_SUPPORT_LINKS = [
   {
     label: "Help & Support",
@@ -206,28 +216,30 @@ export const POPULAR_SERVICES: ServiceItem[] = [
     color: "from-blue-500 to-blue-700",
     category: "transfer",
   },
-  // {
-  //   id: "xpress_dmt",
-  //   title: "Xpress DMT",
-  //   href: "/rt/retailer/dmt",
-  //   icon: "Zap",
-  //   color: "from-indigo-500 to-indigo-700",
-  //   category: "transfer",
-  // },
-  // {
-  //   id: "nsdl_aeps",
-  //   title: "NSDL AEPS",
-  //   href: "/rt/retailer/aeps",
-  //   icon: "Fingerprint",
-  //   color: "from-purple-500 to-purple-700",
-  //   category: "aeps",
-  // },
+ {
+   id: "xpress_dmt",
+   title: "Xpress DMT",
+   href: "/rt/retailer/dmt2",
+   icon: "Zap",
+   color: "from-indigo-500 to-indigo-700",
+   category: "transfer",
+ },
+
   {
     id: "icici_aeps",
     title: "AEPS",
     href: "/rt/retailer/aeps",
     icon: "Fingerprint",
     color: "from-violet-500 to-violet-700",
+    category: "aeps",
+  },
+
+    {
+    id: "nsdl_aeps",
+    title: "NSDL AEPS 2",
+    href: "/rt/retailer/aeps",
+    icon: "Fingerprint",
+    color: "from-purple-500 to-purple-700",
     category: "aeps",
   },
   // {

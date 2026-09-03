@@ -1,130 +1,68 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import {
-  ChevronDown,
-  ChevronRight,
-  Menu,
-  X,
-} from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, ChevronRight, Menu, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 const services = [
-  {
-    name: "Domestic Money Transfer",
-    path: "/services/domestic-money-transfer",
-  },
-  {
-    name: "Aadhaar Enabled Payment System",
-    path: "/services/aeps",
-  },
-  {
-    name: "Prepaid Recharges",
-    path: "/services/prepaid-recharges",
-  },
-  {
-    name: "Bill Payments (BBPS)",
-    path: "/services/bbps",
-  },
-  {
-    name: "Fastag",
-    path: "/services/fastag",
-  },
-  {
-    name: "Micro ATM",
-    path: "/services/micro-atm",
-  },
-  {
-    name: "PAN Card Center",
-    path: "/services/pan-card",
-  },
-  {
-    name: "Aadhaar Pay",
-    path: "/services/aadhaar-pay",
-  },
-  {
-  name: "TRAVEL",
-  path: "/services/travel",
-},
-{
-  name: "INSURANCE",
-  path: "/services/insurance",
-},
-  {
-    name: "Cash Management Service",
-    path: "/services/cash-management-service",
-  },
+  { name: "Domestic Money Transfer", path: "/services/domestic-money-transfer" },
+  { name: "Aadhaar Enabled Payment System", path: "/services/aeps" },
+  { name: "Prepaid Recharges", path: "/services/prepaid-recharges" },
+  { name: "Bill Payments (BBPS)", path: "/services/bbps" },
+  { name: "Fastag", path: "/services/fastag" },
+  { name: "Micro ATM", path: "/services/micro-atm" },
+  { name: "PAN Card Center", path: "/services/pan-card" },
+  { name: "Aadhaar Pay", path: "/services/aadhaar-pay" },
+  { name: "Travel", path: "/services/travel" },
+  { name: "Insurance", path: "/services/insurance" },
+  { name: "Cash Management Service", path: "/services/cash-management-service" },
 ];
 
 export default function Header() {
   const router = useRouter();
-
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-[9999] w-full border-b border-slate-200 bg-white shadow-sm">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-10">
-        
-        {/* Logo */}
+    <header className="sticky top-0 z-[9999] w-full border-b border-slate-200/70 bg-white/85 backdrop-blur-xl">
+      <div className="mx-auto grid max-w-[1280px] grid-cols-[1fr_auto] items-center px-4 py-3 sm:px-6 lg:grid-cols-[1fr_auto_1fr] lg:px-10 lg:py-4">
         <Link href="/" className="flex items-center gap-3">
           <Image
             src="/images/paytrue-logo.png"
-            alt="PayTrue Logo"
-            width={42}
-            height={42}
+            alt="Paytrue"
+            width={44}
+            height={44}
             priority
-            className="object-contain"
+            className="h-11 w-11 rounded-full object-contain shadow-sm ring-1 ring-slate-200"
           />
-
-          <div className="flex flex-col leading-none">
-            <span className="text-2xl font-extrabold tracking-wide sm:text-3xl">
-              <span className="text-[#001F5B]">Pay</span>
-              <span className="bg-gradient-to-r from-[#0A84FF] to-[#0057D9] bg-clip-text text-transparent">
-                true
-              </span>
-            </span>
-
-            <span className="mt-1 text-[10px] uppercase tracking-[2px] text-slate-500">
+          <div className="leading-none">
+            <p className="text-[22px] font-extrabold tracking-tight text-[#0b1f3a] sm:text-2xl">
+              Paytrue
+            </p>
+            <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">
               Digital Payment Solutions
-            </span>
+            </p>
           </div>
         </Link>
 
-        {/* Desktop Menu */}
         <nav className="hidden items-center gap-8 lg:flex">
-          <Link
-            href="/"
-            className="font-semibold text-slate-800 transition hover:text-blue-900"
-          >
-            Home
-          </Link>
-
-          <Link
-            href="/about"
-            className="font-semibold text-slate-800 transition hover:text-blue-900"
-          >
-            About
-          </Link>
-
+          <NavLink href="/" label="Home" />
+          <NavLink href="/about" label="About" />
           <div className="group relative">
-            <button className="flex items-center gap-1 font-semibold text-slate-800 hover:text-blue-900">
+            <button className="flex items-center gap-1 text-[15px] font-medium text-[#1e2a4a] transition hover:text-[#2563eb]">
               Products & Services
-              <ChevronDown
-                size={18}
-                className="transition group-hover:rotate-180"
-              />
+              <ChevronDown size={16} className="transition group-hover:rotate-180" />
             </button>
-
-            <div className="invisible absolute left-0 top-full mt-4 w-80 rounded-2xl border border-slate-200 bg-white p-3 opacity-0 shadow-2xl transition-all duration-300 group-hover:visible group-hover:opacity-100">
-              <div className="max-h-[450px] overflow-y-auto">
-                {services.map((service, index) => (
+            <div className="invisible absolute left-1/2 top-full z-50 mt-4 w-80 -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-2 opacity-0 shadow-[0_24px_50px_-20px_rgba(15,23,42,0.35)] transition group-hover:visible group-hover:opacity-100">
+              <div className="max-h-[420px] overflow-y-auto">
+                {services.map((service) => (
                   <Link
-                    key={index}
+                    key={service.path}
                     href={service.path}
-                    className="block rounded-xl px-4 py-3 text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-900"
+                    className="block rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-[#0b1f3a]"
                   >
                     {service.name}
                   </Link>
@@ -132,117 +70,98 @@ export default function Header() {
               </div>
             </div>
           </div>
-
-          <Link
-            href="/contact"
-            className="font-semibold text-slate-800 transition hover:text-blue-900"
-          >
-            Contact
-          </Link>
+          <NavLink href="/contact" label="Contact" />
         </nav>
 
-        {/* Desktop Login */}
-        <div className="hidden lg:flex">
+        <div className="hidden justify-end lg:flex">
           <button
+            type="button"
             onClick={() => router.push("/auth/login")}
-            className="rounded-xl bg-slate-900 px-6 py-2 font-bold text-white transition hover:bg-blue-900"
+            className="rounded-xl bg-[#0b1f3a] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#132a4a]"
           >
             Login
           </button>
         </div>
 
-        {/* Mobile Menu Button */}
         <button
-          className="lg:hidden"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          type="button"
+          className="justify-self-end text-[#0b1f3a] lg:hidden"
+          onClick={() => setMobileMenuOpen((open) => !open)}
+          aria-label="Toggle menu"
         >
-          {mobileMenuOpen ? (
-            <X size={28} />
-          ) : (
-            <Menu size={28} />
-          )}
+          {mobileMenuOpen ? <X size={26} /> : <Menu size={26} />}
         </button>
       </div>
 
-      {/* Mobile Menu */}
-      {mobileMenuOpen && (
-        <div className="border-t border-slate-200 bg-white lg:hidden">
+      {mobileMenuOpen ? (
+        <div className="border-t border-slate-100 bg-white lg:hidden">
           <div className="space-y-1 px-4 py-4">
-
-            <Link
-              href="/"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block rounded-lg px-4 py-3 font-medium text-slate-700 hover:bg-slate-100"
-            >
+            <MobileLink href="/" onClick={() => setMobileMenuOpen(false)}>
               Home
-            </Link>
-
-            <Link
-              href="/about"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block rounded-lg px-4 py-3 font-medium text-slate-700 hover:bg-slate-100"
-            >
+            </MobileLink>
+            <MobileLink href="/about" onClick={() => setMobileMenuOpen(false)}>
               About
-            </Link>
-
-            {/* Mobile Services */}
+            </MobileLink>
             <button
-              onClick={() =>
-                setMobileServicesOpen(!mobileServicesOpen)
-              }
-              className="flex w-full items-center justify-between rounded-lg px-4 py-3 font-medium text-slate-700 hover:bg-slate-100"
+              type="button"
+              onClick={() => setMobileServicesOpen((open) => !open)}
+              className="flex w-full items-center justify-between rounded-lg px-4 py-3 font-medium text-slate-700"
             >
               Products & Services
-
-              <ChevronRight
-                size={18}
-                className={`transition-transform ${
-                  mobileServicesOpen ? "rotate-90" : ""
-                }`}
-              />
+              <ChevronRight size={18} className={cn("transition", mobileServicesOpen && "rotate-90")} />
             </button>
-
-            {mobileServicesOpen && (
-              <div className="ml-3 border-l border-slate-200 pl-3">
-                {services.map((service, index) => (
+            {mobileServicesOpen
+              ? services.map((service) => (
                   <Link
-                    key={index}
+                    key={service.path}
                     href={service.path}
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      setMobileServicesOpen(false);
-                    }}
-                    className="block rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-blue-50 hover:text-blue-900"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block rounded-lg px-7 py-2 text-sm text-slate-500"
                   >
                     {service.name}
                   </Link>
-                ))}
-              </div>
-            )}
-
-            <Link
-              href="/contact"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block rounded-lg px-4 py-3 font-medium text-slate-700 hover:bg-slate-100"
-            >
+                ))
+              : null}
+            <MobileLink href="/contact" onClick={() => setMobileMenuOpen(false)}>
               Contact
-            </Link>
-
-            <div className="pt-4">
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  router.push("/auth/login");
-                }}
-                className="w-full rounded-xl bg-slate-900 px-6 py-3 font-bold text-white hover:bg-blue-900"
-              >
-                Login
-              </button>
-            </div>
-
+            </MobileLink>
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                router.push("/auth/login");
+              }}
+              className="mt-3 w-full rounded-xl bg-[#0b1f3a] py-3 font-semibold text-white"
+            >
+              Login
+            </button>
           </div>
         </div>
-      )}
+      ) : null}
     </header>
+  );
+}
+
+function NavLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href} className="text-[15px] font-medium text-[#1e2a4a] transition hover:text-[#2563eb]">
+      {label}
+    </Link>
+  );
+}
+
+function MobileLink({
+  href,
+  onClick,
+  children,
+}: {
+  href: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link href={href} onClick={onClick} className="block rounded-lg px-4 py-3 font-medium text-slate-700">
+      {children}
+    </Link>
   );
 }

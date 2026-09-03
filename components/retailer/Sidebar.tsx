@@ -21,10 +21,16 @@ import {
   IndianRupee,
   ShieldCheck,
   Landmark,
+  Send,
+  Zap,
+  CreditCard,
+  ArrowRightLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
+  SIDEBAR_BILL_PAY_LINKS,
   SIDEBAR_LINKS,
+  SIDEBAR_MONEY_TRANSFER_LINKS,
   SIDEBAR_OTHER_LINKS,
   SIDEBAR_SUPPORT_LINKS,
 } from "@/features/retailer/constants";
@@ -46,6 +52,10 @@ const iconMap = {
   IndianRupee,
   ShieldCheck,
   Landmark,
+  Send,
+  Zap,
+  CreditCard,
+  ArrowRightLeft,
 };
 
 type SidebarLinkItem = {
@@ -63,7 +73,7 @@ function isLinkActive(pathname: string, href: string) {
   if (href === "/rt/retailer") {
     return pathname === "/rt/retailer";
   }
-  return pathname.startsWith(href);
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 function SidebarNavLink({
@@ -202,6 +212,20 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               onClose={onClose}
             />
           ))}
+
+          <SidebarSection
+            title="Money Transfer"
+            links={SIDEBAR_MONEY_TRANSFER_LINKS as SidebarLinkItem[]}
+            pathname={pathname}
+            onClose={onClose}
+          />
+
+          <SidebarSection
+            title="Bill Payments"
+            links={SIDEBAR_BILL_PAY_LINKS as SidebarLinkItem[]}
+            pathname={pathname}
+            onClose={onClose}
+          />
 
           <SidebarSection
             title="Support & Help"

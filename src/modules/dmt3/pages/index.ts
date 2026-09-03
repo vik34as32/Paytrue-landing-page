@@ -1,0 +1,9 @@
+export { default as Dmt3StartPage } from "./Dmt3StartPage";
+export { default as Dmt3BeneficiariesPage } from "./Dmt3BeneficiariesPage";
+export { default as Dmt3AddBeneficiaryPage } from "./Dmt3AddBeneficiaryPage";
+export { default as Dmt3TransferPage } from "./Dmt3TransferPage";
+export { default as Dmt3CommissionPage } from "./Dmt3CommissionPage";
+export { default as Dmt3ReviewPage } from "./Dmt3ReviewPage";
+export { default as Dmt3ReceiptPage } from "./Dmt3ReceiptPage";
+export { default as Dmt3TransactionsPage } from "./Dmt3TransactionsPage";
+export { default as Dmt3TransactionDetailPage } from "./Dmt3TransactionDetailPage";

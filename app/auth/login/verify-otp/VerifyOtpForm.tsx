@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useForm, Controller, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -43,12 +43,12 @@ const otpSchema = z.object({
 type OtpFormValues = z.infer<typeof otpSchema>;
 
 export default function VerifyOtpForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
   const loading = useAppSelector(selectAuthLoading);
 
   const [sessionReady, setSessionReady] = useState(false);
+  const [missingSession, setMissingSession] = useState(false);
   const [loginToken, setLoginToken] = useState("");
   const [remember, setRemember] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -78,13 +78,14 @@ export default function VerifyOtpForm() {
     // Reject leftover bad sessions that stored mobile as loginToken
     if (!token || /^\d{10}$/.test(token) || token.includes("@")) {
       clearLoginOtpSession();
-      router.replace("/auth/login");
+      setMissingSession(true);
+      setSessionReady(true);
       return;
     }
     setLoginToken(token);
     setRemember(Boolean(session?.remember));
     setSessionReady(true);
-  }, [router]);
+  }, []);
 
   const resendMutation = useMutation({
     mutationFn: async () => {
@@ -201,6 +202,30 @@ export default function VerifyOtpForm() {
     return (
       <div className="flex min-h-[320px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-[#1565d8]" />
+      </div>
+    );
+  }
+
+  if (missingSession) {
+    return (
+      <div className="space-y-5">
+        <div className="text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-50 text-amber-600">
+            <ShieldAlert className="h-8 w-8" />
+          </div>
+          <h1 className="text-2xl font-extrabold text-[#001F5B]">OTP session expired</h1>
+          <p className="mt-2 text-sm text-slate-500">
+            Please login again so we can send a new OTP to your registered email and
+            mobile number.
+          </p>
+        </div>
+        <Link
+          href="/auth/login"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0A84FF] to-[#0057D9] py-3 text-sm font-bold text-white"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back To Login
+        </Link>
       </div>
     );
   }

@@ -97,7 +97,7 @@ export default function ServicesSection() {
   ];
 
   return (
-    <section className="w-full bg-white py-20 px-4 sm:px-8 lg:px-16">
+    <section className="w-full bg-[#f4f6fb] py-20 px-4 sm:px-8 lg:px-16">
       <div className="max-w-7xl mx-auto">
         {/* Heading */}
         <div className="text-center mb-16">
@@ -105,7 +105,7 @@ export default function ServicesSection() {
             Our Financial Services
           </span>
 
-          <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 leading-tight">
+          <h2 className="text-4xl md:text-5xl font-extrabold text-[#0b1f3a] leading-tight">
             Powerful Digital Payment <br className="hidden md:block" />
             Solutions For Your Business
           </h2>
@@ -173,12 +173,12 @@ export default function ServicesSection() {
 
                     {/* Buttons */}
                     <div className="flex flex-col sm:flex-row gap-4">
-                      <button className="flex-1 bg-gradient-to-r from-[#0A84FF] to-[#0057D9] hover:opacity-90 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 shadow-md hover:scale-105">
+                      <button className="flex-1 rounded-2xl bg-[#0b1f3a] py-4 font-semibold text-white shadow-md transition hover:bg-[#132a4a]">
                         {service.primaryBtn}
-                        <ArrowRight size={18} />
+                        <ArrowRight size={18} className="inline" />
                       </button>
 
-                      <button className="flex-1 bg-green-500 hover:bg-green-600 text-white py-4 rounded-2xl font-semibold transition-all duration-300 shadow-md hover:scale-105">
+                      <button className="flex-1 rounded-2xl border border-slate-200 bg-white py-4 font-semibold text-[#0b1f3a] transition hover:bg-slate-50">
                         {service.secondaryBtn}
                       </button>
                     </div>
@@ -194,7 +194,7 @@ export default function ServicesSection() {
           {stats.map((stat, i) => (
             <div
               key={i}
-              className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0A84FF] to-[#0057D9] p-8 text-center shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-500"
+              className="group relative overflow-hidden rounded-3xl bg-[#0b1f3a] p-8 text-center shadow-lg transition hover:-translate-y-1"
             >
               {/* Glow Effect */}
               <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-all duration-500"></div>

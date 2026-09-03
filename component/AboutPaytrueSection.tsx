@@ -17,8 +17,8 @@ export default function AboutPaytrueSection() {
                         Trusted Digital Financial Platform
                     </span>
 
-                    <h2 className="mt-6 text-4xl md:text-6xl font-extrabold text-gray-900 leading-tight">
-                        Welcome to <span className="text-[#0057D9]">PayTrue</span>
+                    <h2 className="mt-6 text-4xl font-extrabold leading-tight text-[#0b1f3a] md:text-6xl">
+                        Welcome to <span className="text-[#2563eb]">PayTrue</span>
                     </h2>
 
                     <p className="mt-6 max-w-3xl mx-auto text-lg text-gray-600 leading-relaxed">

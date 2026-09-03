@@ -1,26 +1,18 @@
 "use client";
 
-import { CreditCard } from "lucide-react";
-import UtilityBillPage from "@/components/retailer/UtilityBillPage";
+import { Suspense } from "react";
+import CcbpPayPage from "@/src/modules/ccbp/pages/CcbpPayPage";
 
-const CARD_ISSUERS = [
-  "HDFC Bank Credit Card",
-  "ICICI Bank Credit Card",
-  "SBI Card",
-  "Axis Bank Credit Card",
-  "Kotak Credit Card",
-  "Yes Bank Credit Card",
-];
-
-export default function CreditCardPage() {
+export default function CreditCardBillPage() {
   return (
-    <UtilityBillPage
-      title="Credit Card Bill"
-      description="Pay credit card bills instantly"
-      icon={CreditCard}
-      providers={CARD_ISSUERS}
-      serviceType="credit-card"
-      consumerLabel="Card Number (last 4 digits)"
-    />
+    <Suspense
+      fallback={
+        <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
+          Loading…
+        </div>
+      }
+    >
+      <CcbpPayPage />
+    </Suspense>
   );
 }

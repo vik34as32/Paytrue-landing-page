@@ -64,7 +64,7 @@ export default function PremiumFintechFooter() {
     ];
 
     return (
-        <footer className="relative bg-gradient-to-br from-slate-950 via-green-950 to-slate-900 text-white overflow-hidden">
+        <footer className="relative overflow-hidden bg-gradient-to-br from-[#071427] via-[#0b1f3a] to-slate-950 text-white">
             {/* Background Glow Effects */}
             <div className="absolute inset-0 opacity-20">
                 <div className="absolute top-0 left-0 h-72 w-72 rounded-full bg-cyan-500 blur-3xl"></div>

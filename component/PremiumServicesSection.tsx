@@ -74,7 +74,7 @@ const services = [
 
 export default function PremiumServicesSection() {
     return (
-        <section className="relative w-full bg-white py-24 px-4 sm:px-8 lg:px-20 overflow-hidden">
+        <section className="relative w-full overflow-hidden bg-white py-24 px-4 sm:px-8 lg:px-20">
             {/* Background Blur */}
             <div className="absolute top-0 left-0 w-80 h-80 bg-blue-100 rounded-full blur-3xl opacity-40"></div>
             <div className="absolute bottom-0 right-0 w-96 h-96 bg-cyan-100 rounded-full blur-3xl opacity-40"></div>
@@ -92,7 +92,7 @@ export default function PremiumServicesSection() {
                         Our Services
                     </span>
 
-                    <h2 className="text-4xl md:text-6xl font-extrabold text-gray-900 mb-6">
+                    <h2 className="mb-6 text-4xl font-extrabold text-[#0b1f3a] md:text-6xl">
                         Comprehensive Financial Solutions
                     </h2>
 

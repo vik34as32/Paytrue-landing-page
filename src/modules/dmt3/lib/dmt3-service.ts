@@ -18,10 +18,15 @@ import type {
 export async function searchRemitter(mobile: string): Promise<{
   found: boolean;
   remitter: Dmt3Remitter | null;
+  beneficiaries: Dmt3Beneficiary[];
 }> {
-  const remitter = await dmt3Api.getRemitter(mobile);
-  if (!remitter) return { found: false, remitter: null };
-  return { found: true, remitter };
+  const result = await dmt3Api.getRemitter(mobile);
+  if (!result) return { found: false, remitter: null, beneficiaries: [] };
+  return {
+    found: true,
+    remitter: result.remitter,
+    beneficiaries: result.beneficiaries,
+  };
 }
 
 export async function registerRemitterOtp(input: {
@@ -90,6 +95,11 @@ export async function fetchBeneficiaries(input?: {
   remitterMobile?: string;
   remitterId?: string;
 }): Promise<Dmt3Beneficiary[]> {
+  const mobile = String(input?.remitterMobile || "").trim();
+  if (mobile) {
+    const result = await dmt3Api.getRemitter(mobile);
+    return result?.beneficiaries ?? [];
+  }
   return dmt3Api.getBeneficiaries(input);
 }
 

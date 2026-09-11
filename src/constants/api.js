@@ -11,6 +11,10 @@ export const API_ENDPOINTS = {
   walletTransfer: "/wallet/transfer",
   walletDeduct: "/wallet/deduct",
   walletTransfers: "/wallet/transfers",
+  walletPeerTransfer: "/wallet-transfer",
+  walletPeerTransferUsers: "/wallet-transfer/users",
+  walletPeerTransferHistory: "/wallet-transfer/history",
+  walletPeerTransferSummary: "/wallet-transfer/summary",
   walletSummary: "/wallet/summary",
   walletLedger: "/retailer/wallet-ledger",
   walletLedgerExport: "/retailer/wallet-ledger/export",
@@ -37,4 +41,7 @@ export const API_ENDPOINTS = {
   mpinCreate: "/retailer/mpin/create",
   mpinChange: "/retailer/mpin/change",
   mpinVerify: "/retailer/mpin/verify",
+  mpinForgot: "/auth/mpin/forgot",
+  mpinForgotVerifyOtp: "/auth/mpin/verify-otp",
+  mpinReset: "/auth/mpin/reset",
 };

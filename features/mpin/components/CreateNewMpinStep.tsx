@@ -12,6 +12,7 @@ interface CreateNewMpinStepProps {
   newError?: string;
   confirmError?: string;
   disabled?: boolean;
+  mode?: "change" | "forgot";
 }
 
 export function CreateNewMpinStep({
@@ -22,6 +23,7 @@ export function CreateNewMpinStep({
   newError,
   confirmError,
   disabled,
+  mode = "change",
 }: CreateNewMpinStepProps) {
   const matching =
     isValidMpin(newMpin) &&
@@ -34,7 +36,9 @@ export function CreateNewMpinStep({
       <div>
         <h3 className="text-[15px] font-bold text-[#001F5B]">Create new MPIN</h3>
         <p className="mt-0.5 text-xs text-slate-500">
-          Set a new 4 digit MPIN different from your current one.
+          {mode === "forgot"
+            ? "Set a new 4 digit MPIN. You do not need your old MPIN."
+            : "Set a new 4 digit MPIN different from your current one."}
         </p>
       </div>
 
@@ -62,7 +66,9 @@ export function CreateNewMpinStep({
         {matching ? (
           <div className="flex h-8 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-[11px] font-semibold text-emerald-700">
             <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-            New MPIN confirmed — ready to update
+            {mode === "forgot"
+              ? "New MPIN confirmed — ready to reset"
+              : "New MPIN confirmed — ready to update"}
           </div>
         ) : null}
       </div>

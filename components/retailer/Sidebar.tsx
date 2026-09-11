@@ -88,7 +88,7 @@ function SidebarNavLink({
   pathname: string;
   onClose: () => void;
 }) {
-  const Icon = iconMap[link.icon];
+  const Icon = iconMap[link.icon] ?? ArrowRightLeft;
   const isActive = isLinkActive(pathname, link.href);
 
   return (

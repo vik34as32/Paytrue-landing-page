@@ -6,11 +6,18 @@ import {
   createMpin,
   fetchMpinStatus,
   mapMpinApiError,
+  requestForgotMpinOtp,
+  resendForgotMpinOtp,
+  resetMpin,
+  verifyForgotMpinOtp,
   verifyMpin,
 } from "../services/mpinApi";
 import type {
   ChangeMpinPayload,
   CreateMpinPayload,
+  ForgotMpinPayload,
+  ResetMpinPayload,
+  VerifyForgotMpinOtpPayload,
   VerifyMpinPayload,
 } from "../types";
 
@@ -51,6 +58,35 @@ export function useChangeMpin() {
 export function useVerifyMpin() {
   return useMutation({
     mutationFn: (payload: VerifyMpinPayload) => verifyMpin(payload),
+  });
+}
+
+export function useRequestForgotMpinOtp() {
+  return useMutation({
+    mutationFn: (payload: ForgotMpinPayload) => requestForgotMpinOtp(payload),
+  });
+}
+
+export function useResendForgotMpinOtp() {
+  return useMutation({
+    mutationFn: (payload: ForgotMpinPayload) => resendForgotMpinOtp(payload),
+  });
+}
+
+export function useVerifyForgotMpinOtp() {
+  return useMutation({
+    mutationFn: (payload: VerifyForgotMpinOtpPayload) =>
+      verifyForgotMpinOtp(payload),
+  });
+}
+
+export function useResetMpin() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: ResetMpinPayload) => resetMpin(payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: MPIN_STATUS_QUERY_KEY });
+    },
   });
 }
 

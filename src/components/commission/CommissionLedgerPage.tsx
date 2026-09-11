@@ -202,13 +202,13 @@ function CommissionLedgerContent({ role }: { role: CommissionPortalRole }) {
       ),
     },
     {
-      name: "Wallet Type",
-      selector: (row) => row.walletType,
+      name: "Service name",
+      selector: (row) => row.serviceName,
       sortable: true,
       minWidth: "120px",
       cell: (row) => (
         <span className="text-xs font-semibold text-slate-600">
-          {row.walletType || "—"}
+          {row.serviceName || "—"}
         </span>
       ),
     },

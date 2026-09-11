@@ -6,12 +6,14 @@ interface StepIndicatorProps {
   currentStep: 1 | 2;
   totalSteps?: 2;
   className?: string;
+  stepLabel?: string;
 }
 
 export function StepIndicator({
   currentStep,
   totalSteps = 2,
   className,
+  stepLabel,
 }: StepIndicatorProps) {
   return (
     <div className={cn("space-y-2.5", className)}>
@@ -20,7 +22,7 @@ export function StepIndicator({
           Step {currentStep} of {totalSteps}
         </span>
         <span className="text-white/80">
-          {currentStep === 1 ? "Verify" : "Create New"}
+          {stepLabel ?? (currentStep === 1 ? "Verify" : "Create New")}
         </span>
       </div>
       <div className="flex gap-2">

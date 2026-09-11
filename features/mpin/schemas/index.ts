@@ -2,6 +2,7 @@ import { z } from "zod";
 
 /** Retailer MPIN is always exactly 4 digits. */
 export const MPIN_LENGTH = 4 as const;
+export const MPIN_OTP_LENGTH = 6 as const;
 
 const mpinField = z
   .string()
@@ -38,9 +39,39 @@ export const verifyMpinSchema = z.object({
   mpin: mpinField,
 });
 
+/** Matches backend `auth/mpin` forgot validators. */
+export const RETAILER_MOBILE_REGEX = /^[6-9]\d{9}$/;
+export const WEAK_MPINS = ["0000", "1111", "1234", "4321"] as const;
+export const MPIN_WEAK_MESSAGE = "Please choose a stronger MPIN";
+
+export const forgotMpinOtpSchema = z.object({
+  otp: z
+    .string()
+    .min(1, "OTP is required")
+    .regex(/^\d{6}$/, "OTP must be exactly 6 digits"),
+});
+
+export const resetMpinSchema = z
+  .object({
+    resetToken: z
+      .string()
+      .trim()
+      .min(20, "Reset session expired. Please verify OTP again."),
+    newMpin: mpinField.refine((v) => !(WEAK_MPINS as readonly string[]).includes(v), {
+      message: MPIN_WEAK_MESSAGE,
+    }),
+    confirmMpin: mpinField,
+  })
+  .refine((data) => data.newMpin === data.confirmMpin, {
+    message: "New MPIN and Confirm MPIN must match",
+    path: ["confirmMpin"],
+  });
+
 export type CreateMpinFormValues = z.infer<typeof createMpinSchema>;
 export type ChangeMpinFormValues = z.infer<typeof changeMpinSchema>;
 export type VerifyMpinFormValues = z.infer<typeof verifyMpinSchema>;
+export type ForgotMpinOtpFormValues = z.infer<typeof forgotMpinOtpSchema>;
+export type ResetMpinFormValues = z.infer<typeof resetMpinSchema>;
 
 export function isValidMpin(value: string): boolean {
   return /^\d{4}$/.test(value);

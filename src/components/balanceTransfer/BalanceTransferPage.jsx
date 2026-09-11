@@ -1,122 +1,337 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { ArrowLeftRight } from "lucide-react";
-import PageHeader from "@/src/components/common/PageHeader";
-import WalletTransferForm from "@/src/components/wallet/WalletTransferForm";
+import { ArrowLeftRight, Loader2, ShieldCheck, Wallet } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { formatCurrency } from "@/lib/utils";
-import { fetchDistributors } from "@/src/redux/thunks/distributorThunk";
-import { fetchRetailers } from "@/src/redux/thunks/retailerThunk";
-import { fetchWalletBalance } from "@/src/redux/thunks/walletThunk";
-import { selectDistributors } from "@/src/redux/slices/distributorSlice";
-import { selectRetailers } from "@/src/redux/slices/retailerSlice";
+import { AnimatedMpinInput } from "@/features/mpin";
+import { selectUser } from "@/src/redux/slices/authSlice";
 import { selectWalletByRole } from "@/src/redux/slices/walletSlice";
+import { fetchWalletBalance } from "@/src/redux/thunks/walletThunk";
+import {
+  fetchWalletTransferUsers,
+  submitWalletTransfer,
+} from "@/src/services/walletTransferService";
 
-const PAGE_CONFIG = {
-  md: {
+const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000];
+
+const ROLE_META = {
+  rt: {
+    userType: "RETAILER",
+    peer: "Retailer",
+    peers: "retailers",
     title: "Balance Transfer",
-    description: "Transfer wallet balance to your distributors",
-    backHref: "/md/dashboard",
-    receiverLabel: "Choose distributor",
-    loadRecipients: (dispatch) =>
-      dispatch(fetchDistributors({ page: 1, limit: 100 })),
-    mapRecipients: (distributors) =>
-      distributors
-        .filter((d) => d.status === "active")
-        .map((d) => ({
-          id: d.id,
-          label: `${d.name} · ${formatCurrency(d.walletBalance || 0)}`,
-        })),
-    getSource: (distributors) => distributors,
+    description: "Send money to another retailer instantly.",
   },
   dd: {
+    userType: "DISTRIBUTOR",
+    peer: "Distributor",
+    peers: "distributors",
     title: "Balance Transfer",
-    description: "Transfer wallet balance to your retailers",
-    backHref: "/dd/dashboard",
-    receiverLabel: "Choose retailer",
-    loadRecipients: (dispatch) =>
-      dispatch(fetchRetailers({ page: 1, limit: 100 })),
-    mapRecipients: (retailers) =>
-      retailers
-        .filter((r) => r.status === "active")
-        .map((r) => ({
-          id: r.id,
-          label: `${r.name} · ${formatCurrency(r.walletBalance || 0)}`,
-        })),
-    getSource: (_, retailers) => retailers,
+    description: "Send money to another distributor instantly.",
   },
-  rt: {
+  md: {
+    userType: "MASTER_DISTRIBUTOR",
+    peer: "Master Distributor",
+    peers: "master distributors",
     title: "Balance Transfer",
-    description: "Transfer wallet balance securely",
-    backHref: "/rt/retailer",
-    receiverLabel: "Choose receiver",
-    loadRecipients: (dispatch) => {
-      dispatch(fetchDistributors({ page: 1, limit: 100 }));
-      dispatch(fetchRetailers({ page: 1, limit: 100 }));
-    },
-    mapRecipients: (distributors, retailers) => [
-      ...distributors
-        .filter((d) => d.status === "active")
-        .map((d) => ({
-          id: d.id,
-          label: `${d.name} (Distributor) · ${formatCurrency(d.walletBalance || 0)}`,
-        })),
-      ...retailers
-        .filter((r) => r.status === "active")
-        .map((r) => ({
-          id: r.id,
-          label: `${r.name} (Retailer) · ${formatCurrency(r.walletBalance || 0)}`,
-        })),
-    ],
-    getSource: (distributors, retailers) => ({ distributors, retailers }),
+    description: "Send money to another master distributor instantly.",
   },
 };
 
 export default function BalanceTransferPage({ role }) {
   const dispatch = useDispatch();
-  const config = PAGE_CONFIG[role] ?? PAGE_CONFIG.dd;
-  const distributors = useSelector(selectDistributors);
-  const retailers = useSelector(selectRetailers);
+  const meta = ROLE_META[role] ?? ROLE_META.rt;
+  const currentUser = useSelector(selectUser);
   const wallet = useSelector(selectWalletByRole(role));
+  const transferRole = meta.userType;
+  const selfId = String(currentUser?.id || currentUser?._id || "");
+  const available = Number(wallet?.availableBalance ?? wallet?.balance ?? 0);
+
+  const [peers, setPeers] = useState([]);
+  const [loadingPeers, setLoadingPeers] = useState(true);
+  const [peerError, setPeerError] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [amount, setAmount] = useState("");
+  const [mpin, setMpin] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [fieldError, setFieldError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadPeers = useCallback(async () => {
+    setLoadingPeers(true);
+    setPeerError("");
+    try {
+      const result = await fetchWalletTransferUsers({
+        role: transferRole,
+        page: 1,
+        limit: 100,
+      });
+      setPeers(
+        result.items.filter(
+          (item) =>
+            item.id !== selfId &&
+            item.userId !== selfId &&
+            (!item.role || item.role === transferRole)
+        )
+      );
+    } catch (error) {
+      setPeers([]);
+      setPeerError(error?.message || `Unable to load ${meta.peers}`);
+    } finally {
+      setLoadingPeers(false);
+    }
+  }, [meta.peers, selfId, transferRole]);
 
   useEffect(() => {
     dispatch(fetchWalletBalance({ role }));
-    if (role === "md") {
-      dispatch(fetchDistributors({ page: 1, limit: 100 }));
-    } else if (role === "dd") {
-      dispatch(fetchRetailers({ page: 1, limit: 100 }));
-    } else if (role === "rt") {
-      dispatch(fetchDistributors({ page: 1, limit: 100 }));
-      dispatch(fetchRetailers({ page: 1, limit: 100 }));
-    }
-  }, [dispatch, role]);
+    void loadPeers();
+  }, [dispatch, loadPeers, role]);
 
-  const recipients = useMemo(() => {
-    if (role === "md") {
-      return config.mapRecipients(distributors);
+  const amountValue = Number(amount);
+
+  const openConfirm = () => {
+    if (!selected?.id) {
+      setFieldError(`Select a ${meta.peer.toLowerCase()} first`);
+      return;
     }
-    if (role === "dd") {
-      return config.mapRecipients(retailers);
+    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+      setFieldError("Enter an amount greater than zero");
+      return;
     }
-    return config.mapRecipients(distributors, retailers);
-  }, [role, config, distributors, retailers]);
+    if (amountValue > available) {
+      setFieldError("Insufficient wallet balance");
+      return;
+    }
+    setFieldError("");
+    setMpin("");
+    setConfirmOpen(true);
+  };
+
+  const submitTransfer = async () => {
+    if (!selected?.id || submitting) return;
+    if (!/^\d{4}$/.test(mpin)) {
+      toast.error("Enter your 4-digit MPIN");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const result = await submitWalletTransfer({
+        receiverId: selected.id,
+        amount: amountValue,
+        remarks: `Balance transfer to ${selected.name}`,
+        mpin,
+      });
+      toast.success(result.message || `Sent to ${selected.name}`);
+      setConfirmOpen(false);
+      setSelected(null);
+      setAmount("");
+      setMpin("");
+      dispatch(fetchWalletBalance({ role }));
+      void loadPeers();
+    } catch (error) {
+      toast.error(error?.message || "Transfer failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={config.title}
-        description={config.description}
-        icon={ArrowLeftRight}
-        backHref={config.backHref}
-      />
+    <div className="mx-auto max-w-2xl space-y-5">
+      <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-[#021433] via-[#0d47a1] to-[#1565d8] px-6 py-6 text-white shadow-[0_18px_40px_rgba(11,47,115,0.25)]">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-100/80">
+              {meta.peer} to {meta.peer}
+            </p>
+            <h1 className="mt-1 text-2xl font-extrabold tracking-tight">{meta.title}</h1>
+            <p className="mt-1 text-sm text-blue-100/90">{meta.description}</p>
+          </div>
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
+            <ArrowLeftRight className="h-5 w-5" />
+          </div>
+        </div>
+        <div className="mt-5 flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-white/15">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-100/80">
+              Available balance
+            </p>
+            <p className="text-2xl font-black tabular-nums">{formatCurrency(available)}</p>
+          </div>
+          <ShieldCheck className="h-5 w-5 text-blue-100" />
+        </div>
+      </section>
 
-      <WalletTransferForm
-        role={role}
-        recipients={recipients}
-        balance={wallet?.balance ?? 0}
-        receiverLabel={config.receiverLabel}
-      />
+      <section className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-[0_12px_36px_rgba(11,31,58,0.06)] sm:p-6">
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-[#0b1f3a]">
+              Select {meta.peer}
+            </Label>
+            <Select
+              value={selected?.id || ""}
+              onValueChange={(id) => {
+                setSelected(peers.find((peer) => peer.id === id) || null);
+                setFieldError("");
+              }}
+              disabled={loadingPeers}
+            >
+              <SelectTrigger className="h-12 rounded-xl">
+                <SelectValue
+                  placeholder={
+                    loadingPeers ? `Loading ${meta.peers}…` : `Select ${meta.peer}`
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {peers.map((peer) => (
+                  <SelectItem key={peer.id} value={peer.id}>
+                    {peer.name}
+                    {peer.mobile ? ` · ${peer.mobile}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {peerError ? <p className="text-sm text-rose-600">{peerError}</p> : null}
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-[#0b1f3a]">Amount</Label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400">
+                ₹
+              </span>
+              <Input
+                inputMode="decimal"
+                value={amount}
+                onChange={(e) => {
+                  setAmount(e.target.value.replace(/[^\d.]/g, ""));
+                  setFieldError("");
+                }}
+                placeholder="0.00"
+                className="h-14 rounded-xl border-slate-200 pl-9 text-xl font-extrabold tabular-nums"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {QUICK_AMOUNTS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => {
+                    setAmount(String(value));
+                    setFieldError("");
+                  }}
+                  className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:border-[#1565d8] hover:text-[#1565d8]"
+                >
+                  ₹{value.toLocaleString("en-IN")}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setAmount(available > 0 ? String(Math.floor(available)) : "");
+                  setFieldError("");
+                }}
+                className="rounded-full bg-[#0b1f3a] px-3 py-1.5 text-xs font-bold text-white"
+              >
+                MAX
+              </button>
+            </div>
+          </div>
+
+          {fieldError ? (
+            <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {fieldError}
+            </p>
+          ) : null}
+
+          <Button
+            type="button"
+            onClick={openConfirm}
+            disabled={submitting || loadingPeers}
+            className="h-12 w-full rounded-xl bg-gradient-to-r from-[#0A84FF] to-[#0057D9] text-sm font-bold shadow-lg shadow-blue-500/20"
+          >
+            <Wallet className="h-4 w-4" />
+            Continue
+          </Button>
+        </div>
+      </section>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-[420px] gap-0 overflow-hidden rounded-3xl p-0">
+          <div className="bg-gradient-to-br from-[#021433] to-[#1565d8] px-6 py-5 text-white">
+            <DialogTitle className="text-lg font-extrabold">Confirm transfer</DialogTitle>
+            <DialogDescription className="text-sm text-blue-100">
+              Enter your 4-digit MPIN to send money.
+            </DialogDescription>
+          </div>
+          <div className="space-y-5 px-6 py-5">
+            <div className="rounded-2xl bg-slate-50 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                Sending to
+              </p>
+              <p className="mt-1 text-base font-extrabold text-[#0b1f3a]">{selected?.name}</p>
+              <p className="text-sm text-slate-500">{selected?.mobile || "No mobile"}</p>
+              <p className="mt-3 text-2xl font-black tabular-nums text-[#1565d8]">
+                {formatCurrency(amountValue || 0)}
+              </p>
+            </div>
+
+            <AnimatedMpinInput
+              label="MPIN"
+              value={mpin}
+              onChange={setMpin}
+              autoFocus
+              disabled={submitting}
+              hint="Enter 4 digit MPIN"
+            />
+
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 flex-1 rounded-xl"
+                onClick={() => setConfirmOpen(false)}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="h-12 flex-1 rounded-xl bg-gradient-to-r from-[#0A84FF] to-[#0057D9]"
+                onClick={() => void submitTransfer()}
+                disabled={submitting || mpin.length !== 4}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Sending…
+                  </>
+                ) : (
+                  "Confirm & Send"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

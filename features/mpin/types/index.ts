@@ -42,3 +42,31 @@ export interface MpinActionResult {
   success: boolean;
   message?: string;
 }
+
+export interface ForgotMpinPayload {
+  mobile: string;
+}
+
+export interface VerifyForgotMpinOtpPayload {
+  mobile: string;
+  otp: string;
+}
+
+export interface ForgotMpinOtpResult {
+  success: boolean;
+  message?: string;
+  mobileMasked?: string | null;
+  expiresInSeconds?: number | null;
+}
+
+export interface VerifyForgotMpinOtpResult {
+  success: boolean;
+  message?: string;
+  resetToken: string;
+}
+
+export interface ResetMpinPayload {
+  resetToken: string;
+  newMpin: string;
+  confirmMpin: string;
+}

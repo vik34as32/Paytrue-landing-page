@@ -1,13 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { AnimatedMpinInput } from "./AnimatedMpinInput";
-
 interface VerifyCurrentMpinStepProps {
   value: string;
   onChange: (value: string) => void;
   error?: string;
   disabled?: boolean;
+  onForgotMpin?: () => void;
 }
 
 export function VerifyCurrentMpinStep({
@@ -15,6 +14,7 @@ export function VerifyCurrentMpinStep({
   onChange,
   error,
   disabled,
+  onForgotMpin,
 }: VerifyCurrentMpinStepProps) {
   return (
     <div className="space-y-3">
@@ -36,12 +36,14 @@ export function VerifyCurrentMpinStep({
       />
 
       <div className="text-right">
-        <Link
-          href="/rt/retailer/help-support"
-          className="text-xs font-semibold text-[#1565d8] hover:underline"
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onForgotMpin}
+          className="text-xs font-semibold text-[#1565d8] hover:underline disabled:opacity-50"
         >
           Forgot MPIN?
-        </Link>
+        </button>
       </div>
     </div>
   );

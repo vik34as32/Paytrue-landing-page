@@ -3,7 +3,13 @@
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 
-export function SuccessStep() {
+export function SuccessStep({
+  title = "MPIN Updated Successfully",
+  description = "Redirecting to your profile…",
+}: {
+  title?: string;
+  description?: string;
+}) {
   return (
     <div className="flex flex-col items-center justify-center py-6 text-center">
       <motion.div
@@ -29,7 +35,7 @@ export function SuccessStep() {
         transition={{ delay: 0.15 }}
         className="text-lg font-bold text-[#001F5B]"
       >
-        MPIN Updated Successfully
+        {title}
       </motion.h3>
       <motion.p
         initial={{ opacity: 0, y: 8 }}
@@ -37,7 +43,7 @@ export function SuccessStep() {
         transition={{ delay: 0.25 }}
         className="mt-1.5 text-sm text-slate-500"
       >
-        Redirecting to your profile…
+        {description}
       </motion.p>
     </div>
   );

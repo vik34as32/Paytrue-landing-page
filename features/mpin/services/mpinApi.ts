@@ -3,12 +3,18 @@ import { getAccessToken } from "@/src/lib/cookies";
 import type {
   ChangeMpinPayload,
   CreateMpinPayload,
+  ForgotMpinOtpResult,
+  ForgotMpinPayload,
   MpinActionResult,
   MpinStatus,
   MpinVerifyApiError,
+  ResetMpinPayload,
+  VerifyForgotMpinOtpPayload,
+  VerifyForgotMpinOtpResult,
   VerifyMpinPayload,
   VerifyMpinResult,
 } from "../types";
+import { MPIN_WEAK_MESSAGE, RETAILER_MOBILE_REGEX, WEAK_MPINS } from "../schemas";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -116,7 +122,8 @@ export function toMpinVerifyApiError(
  */
 async function postMpinJson(
   path: string,
-  body: Record<string, string>
+  body: Record<string, string>,
+  options?: { allowEmpty?: boolean; skipAuth?: boolean }
 ): Promise<{ status: number; data: unknown }> {
   // Guarantee every value is a non-empty string before send
   const safeBody: Record<string, string> = {};
@@ -125,7 +132,7 @@ async function postMpinJson(
     if (trimmed) safeBody[key] = trimmed;
   }
 
-  if (Object.keys(safeBody).length === 0) {
+  if (!options?.allowEmpty && Object.keys(safeBody).length === 0) {
     throw {
       status: 400,
       message: "Request body is empty",
@@ -135,7 +142,7 @@ async function postMpinJson(
 
   // Explicit stringify — never pass undefined keys
   const raw = JSON.stringify(safeBody);
-  const token = getAccessToken();
+  const token = options?.skipAuth ? "" : getAccessToken();
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
@@ -306,4 +313,223 @@ export async function verifyMpin(
   } catch (error) {
     throw toMpinVerifyApiError(error, "Invalid MPIN");
   }
+}
+
+function pickStringField(payload: unknown, ...keys: string[]): string {
+  const data = unwrap(payload);
+  const root = asRecord(payload);
+  for (const key of keys) {
+    const value = data[key] ?? root[key];
+    if (value != null && String(value).trim()) return String(value).trim();
+  }
+  return "";
+}
+
+function pickExpiresInSeconds(payload: unknown): number | null {
+  const data = unwrap(payload);
+  const root = asRecord(payload);
+  const value =
+    data.expiresInSeconds ??
+    data.expiresIn ??
+    data.otpExpiresIn ??
+    root.expiresInSeconds ??
+    root.expiresIn;
+  if (value == null || value === "") return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function mapForgotMpinError(error: unknown, fallback: string): never {
+  const status = (error as { status?: number })?.status;
+  const mapped = mapMpinApiError(error, fallback);
+  const message = mapped.toLowerCase();
+  const wrap = (next: string): never => {
+    throw { ...(typeof error === "object" && error ? error : {}), message: next };
+  };
+
+  if (status === 429 || message.includes("too many") || message.includes("rate limit")) {
+    wrap("Too many attempts. Please wait a minute and try again.");
+  }
+  if (message.includes("expired") && message.includes("otp")) {
+    wrap("OTP has expired. Please resend OTP.");
+  }
+  if (message.includes("invalid otp") || message.includes("incorrect otp") || message.includes("wrong otp")) {
+    wrap("Invalid OTP. Please try again.");
+  }
+  if (
+    message.includes("weak") ||
+    message.includes("stronger mpin") ||
+    message.includes("0000")
+  ) {
+    wrap(MPIN_WEAK_MESSAGE);
+  }
+  if (message.includes("mismatch") || message.includes("do not match") || message.includes("must match")) {
+    wrap("New MPIN and Confirm MPIN must match");
+  }
+  if (
+    message.includes("reset token") ||
+    message.includes("reset session") ||
+    message.includes("invalid token")
+  ) {
+    wrap("Reset session expired. Please verify OTP again.");
+  }
+  throw error;
+}
+
+export function resolveRetailerMobile(user: unknown): string {
+  const record = asRecord(user);
+  const nested = asRecord(record.profile);
+  const raw =
+    record.mobile ??
+    record.phone ??
+    record.mobileNumber ??
+    record.phoneNumber ??
+    nested.mobile ??
+    nested.phone;
+  const digits = String(raw ?? "").replace(/\D/g, "");
+  if (digits.length >= 10) return digits.slice(-10);
+  return digits;
+}
+
+function requireForgotMobile(mobile: string): string {
+  const digits = String(mobile ?? "").replace(/\D/g, "").slice(-10);
+  if (!RETAILER_MOBILE_REGEX.test(digits)) {
+    throw {
+      status: 400,
+      message: "Registered mobile number is missing or invalid.",
+      data: null,
+    };
+  }
+  return digits;
+}
+
+/** POST /auth/mpin/forgot — unauthenticated; body `{ mobile }`. No current MPIN. */
+export async function requestForgotMpinOtp(
+  payload: ForgotMpinPayload
+): Promise<ForgotMpinOtpResult> {
+  const mobile = requireForgotMobile(payload?.mobile);
+  try {
+    const { data } = await postMpinJson(
+      API_ENDPOINTS.mpinForgot,
+      { mobile },
+      { skipAuth: true }
+    );
+    return {
+      success: Boolean(asRecord(data).success ?? true),
+      message: pickMessage(data, "OTP sent successfully"),
+      mobileMasked: maskRegisteredMobile(mobile),
+      expiresInSeconds: pickExpiresInSeconds(data) ?? 300,
+    };
+  } catch (error) {
+    mapForgotMpinError(error, "Unable to send OTP");
+  }
+}
+
+/** Same as forgot — backend has no separate resend route. */
+export async function resendForgotMpinOtp(
+  payload: ForgotMpinPayload
+): Promise<ForgotMpinOtpResult> {
+  const result = await requestForgotMpinOtp(payload);
+  return {
+    ...result,
+    message: result.message || "OTP resent to your registered mobile number",
+  };
+}
+
+/** POST /auth/mpin/verify-otp — `{ mobile, otp }` → single-use resetToken (10 min). */
+export async function verifyForgotMpinOtp(
+  payload: VerifyForgotMpinOtpPayload
+): Promise<VerifyForgotMpinOtpResult> {
+  const mobile = requireForgotMobile(payload?.mobile);
+  const cleaned = String(payload?.otp ?? "").replace(/\D/g, "");
+  if (!/^\d{6}$/.test(cleaned)) {
+    throw { status: 400, message: "OTP must be exactly 6 digits", data: null };
+  }
+
+  try {
+    const { data } = await postMpinJson(
+      API_ENDPOINTS.mpinForgotVerifyOtp,
+      { mobile, otp: cleaned },
+      { skipAuth: true }
+    );
+    const resetToken = pickStringField(
+      data,
+      "resetToken",
+      "mpinResetToken",
+      "token"
+    );
+    if (!resetToken || resetToken.length < 20) {
+      throw {
+        status: 400,
+        message: "Unable to start MPIN reset. Please try again.",
+        data,
+      };
+    }
+    return {
+      success: true,
+      message: pickMessage(data, "OTP verified successfully"),
+      resetToken,
+    };
+  } catch (error) {
+    mapForgotMpinError(error, "Invalid or expired OTP");
+  }
+}
+
+/** POST /auth/mpin/reset — `{ resetToken, newMpin, confirmMpin }`. No current MPIN. */
+export async function resetMpin(
+  payload: ResetMpinPayload
+): Promise<MpinActionResult> {
+  const resetToken = String(payload?.resetToken ?? "").trim();
+  const newMpin = String(payload?.newMpin ?? "").replace(/\D/g, "");
+  const confirmMpin = String(payload?.confirmMpin ?? "").replace(/\D/g, "");
+
+  if (!resetToken || resetToken.length < 20) {
+    throw {
+      status: 400,
+      message: "Reset session expired. Please verify OTP again.",
+      data: null,
+    };
+  }
+  if (!newMpin || !confirmMpin) {
+    throw {
+      status: 400,
+      message: "New MPIN and Confirm MPIN are required",
+      data: null,
+    };
+  }
+  if (newMpin !== confirmMpin) {
+    throw {
+      status: 400,
+      message: "New MPIN and Confirm MPIN must match",
+      data: null,
+    };
+  }
+  if ((WEAK_MPINS as readonly string[]).includes(newMpin)) {
+    throw {
+      status: 400,
+      message: MPIN_WEAK_MESSAGE,
+      data: null,
+    };
+  }
+
+  try {
+    const { data } = await postMpinJson(
+      API_ENDPOINTS.mpinReset,
+      { resetToken, newMpin, confirmMpin },
+      { skipAuth: true }
+    );
+    return {
+      success: Boolean(asRecord(data).success ?? true),
+      message: pickMessage(data, "MPIN reset successfully"),
+    };
+  } catch (error) {
+    mapForgotMpinError(error, "Failed to reset MPIN");
+  }
+}
+
+export function maskRegisteredMobile(mobile?: string | null): string {
+  const digits = String(mobile || "").replace(/\D/g, "");
+  const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
+  if (last10.length < 4) return "your registered mobile number";
+  return `${last10.slice(0, 2)}******${last10.slice(-2)}`;
 }

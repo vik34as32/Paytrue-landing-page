@@ -27,6 +27,7 @@ export default function Dmt3SearchPage() {
   const setSearchMobile = useDmt3Store((s) => s.setSearchMobile);
   const setStep = useDmt3Store((s) => s.setStep);
   const markRemitterRegistered = useDmt3Store((s) => s.markRemitterRegistered);
+  const setBeneficiaries = useDmt3Store((s) => s.setBeneficiaries);
   const [loading, setLoading] = useState(false);
 
   const form = useForm<FormValues>({
@@ -41,6 +42,7 @@ export default function Dmt3SearchPage() {
       setSearchMobile(values.mobile);
       if (result.found && result.remitter) {
         markRemitterRegistered(result.remitter);
+        setBeneficiaries(result.beneficiaries);
         if (!result.remitter.otpVerified) {
           setStep("otp");
           const otp = await registerRemitterOtp({

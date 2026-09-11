@@ -6,6 +6,7 @@ export interface CommissionWallet {
   holdAmount: number;
   status?: string | null;
   currency?: string | null;
+  serviceName?: string | null;
   lastUpdated?: string | null;
   walletType?: string | null;
 }
@@ -19,8 +20,9 @@ export interface CommissionLedgerEntry {
   closingBalance: number;
   amount: number;
   creditDebit: "CREDIT" | "DEBIT" | string;
-  walletType: string;
+  serviceName: string;
   serviceId: string;
+  walletType?: string | null;
   remarks: string;
   type: string;
   reference: string;

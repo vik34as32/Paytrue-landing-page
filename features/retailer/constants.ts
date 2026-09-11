@@ -41,6 +41,11 @@ export const SIDEBAR_LINKS = [
     icon: "Wallet",
   },
   {
+    label: "Balance Transfer",
+    href: "/rt/balance-transfer",
+    icon: "ArrowRightLeft",
+  },
+  {
     label: "Wallet Summary",
     href: "/rt/retailer/wallet-summary",
     icon: "FileSpreadsheet",

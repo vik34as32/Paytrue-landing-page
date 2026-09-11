@@ -41,7 +41,7 @@ export default function Dmt3BeneficiariesPage() {
     name: item.name,
     mobile: item.mobile,
     bankName: item.bankName,
-    accountNumber: item.accountNumber,
+    accountNumber: item.accountNumber || item.accountMasked || "",
     ifscCode: item.ifsc,
     isVerified: item.isVerified || item.verificationStatus === "VERIFIED",
     status: item.verificationStatus,

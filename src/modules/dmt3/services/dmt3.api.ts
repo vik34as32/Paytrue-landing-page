@@ -12,6 +12,7 @@ import {
   pickApiMessage,
   unwrapList,
   unwrapRecord,
+  extractRemitterBeneficiaries,
 } from "./dmt3.mapper";
 import type {
   Dmt3AddBeneficiaryInput,
@@ -19,6 +20,7 @@ import type {
   Dmt3InitiateTransactionInput,
   Dmt3PaginationMeta,
   Dmt3Remitter,
+  Dmt3Beneficiary,
   Dmt3Transaction,
   Dmt3TransferMode,
 } from "../types/dmt3.types";
@@ -30,16 +32,34 @@ function rethrow(error: unknown, fallback: string): never {
 }
 
 export const dmt3Api = {
-  async getRemitter(mobile: string): Promise<Dmt3Remitter | null> {
+  async getRemitter(mobile: string): Promise<{
+    remitter: Dmt3Remitter;
+    beneficiaries: Dmt3Beneficiary[];
+  } | null> {
     try {
       const { data } = await api.get(
         DMT3_ENDPOINTS.remitterByMobile(mobile),
         skipAuthLogout
       );
-      return normalizeRemitter(data, mobile);
+      return {
+        remitter: normalizeRemitter(data, mobile),
+        beneficiaries: extractRemitterBeneficiaries(data),
+      };
     } catch (error) {
-      const status = (error as { status?: number; response?: { status?: number } })
-        .response?.status ?? (error as { status?: number }).status;
+      const err = error as {
+        status?: number;
+        response?: { status?: number; data?: unknown };
+        data?: unknown;
+      };
+      const status = err.response?.status ?? err.status;
+      const payload = err.data ?? err.response?.data;
+      const remitter = payload ? normalizeRemitter(payload, mobile) : null;
+      if (remitter?.remitterId || remitter?.fullName) {
+        return {
+          remitter,
+          beneficiaries: extractRemitterBeneficiaries(payload),
+        };
+      }
       if (status === 404) return null;
       rethrow(error, "Unable to search remitter");
     }

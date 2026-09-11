@@ -163,6 +163,7 @@ export const useDmt3Store = create<Dmt3State>()(
       partialize: (state) => ({
         remitter: state.remitter,
         knownRemitters: state.knownRemitters,
+        beneficiaries: state.beneficiaries,
         selectedBeneficiaryId: state.selectedBeneficiaryId,
         transfer: state.transfer,
         commission: state.commission,

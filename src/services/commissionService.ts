@@ -34,7 +34,14 @@ export async function fetchCommissionLedger(
 
   const response = await api.get(API_ENDPOINTS.walletCommissionLedger, { params });
   const rows = extractCommissionLedgerRows(response.data);
-  const items = rows.map(normalizeCommissionLedgerEntry);
+  const walletType = extractCommissionWalletType(response.data);
+  const items = rows.map((row) => {
+    const entry = normalizeCommissionLedgerEntry(row);
+    return {
+      ...entry,
+      walletType: entry.walletType || walletType || "COMMISSION",
+    };
+  });
   const pagination = extractCommissionPagination(response.data, {
     page: Number(params.page) || 1,
     limit: Number(params.limit) || 20,
@@ -44,7 +51,7 @@ export async function fetchCommissionLedger(
   return {
     items,
     pagination,
-    walletType: extractCommissionWalletType(response.data),
+    walletType,
   };
 }
 

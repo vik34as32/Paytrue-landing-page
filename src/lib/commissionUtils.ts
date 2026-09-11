@@ -73,7 +73,7 @@ export function normalizeCommissionWallet(payload: unknown): CommissionWallet {
     holdAmount: toNumber(nested.holdAmount ?? nested.holdBalance ?? raw.holdAmount),
     status: pickString(nested.status, raw.status) || null,
     currency: pickString(nested.currency, raw.currency) || "INR",
-    walletType: pickString(nested.walletType, raw.walletType) || "COMMISSION",
+    serviceName: pickString(nested.serviceName, raw.serviceName) || "COMMISSION",
     lastUpdated:
       pickString(nested.updatedAt, nested.lastUpdated, raw.updatedAt) ||
       new Date().toISOString(),
@@ -113,8 +113,9 @@ export function normalizeCommissionLedgerEntry(
     closingBalance: toNumber(raw.closingBalance ?? raw.balanceAfter ?? raw.balance),
     amount,
     creditDebit,
-    walletType: pickString(raw.walletType) || "COMMISSION",
+    serviceName: pickString(raw.serviceName) || "COMMISSION",
     serviceId: pickString(raw.serviceId, raw.service),
+    walletType: pickString(raw.walletType, raw.serviceName) || "COMMISSION",
     remarks: pickString(raw.remarks, raw.remark, raw.description, raw.narration),
     type: pickString(raw.type, raw.transactionType) || "COMMISSION",
     reference: pickString(raw.reference, raw.referenceId),
@@ -179,7 +180,7 @@ export function extractCommissionPagination(
 
 export function extractCommissionWalletType(payload: unknown): string | null {
   const raw = unwrapCommissionPayload(payload);
-  return pickString(raw.walletType) || null;
+  return pickString(raw.walletType, raw.serviceName) || "COMMISSION";
 }
 
 export function commissionLedgerPath(role: "rt" | "dd" | "md"): string {

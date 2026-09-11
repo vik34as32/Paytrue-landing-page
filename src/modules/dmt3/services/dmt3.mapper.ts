@@ -161,6 +161,19 @@ const VERIFY_MAP: Record<string, Dmt3VerificationStatus> = {
   FAILED: "FAILED",
 };
 
+export function extractRemitterBeneficiaries(payload: unknown): Dmt3Beneficiary[] {
+  const root = asRecord(payload);
+  const data = asRecord(root.data);
+  const merged = unwrapRecord(payload);
+  const rawList = [data.beneficiaries, root.beneficiaries, merged.beneficiaries].find(
+    (value) => Array.isArray(value)
+  );
+  if (!Array.isArray(rawList)) return [];
+  return rawList
+    .map((row) => normalizeBeneficiary(row))
+    .filter((row) => Boolean(row.id || row.accountNumber || row.name));
+}
+
 export function normalizeRemitter(
   payload: unknown,
   fallbackMobile = ""

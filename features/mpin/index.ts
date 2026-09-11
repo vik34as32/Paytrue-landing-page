@@ -6,15 +6,25 @@ export type {
   VerifyMpinResult,
   MpinActionResult,
   MpinVerifyApiError,
+  ForgotMpinPayload,
+  ForgotMpinOtpResult,
+  VerifyForgotMpinOtpPayload,
+  VerifyForgotMpinOtpResult,
+  ResetMpinPayload,
 } from "./types";
 
 export {
   createMpinSchema,
   changeMpinSchema,
   verifyMpinSchema,
+  forgotMpinOtpSchema,
+  resetMpinSchema,
   getMpinStrength,
   isValidMpin,
   MPIN_LENGTH,
+  MPIN_OTP_LENGTH,
+  WEAK_MPINS,
+  MPIN_WEAK_MESSAGE,
 } from "./schemas";
 
 export {
@@ -22,8 +32,14 @@ export {
   createMpin,
   changeMpin,
   verifyMpin,
+  requestForgotMpinOtp,
+  resendForgotMpinOtp,
+  verifyForgotMpinOtp,
+  resetMpin,
   mapMpinApiError,
   toMpinVerifyApiError,
+  maskRegisteredMobile,
+  resolveRetailerMobile,
 } from "./services/mpinApi";
 
 export {
@@ -31,6 +47,10 @@ export {
   useCreateMpin,
   useChangeMpin,
   useVerifyMpin,
+  useRequestForgotMpinOtp,
+  useResendForgotMpinOtp,
+  useVerifyForgotMpinOtp,
+  useResetMpin,
   MPIN_STATUS_QUERY_KEY,
 } from "./hooks/useMpin";
 

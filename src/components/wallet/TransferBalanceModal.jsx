@@ -60,8 +60,10 @@ function TransferBalanceModal({ role, open, onOpenChange }) {
     dispatch(clearTransferError());
     if (role === "md") {
       dispatch(fetchDistributors({ page: 1, limit: 100 }));
+      dispatch(fetchRetailers({ page: 1, limit: 100 }));
     } else if (role === "dd") {
       dispatch(fetchRetailers({ page: 1, limit: 100 }));
+      dispatch(fetchDistributors({ page: 1, limit: 100 }));
     } else {
       dispatch(fetchDistributors({ page: 1, limit: 100 }));
       dispatch(fetchRetailers({ page: 1, limit: 100 }));

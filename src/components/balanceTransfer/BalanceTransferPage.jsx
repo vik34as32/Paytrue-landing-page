@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { ArrowLeftRight, Loader2, ShieldCheck, Wallet } from "lucide-react";
 import { toast } from "sonner";
@@ -10,7 +10,9 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -27,6 +29,7 @@ import { selectWalletByRole } from "@/src/redux/slices/walletSlice";
 import { fetchWalletBalance } from "@/src/redux/thunks/walletThunk";
 import {
   fetchWalletTransferUsers,
+  normalizeWalletTransferRole,
   submitWalletTransfer,
 } from "@/src/services/walletTransferService";
 
@@ -35,26 +38,33 @@ const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000];
 const ROLE_META = {
   rt: {
     userType: "RETAILER",
-    peer: "Retailer",
-    peers: "retailers",
+    peer: "receiver",
+    peers: "receivers",
     title: "Balance Transfer",
-    description: "Send money to another retailer instantly.",
+    description: "Send money to another retailer in the allowed hierarchy.",
   },
   dd: {
     userType: "DISTRIBUTOR",
-    peer: "Distributor",
-    peers: "distributors",
+    peer: "receiver",
+    peers: "receivers",
     title: "Balance Transfer",
-    description: "Send money to another distributor instantly.",
+    description: "Send money to retailers under you, or to another allowed distributor.",
   },
   md: {
     userType: "MASTER_DISTRIBUTOR",
-    peer: "Master Distributor",
-    peers: "master distributors",
+    peer: "receiver",
+    peers: "receivers",
     title: "Balance Transfer",
-    description: "Send money to another master distributor instantly.",
+    description:
+      "Send money to any distributor or retailer in your hierarchy, including nested retailers.",
   },
 };
+
+const TARGET_GROUPS = [
+  { role: "RETAILER", label: "Retailers" },
+  { role: "DISTRIBUTOR", label: "Distributors" },
+  { role: "MASTER_DISTRIBUTOR", label: "Master Distributors" },
+];
 
 export default function BalanceTransferPage({ role }) {
   const dispatch = useDispatch();
@@ -62,6 +72,7 @@ export default function BalanceTransferPage({ role }) {
   const currentUser = useSelector(selectUser);
   const wallet = useSelector(selectWalletByRole(role));
   const transferRole = meta.userType;
+  const requiresMpin = role === "rt";
   const selfId = String(currentUser?.id || currentUser?._id || "");
   const available = Number(wallet?.availableBalance ?? wallet?.balance ?? 0);
 
@@ -85,12 +96,7 @@ export default function BalanceTransferPage({ role }) {
         limit: 100,
       });
       setPeers(
-        result.items.filter(
-          (item) =>
-            item.id !== selfId &&
-            item.userId !== selfId &&
-            (!item.role || item.role === transferRole)
-        )
+        result.items.filter((item) => item.id !== selfId && item.userId !== selfId)
       );
     } catch (error) {
       setPeers([]);
@@ -99,6 +105,17 @@ export default function BalanceTransferPage({ role }) {
       setLoadingPeers(false);
     }
   }, [meta.peers, selfId, transferRole]);
+
+  const groupedPeers = useMemo(
+    () =>
+      TARGET_GROUPS.map((group) => ({
+        ...group,
+        items: peers.filter(
+          (peer) => normalizeWalletTransferRole(peer.role) === group.role
+        ),
+      })).filter((group) => group.items.length > 0),
+    [peers]
+  );
 
   useEffect(() => {
     dispatch(fetchWalletBalance({ role }));
@@ -109,7 +126,7 @@ export default function BalanceTransferPage({ role }) {
 
   const openConfirm = () => {
     if (!selected?.id) {
-      setFieldError(`Select a ${meta.peer.toLowerCase()} first`);
+      setFieldError("Select a receiver first");
       return;
     }
     if (!Number.isFinite(amountValue) || amountValue <= 0) {
@@ -121,13 +138,13 @@ export default function BalanceTransferPage({ role }) {
       return;
     }
     setFieldError("");
-    setMpin("");
+    if (requiresMpin) setMpin("");
     setConfirmOpen(true);
   };
 
   const submitTransfer = async () => {
     if (!selected?.id || submitting) return;
-    if (!/^\d{4}$/.test(mpin)) {
+    if (requiresMpin && !/^\d{4}$/.test(mpin)) {
       toast.error("Enter your 4-digit MPIN");
       return;
     }
@@ -137,7 +154,9 @@ export default function BalanceTransferPage({ role }) {
         receiverId: selected.id,
         amount: amountValue,
         remarks: `Balance transfer to ${selected.name}`,
-        mpin,
+        ...(requiresMpin ? { mpin } : {}),
+        senderRole: transferRole,
+        receiverRole: selected.role,
       });
       toast.success(result.message || `Sent to ${selected.name}`);
       setConfirmOpen(false);
@@ -159,7 +178,7 @@ export default function BalanceTransferPage({ role }) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-100/80">
-              {meta.peer} to {meta.peer}
+              Hierarchy transfer
             </p>
             <h1 className="mt-1 text-2xl font-extrabold tracking-tight">{meta.title}</h1>
             <p className="mt-1 text-sm text-blue-100/90">{meta.description}</p>
@@ -183,7 +202,7 @@ export default function BalanceTransferPage({ role }) {
         <div className="space-y-5">
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-[#0b1f3a]">
-              Select {meta.peer}
+              Select receiver
             </Label>
             <Select
               value={selected?.id || ""}
@@ -196,16 +215,21 @@ export default function BalanceTransferPage({ role }) {
               <SelectTrigger className="h-12 rounded-xl">
                 <SelectValue
                   placeholder={
-                    loadingPeers ? `Loading ${meta.peers}…` : `Select ${meta.peer}`
+                    loadingPeers ? `Loading ${meta.peers}…` : "Select receiver"
                   }
                 />
               </SelectTrigger>
               <SelectContent>
-                {peers.map((peer) => (
-                  <SelectItem key={peer.id} value={peer.id}>
-                    {peer.name}
-                    {peer.mobile ? ` · ${peer.mobile}` : ""}
-                  </SelectItem>
+                {groupedPeers.map((group) => (
+                  <SelectGroup key={group.role}>
+                    <SelectLabel>{group.label}</SelectLabel>
+                    {group.items.map((peer) => (
+                      <SelectItem key={peer.id} value={peer.id}>
+                        {peer.name}
+                        {peer.mobile ? ` · ${peer.mobile}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 ))}
               </SelectContent>
             </Select>
@@ -279,7 +303,9 @@ export default function BalanceTransferPage({ role }) {
           <div className="bg-gradient-to-br from-[#021433] to-[#1565d8] px-6 py-5 text-white">
             <DialogTitle className="text-lg font-extrabold">Confirm transfer</DialogTitle>
             <DialogDescription className="text-sm text-blue-100">
-              Enter your 4-digit MPIN to send money.
+              {requiresMpin
+                ? "Enter your 4-digit MPIN to send money."
+                : "Review the details and confirm to send money."}
             </DialogDescription>
           </div>
           <div className="space-y-5 px-6 py-5">
@@ -294,14 +320,16 @@ export default function BalanceTransferPage({ role }) {
               </p>
             </div>
 
-            <AnimatedMpinInput
-              label="MPIN"
-              value={mpin}
-              onChange={setMpin}
-              autoFocus
-              disabled={submitting}
-              hint="Enter 4 digit MPIN"
-            />
+            {requiresMpin ? (
+              <AnimatedMpinInput
+                label="MPIN"
+                value={mpin}
+                onChange={setMpin}
+                autoFocus
+                disabled={submitting}
+                hint="Enter 4 digit MPIN"
+              />
+            ) : null}
 
             <div className="flex gap-3">
               <Button
@@ -317,7 +345,7 @@ export default function BalanceTransferPage({ role }) {
                 type="button"
                 className="h-12 flex-1 rounded-xl bg-gradient-to-r from-[#0A84FF] to-[#0057D9]"
                 onClick={() => void submitTransfer()}
-                disabled={submitting || mpin.length !== 4}
+                disabled={submitting || (requiresMpin && mpin.length !== 4)}
               >
                 {submitting ? (
                   <>

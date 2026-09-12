@@ -308,11 +308,18 @@ export function getWalletRoleKey(role) {
 }
 
 export const RECEIVER_TYPES_BY_ROLE = {
-  md: [{ value: "DISTRIBUTOR", label: "Distributor" }],
-  dd: [{ value: "RETAILER", label: "Retailer" }],
-  rt: [
+  md: [
     { value: "DISTRIBUTOR", label: "Distributor" },
     { value: "RETAILER", label: "Retailer" },
+    { value: "MASTER_DISTRIBUTOR", label: "Master Distributor" },
+  ],
+  dd: [
+    { value: "RETAILER", label: "Retailer" },
+    { value: "DISTRIBUTOR", label: "Distributor" },
+  ],
+  rt: [
+    { value: "RETAILER", label: "Retailer" },
+    { value: "DISTRIBUTOR", label: "Distributor" },
   ],
 };
 

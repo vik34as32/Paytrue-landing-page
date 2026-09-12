@@ -6,6 +6,31 @@ export type WalletTransferRole =
   | "DISTRIBUTOR"
   | "MASTER_DISTRIBUTOR";
 
+/** Allowed receivers by sender role. Listing still comes from JWT-scoped APIs. */
+export const TRANSFER_TARGET_ROLES: Record<WalletTransferRole, WalletTransferRole[]> = {
+  RETAILER: ["RETAILER", "DISTRIBUTOR"],
+  DISTRIBUTOR: ["RETAILER", "DISTRIBUTOR"],
+  MASTER_DISTRIBUTOR: ["RETAILER", "DISTRIBUTOR", "MASTER_DISTRIBUTOR"],
+};
+
+export function normalizeWalletTransferRole(value: string): WalletTransferRole | "" {
+  const key = String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_");
+  if (key === "RT" || key === "RETAILER") return "RETAILER";
+  if (key === "DD" || key === "DISTRIBUTOR") return "DISTRIBUTOR";
+  if (key === "MD" || key === "MASTER_DISTRIBUTOR" || key === "MASTERDISTRIBUTOR") {
+    return "MASTER_DISTRIBUTOR";
+  }
+  return "";
+}
+
+function isInactiveStatus(status: string) {
+  const key = status.trim().toUpperCase();
+  return ["INACTIVE", "BLOCKED", "SUSPENDED", "DISABLED", "REJECTED"].includes(key);
+}
+
 export interface WalletTransferUser {
   id: string;
   userId: string;
@@ -129,26 +154,104 @@ export function mapWalletTransferHistory(row: unknown): WalletTransferHistoryIte
   };
 }
 
+async function fetchUsersByType(
+  userType: WalletTransferRole,
+  search?: string,
+  page = 1,
+  limit = 100
+): Promise<WalletTransferUser[]> {
+  const params: Record<string, string | number> = {
+    page,
+    limit,
+    userType,
+  };
+  if (search?.trim()) params.search = search.trim();
+
+  const response = await api.get(API_ENDPOINTS.users, { params });
+  return unwrapRows(response.data)
+    .map((row) => {
+      const mapped = mapWalletTransferUser(row);
+      return {
+        ...mapped,
+        role: normalizeWalletTransferRole(mapped.role) || userType,
+      };
+    })
+    .filter((row) => row.id);
+}
+
+async function fetchSameRolePeers(
+  role: WalletTransferRole,
+  search?: string,
+  page = 1,
+  limit = 100
+): Promise<WalletTransferUser[]> {
+  const params: Record<string, string | number> = {
+    role,
+    page,
+    limit,
+    status: "ACTIVE",
+  };
+  if (search?.trim()) params.search = search.trim();
+
+  const response = await api.get(API_ENDPOINTS.walletPeerTransferUsers, { params });
+  return unwrapRows(response.data)
+    .map((row) => {
+      const mapped = mapWalletTransferUser(row);
+      return {
+        ...mapped,
+        role: normalizeWalletTransferRole(mapped.role) || role,
+      };
+    })
+    .filter((row) => row.id);
+}
+
+async function safeList(loader: () => Promise<WalletTransferUser[]>): Promise<WalletTransferUser[]> {
+  try {
+    return await loader();
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchWalletTransferUsers(input: {
   role: WalletTransferRole;
   search?: string;
   page?: number;
   limit?: number;
 }): Promise<PaginatedResult<WalletTransferUser>> {
-  const params: Record<string, string | number> = {
-    role: input.role,
-    page: input.page ?? 1,
-    limit: input.limit ?? 40,
-    status: "ACTIVE",
-  };
-  if (input.search?.trim()) params.search = input.search.trim();
+  const senderRole = normalizeWalletTransferRole(input.role) || input.role;
+  const targetRoles = TRANSFER_TARGET_ROLES[senderRole] ?? [senderRole];
+  const page = input.page ?? 1;
+  const limit = input.limit ?? 100;
 
-  const response = await api.get(API_ENDPOINTS.walletPeerTransferUsers, { params });
-  const payload = response.data;
-  const items = unwrapRows(payload)
-    .map(mapWalletTransferUser)
-    .filter((row) => row.id && (!row.role || row.role === input.role));
-  return { items, ...unwrapPagination(payload, items.length) };
+  const lists = await Promise.all([
+    ...targetRoles.map((userType) =>
+      safeList(() => fetchUsersByType(userType, input.search, page, limit))
+    ),
+    safeList(() => fetchSameRolePeers(senderRole, input.search, page, limit)),
+  ]);
+
+  const allowed = new Set(targetRoles);
+  const seen = new Set<string>();
+  const items: WalletTransferUser[] = [];
+  for (const group of lists) {
+    for (const row of group) {
+      if (seen.has(row.id)) continue;
+      if (isInactiveStatus(row.status)) continue;
+      const role = normalizeWalletTransferRole(row.role) || row.role;
+      if (role && !allowed.has(role as WalletTransferRole)) continue;
+      seen.add(row.id);
+      items.push({ ...row, role });
+    }
+  }
+
+  return {
+    items,
+    page,
+    limit,
+    total: items.length,
+    totalPages: 1,
+  };
 }
 
 export async function fetchWalletTransferHistory(input: {
@@ -168,34 +271,107 @@ export async function fetchWalletTransferHistory(input: {
   return { items, ...unwrapPagination(payload, items.length) };
 }
 
+function parseTransferResponse(
+  payload: unknown,
+  amount: number
+): { transactionId?: string; amount?: number; status?: string; message?: string } {
+  const root = asRecord(payload);
+  const data = asRecord(root.data);
+  return {
+    transactionId: pickString(data.transactionId, root.transactionId),
+    amount: pickNumber(data.amount, amount),
+    status: pickString(data.status, "SUCCESS"),
+    message: pickString(root.message, "Balance transferred successfully"),
+  };
+}
+
+async function postHierarchyTransfer(input: {
+  receiverId: string;
+  amount: number;
+  remarks: string;
+  mpin?: string;
+  idempotencyKey: string;
+}) {
+  const body: Record<string, string | number> = {
+    receiverId: input.receiverId,
+    amount: input.amount,
+    description: input.remarks,
+    remarks: input.remarks,
+    idempotencyKey: input.idempotencyKey,
+  };
+  if (input.mpin) body.mpin = input.mpin;
+
+  const response = await api.post(API_ENDPOINTS.walletTransfer, body, {
+    headers: { "Idempotency-Key": input.idempotencyKey },
+  });
+  return parseTransferResponse(response.data, input.amount);
+}
+
+async function postPeerTransfer(input: {
+  receiverId: string;
+  amount: number;
+  remarks: string;
+  mpin?: string;
+  idempotencyKey: string;
+}) {
+  const body: Record<string, string | number> = {
+    receiverId: input.receiverId,
+    amount: input.amount,
+    remarks: input.remarks,
+    idempotencyKey: input.idempotencyKey,
+  };
+  if (input.mpin) body.mpin = input.mpin;
+
+  const response = await api.post(API_ENDPOINTS.walletPeerTransfer, body, {
+    headers: { "Idempotency-Key": input.idempotencyKey },
+  });
+  return parseTransferResponse(response.data, input.amount);
+}
+
 export async function submitWalletTransfer(input: {
   receiverId: string;
   amount: number;
   remarks?: string;
   mpin?: string;
+  senderRole?: string;
+  receiverRole?: string;
 }): Promise<{ transactionId?: string; amount?: number; status?: string; message?: string }> {
   const idempotencyKey =
     typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID().replace(/-/g, "").slice(0, 24)
       : `w2w${Date.now()}${Math.random().toString(16).slice(2, 10)}`;
 
-  const body: Record<string, string | number> = {
+  const remarks = input.remarks?.trim() || "Balance transfer";
+  const senderRole = normalizeWalletTransferRole(input.senderRole || "");
+  const receiverRole = normalizeWalletTransferRole(input.receiverRole || "");
+  const sameRole = Boolean(senderRole && receiverRole && senderRole === receiverRole);
+
+  const payload = {
     receiverId: input.receiverId,
     amount: input.amount,
-    remarks: input.remarks?.trim() || "Balance transfer",
+    remarks,
+    mpin: input.mpin,
     idempotencyKey,
   };
-  if (input.mpin) body.mpin = input.mpin;
 
-  const response = await api.post(API_ENDPOINTS.walletPeerTransfer, body, {
-    headers: { "Idempotency-Key": idempotencyKey },
-  });
-  const root = asRecord(response.data);
-  const data = asRecord(root.data);
-  return {
-    transactionId: pickString(data.transactionId, root.transactionId),
-    amount: pickNumber(data.amount, input.amount),
-    status: pickString(data.status, "SUCCESS"),
-    message: pickString(root.message, "Balance transferred successfully"),
-  };
+  // Same-role (RT→RT, DD→DD, MD→MD) uses /wallet-transfer.
+  // Cross-role hierarchy (MD→DD, MD→RT, DD→RT) uses the existing /wallet/transfer API.
+  if (!sameRole) {
+    return postHierarchyTransfer(payload);
+  }
+
+  try {
+    return await postPeerTransfer(payload);
+  } catch (error) {
+    const status = Number((error as { status?: number })?.status);
+    const message = String((error as { message?: string })?.message || "").toLowerCase();
+    const shouldFallback =
+      status === 404 ||
+      status === 405 ||
+      /same role|same-role|role mismatch|receiver role|user type|not allowed|unauthorized|hierarchy/.test(
+        message
+      );
+    if (!shouldFallback) throw error;
+    return postHierarchyTransfer(payload);
+  }
 }

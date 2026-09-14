@@ -17,6 +17,7 @@ import {
   MinusCircle,
   FileSpreadsheet,
   IndianRupee,
+  Repeat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +33,7 @@ const iconMap = {
   MinusCircle,
   FileSpreadsheet,
   IndianRupee,
+  Repeat,
 };
 
 export default function PortalSidebar({

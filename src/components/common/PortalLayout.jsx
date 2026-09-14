@@ -30,7 +30,11 @@ export default function PortalLayout({ children, role }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const config = PORTAL_CONFIG[role];
   const hideWalletStrip =
-    role === "md" || (role === "dd" && pathname === "/dd/dashboard");
+    role === "md" ||
+    (role === "dd" &&
+      (pathname === "/dd/dashboard" ||
+        pathname.startsWith("/dd/balance-transfer") ||
+        pathname.startsWith("/dd/wallet-to-wallet")));
   const commissionHref = commissionLedgerPath(role);
 
   const hydrated = useSelector(selectAuthHydrated);

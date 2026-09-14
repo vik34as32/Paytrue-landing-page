@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { ArrowLeftRight, Loader2, ShieldCheck, Wallet } from "lucide-react";
+import { Loader2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,68 +35,115 @@ import {
 
 const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000];
 
-const ROLE_META = {
-  rt: {
-    userType: "RETAILER",
-    peer: "receiver",
-    peers: "receivers",
-    title: "Balance Transfer",
-    description: "Send money to another retailer in the allowed hierarchy.",
-  },
-  dd: {
-    userType: "DISTRIBUTOR",
-    peer: "receiver",
-    peers: "receivers",
-    title: "Balance Transfer",
-    description: "Send money to retailers under you, or to another allowed distributor.",
-  },
-  md: {
-    userType: "MASTER_DISTRIBUTOR",
-    peer: "receiver",
-    peers: "receivers",
-    title: "Balance Transfer",
-    description:
-      "Send money to any distributor or retailer in your hierarchy, including nested retailers.",
-  },
+/**
+ * downline → Balance Transfer:
+ *   DD: all hierarchy retailers (with phone)
+ *   MD: all hierarchy distributors (with phone)
+ * peer     → Wallet to Wallet (DD/MD): number search for peer distributors
+ * rt       → Retailer portal: number search for allowed receivers
+ */
+const DOWNLINE_DD = {
+  title: "Balance Transfer",
+  eyebrow: "Retailer transfer",
+  description: "Transfer balance to retailers under your hierarchy.",
+  targetRoles: ["RETAILER"],
+  groupLabel: "Retailers",
+  useNumberSearch: false,
+  showMobile: true,
+  emptyHint: "No retailers found",
+  searchPlaceholder: "Search name or phone...",
+  selectPlaceholder: "Choose retailer",
+  helpText: "Select a retailer from the dropdown. Name and phone are shown.",
 };
 
-const TARGET_GROUPS = [
-  { role: "RETAILER", label: "Retailers" },
-  { role: "DISTRIBUTOR", label: "Distributors" },
-  { role: "MASTER_DISTRIBUTOR", label: "Master Distributors" },
-];
+const DOWNLINE_MD = {
+  title: "Balance Transfer",
+  eyebrow: "Distributor transfer",
+  description: "Transfer balance to distributors under your hierarchy.",
+  targetRoles: ["DISTRIBUTOR"],
+  groupLabel: "Distributors",
+  useNumberSearch: false,
+  showMobile: true,
+  emptyHint: "No distributors found",
+  searchPlaceholder: "Search name or phone...",
+  selectPlaceholder: "Choose distributor",
+  helpText: "Select a distributor from the dropdown. Name and phone are shown.",
+};
 
-function isDistributorLike(role) {
-  const key = normalizeWalletTransferRole(role || "");
-  return key === "DISTRIBUTOR" || key === "MASTER_DISTRIBUTOR";
-}
+const PEER_MODE = {
+  title: "Wallet to Wallet Transfer",
+  eyebrow: "Distributor transfer",
+  description: "Search by mobile number to transfer to an allowed distributor.",
+  targetRoles: ["DISTRIBUTOR"],
+  groupLabel: "Distributors",
+  useNumberSearch: true,
+  showMobile: false,
+  emptyHint: "No distributors found",
+  searchPlaceholder: "Search by mobile number...",
+  selectPlaceholder: "Search mobile number to find distributor",
+  numberSearchHint: "Type at least 3 digits of distributor mobile number",
+  helpText:
+    "Type at least 3 digits of the distributor mobile number. Only matching distributors appear. Numbers stay hidden.",
+};
 
-/** Dropdown label: name only — never show distributor/MD mobile */
-function receiverListLabel(peer) {
-  return peer?.name || "Member";
+const RT_MODE = {
+  title: "Balance Transfer",
+  eyebrow: "Wallet transfer",
+  description: "Search by mobile number to transfer to an allowed receiver.",
+  targetRoles: ["RETAILER", "DISTRIBUTOR"],
+  groupLabel: "Receivers",
+  useNumberSearch: true,
+  showMobile: false,
+  emptyHint: "No receivers found",
+  searchPlaceholder: "Search by mobile number...",
+  selectPlaceholder: "Search mobile number to find receiver",
+  numberSearchHint: "Type at least 3 digits of mobile number",
+  helpText:
+    "Type at least 3 digits of the mobile number. Only matching receivers appear. Numbers stay hidden.",
+};
+
+function getModeMeta(resolvedMode, role) {
+  if (resolvedMode === "peer") return PEER_MODE;
+  if (resolvedMode === "rt") return RT_MODE;
+  return role === "md" ? DOWNLINE_MD : DOWNLINE_DD;
 }
 
 function getSearchDigits(query) {
   return String(query || "").replace(/\D/g, "");
 }
 
-/** Only treat as active search when user typed 3+ mobile digits */
 function isActiveNumberSearch(query) {
-  const digits = getSearchDigits(query);
-  return digits.length >= 3;
+  return getSearchDigits(query).length >= 3;
 }
 
-export default function BalanceTransferPage({ role }) {
+function receiverOptionLabel(peer, showMobile) {
+  const name = peer?.name || "Member";
+  if (!showMobile) return name;
+  const mobile = String(peer?.mobile || "").trim();
+  return mobile ? `${name} · ${mobile}` : name;
+}
+
+export default function BalanceTransferPage({ role, mode }) {
   const dispatch = useDispatch();
-  const meta = ROLE_META[role] ?? ROLE_META.rt;
+  const resolvedMode = mode || (role === "rt" ? "rt" : "downline");
+  const modeMeta = getModeMeta(resolvedMode, role);
   const currentUser = useSelector(selectUser);
   const wallet = useSelector(selectWalletByRole(role));
-  const transferRole = meta.userType;
+  const senderRole =
+    role === "md"
+      ? "MASTER_DISTRIBUTOR"
+      : role === "dd"
+        ? "DISTRIBUTOR"
+        : "RETAILER";
   const requiresMpin = role === "rt";
   const selfId = String(currentUser?.id || currentUser?._id || "");
   const available = Number(wallet?.availableBalance ?? wallet?.balance ?? 0);
+  const useNumberSearch = modeMeta.useNumberSearch;
+  const showMobile = Boolean(modeMeta.showMobile);
+  const targetRoles = modeMeta.targetRoles;
 
   const [peers, setPeers] = useState([]);
+  const [loadingPeers, setLoadingPeers] = useState(!useNumberSearch);
   const [peerError, setPeerError] = useState("");
   const [selected, setSelected] = useState(null);
   const [amount, setAmount] = useState("");
@@ -108,7 +155,7 @@ export default function BalanceTransferPage({ role }) {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searching, setSearching] = useState(false);
 
-  const hasNumberSearch = isActiveNumberSearch(debouncedSearch);
+  const hasNumberSearch = useNumberSearch && isActiveNumberSearch(debouncedSearch);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -117,7 +164,29 @@ export default function BalanceTransferPage({ role }) {
     return () => window.clearTimeout(timer);
   }, [receiverSearch]);
 
-  const searchPeersByNumber = useCallback(
+  const loadDownlineReceivers = useCallback(async () => {
+    setLoadingPeers(true);
+    setPeerError("");
+    try {
+      const result = await fetchWalletTransferUsers({
+        role: senderRole,
+        page: 1,
+        limit: 100,
+        targetRoles,
+        fetchAll: true,
+      });
+      setPeers(
+        result.items.filter((item) => item.id !== selfId && item.userId !== selfId)
+      );
+    } catch (error) {
+      setPeers([]);
+      setPeerError(error?.message || "Unable to load receivers");
+    } finally {
+      setLoadingPeers(false);
+    }
+  }, [senderRole, selfId, targetRoles]);
+
+  const searchReceiversByNumber = useCallback(
     async (search) => {
       const digits = getSearchDigits(search);
       if (!isActiveNumberSearch(search)) {
@@ -130,12 +199,12 @@ export default function BalanceTransferPage({ role }) {
       setPeerError("");
       try {
         const result = await fetchWalletTransferUsers({
-          role: transferRole,
+          role: senderRole,
           page: 1,
           limit: 100,
           search,
+          targetRoles,
         });
-        // Strict: only users whose mobile contains typed digits
         setPeers(
           result.items.filter((item) => {
             if (item.id === selfId || item.userId === selfId) return false;
@@ -145,43 +214,61 @@ export default function BalanceTransferPage({ role }) {
         );
       } catch (error) {
         setPeers([]);
-        setPeerError(error?.message || `Unable to search ${meta.peers}`);
+        setPeerError(error?.message || "Unable to search receivers");
       } finally {
         setSearching(false);
       }
     },
-    [meta.peers, selfId, transferRole]
+    [senderRole, selfId, targetRoles]
   );
 
-  // Empty until number search — then ONLY mobile-matched users
-  const groupedPeers = useMemo(() => {
-    if (!hasNumberSearch) return [];
+  const visiblePeers = useMemo(() => {
+    if (useNumberSearch) {
+      if (!hasNumberSearch) return [];
+      const digits = getSearchDigits(debouncedSearch);
+      return peers.filter((peer) =>
+        String(peer.mobile || "").replace(/\D/g, "").includes(digits)
+      );
+    }
+    const q = debouncedSearch.trim().toLowerCase();
+    if (!q) return peers;
     const digits = getSearchDigits(debouncedSearch);
-    const matched = peers.filter((peer) => {
+    return peers.filter((peer) => {
+      const name = String(peer.name || "").toLowerCase();
+      const code = String(peer.userCode || "").toLowerCase();
       const mobile = String(peer.mobile || "").replace(/\D/g, "");
-      return mobile.includes(digits);
+      return (
+        name.includes(q) ||
+        code.includes(q) ||
+        (digits && mobile.includes(digits))
+      );
     });
-    return TARGET_GROUPS.map((group) => ({
-      ...group,
-      items: matched.filter(
-        (peer) => normalizeWalletTransferRole(peer.role) === group.role
-      ),
-    })).filter((group) => group.items.length > 0);
-  }, [peers, hasNumberSearch, debouncedSearch]);
+  }, [peers, useNumberSearch, hasNumberSearch, debouncedSearch]);
 
   useEffect(() => {
     dispatch(fetchWalletBalance({ role }));
   }, [dispatch, role]);
 
   useEffect(() => {
+    if (useNumberSearch) return;
+    void loadDownlineReceivers();
+  }, [useNumberSearch, loadDownlineReceivers]);
+
+  useEffect(() => {
+    if (!useNumberSearch) return;
     if (!hasNumberSearch) {
       setPeers([]);
       setPeerError("");
       setSearching(false);
       return;
     }
-    void searchPeersByNumber(debouncedSearch);
-  }, [debouncedSearch, hasNumberSearch, searchPeersByNumber]);
+    void searchReceiversByNumber(debouncedSearch);
+  }, [
+    useNumberSearch,
+    hasNumberSearch,
+    debouncedSearch,
+    searchReceiversByNumber,
+  ]);
 
   const amountValue = Number(amount);
 
@@ -216,8 +303,8 @@ export default function BalanceTransferPage({ role }) {
         amount: amountValue,
         remarks: `Balance transfer to ${selected.name}`,
         ...(requiresMpin ? { mpin } : {}),
-        senderRole: transferRole,
-        receiverRole: selected.role,
+        senderRole,
+        receiverRole: selected.role || modeMeta.targetRoles[0],
       });
       toast.success(result.message || `Sent to ${selected.name}`);
       setConfirmOpen(false);
@@ -226,7 +313,11 @@ export default function BalanceTransferPage({ role }) {
       setMpin("");
       setReceiverSearch("");
       setDebouncedSearch("");
-      setPeers([]);
+      if (useNumberSearch) {
+        setPeers([]);
+      } else {
+        void loadDownlineReceivers();
+      }
       dispatch(fetchWalletBalance({ role }));
     } catch (error) {
       toast.error(error?.message || "Transfer failed");
@@ -235,53 +326,57 @@ export default function BalanceTransferPage({ role }) {
     }
   };
 
-  const selectedIsDistributor = isDistributorLike(selected?.role);
+  const roleLabel =
+    normalizeWalletTransferRole(selected?.role) === "DISTRIBUTOR"
+      ? "Distributor"
+      : normalizeWalletTransferRole(selected?.role) === "MASTER_DISTRIBUTOR"
+        ? "Master Distributor"
+        : "Retailer";
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
-      <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-[#021433] via-[#0d47a1] to-[#1565d8] px-6 py-6 text-white shadow-[0_18px_40px_rgba(11,47,115,0.25)]">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-100/80">
-              Hierarchy transfer
-            </p>
-            <h1 className="mt-1 text-2xl font-extrabold tracking-tight">{meta.title}</h1>
-            <p className="mt-1 text-sm text-blue-100/90">{meta.description}</p>
-          </div>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
-            <ArrowLeftRight className="h-5 w-5" />
-          </div>
-        </div>
-        <div className="mt-5 flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-white/15">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-100/80">
-              Available balance
-            </p>
-            <p className="text-2xl font-black tabular-nums">{formatCurrency(available)}</p>
-          </div>
-          <ShieldCheck className="h-5 w-5 text-blue-100" />
-        </div>
-      </section>
+      <div>
+        <h1 className="text-xl font-extrabold tracking-tight text-[#0b1f3a] sm:text-2xl">
+          {modeMeta.title}
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">{modeMeta.description}</p>
+      </div>
 
       <section className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-[0_12px_36px_rgba(11,31,58,0.06)] sm:p-6">
         <div className="space-y-5">
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-[#0b1f3a]">
-              Select receiver
+              {useNumberSearch
+                ? "Select receiver"
+                : role === "md"
+                  ? "Choose distributor"
+                  : "Choose retailer"}
             </Label>
             <Select
               value={selected?.id || ""}
               onValueChange={(id) => {
                 const found =
+                  visiblePeers.find((peer) => peer.id === id) ||
                   peers.find((peer) => peer.id === id) ||
                   (selected?.id === id ? selected : null);
                 setSelected(found);
                 setFieldError("");
               }}
+              disabled={!useNumberSearch && loadingPeers && !peers.length}
             >
               <SelectTrigger className="h-12 rounded-xl">
-                <SelectValue placeholder="Search mobile number to find receiver">
-                  {selected ? receiverListLabel(selected) : undefined}
+                <SelectValue
+                  placeholder={
+                    useNumberSearch
+                      ? modeMeta.selectPlaceholder
+                      : loadingPeers
+                        ? "Loading…"
+                        : modeMeta.selectPlaceholder
+                  }
+                >
+                  {selected
+                    ? receiverOptionLabel(selected, showMobile)
+                    : undefined}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -292,11 +387,16 @@ export default function BalanceTransferPage({ role }) {
                 >
                   <Input
                     value={receiverSearch}
-                    onChange={(event) =>
-                      setReceiverSearch(event.target.value.replace(/[^\d\s+-]/g, ""))
-                    }
-                    placeholder="Search by mobile number..."
-                    inputMode="numeric"
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setReceiverSearch(
+                        useNumberSearch
+                          ? value.replace(/[^\d\s+-]/g, "")
+                          : value
+                      );
+                    }}
+                    placeholder={modeMeta.searchPlaceholder}
+                    inputMode={useNumberSearch ? "numeric" : "text"}
                     className="h-9"
                     autoComplete="off"
                   />
@@ -307,31 +407,31 @@ export default function BalanceTransferPage({ role }) {
                     </p>
                   ) : null}
                 </div>
-                {!hasNumberSearch ? (
+
+                {useNumberSearch && !hasNumberSearch ? (
                   <p className="px-3 py-3 text-sm text-slate-500">
-                    Type at least 3 digits of mobile number to search
+                    {modeMeta.numberSearchHint}
                   </p>
-                ) : groupedPeers.length === 0 && !searching ? (
-                  <p className="px-3 py-3 text-sm text-slate-500">No users found</p>
+                ) : loadingPeers ? (
+                  <p className="px-3 py-3 text-sm text-slate-500">Loading…</p>
+                ) : visiblePeers.length === 0 ? (
+                  <p className="px-3 py-3 text-sm text-slate-500">
+                    {modeMeta.emptyHint}
+                  </p>
                 ) : (
-                  groupedPeers.map((group) => (
-                    <SelectGroup key={group.role}>
-                      <SelectLabel>{group.label}</SelectLabel>
-                      {group.items.map((peer) => (
-                        <SelectItem key={peer.id} value={peer.id}>
-                          {receiverListLabel(peer)}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))
+                  <SelectGroup>
+                    <SelectLabel>{modeMeta.groupLabel}</SelectLabel>
+                    {visiblePeers.map((peer) => (
+                      <SelectItem key={peer.id} value={peer.id}>
+                        {receiverOptionLabel(peer, showMobile)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 )}
               </SelectContent>
             </Select>
             {peerError ? <p className="text-sm text-rose-600">{peerError}</p> : null}
-            <p className="text-xs text-slate-500">
-              Sirf usi retailer/distributor ka naam dikhega jiska mobile number match kare.
-              Baaki list nahi aayegi. Distributor number hide rahega.
-            </p>
+            <p className="text-xs text-slate-500">{modeMeta.helpText}</p>
           </div>
 
           <div className="space-y-2">
@@ -411,18 +511,13 @@ export default function BalanceTransferPage({ role }) {
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                 Sending to
               </p>
-              <p className="mt-1 text-base font-extrabold text-[#0b1f3a]">{selected?.name}</p>
-              {!selectedIsDistributor && selected?.mobile ? (
+              <p className="mt-1 text-base font-extrabold text-[#0b1f3a]">
+                {selected?.name}
+              </p>
+              {showMobile && selected?.mobile ? (
                 <p className="text-sm text-slate-500">{selected.mobile}</p>
               ) : (
-                <p className="text-sm text-slate-500">
-                  {normalizeWalletTransferRole(selected?.role) === "DISTRIBUTOR"
-                    ? "Distributor"
-                    : normalizeWalletTransferRole(selected?.role) ===
-                        "MASTER_DISTRIBUTOR"
-                      ? "Master Distributor"
-                      : "Retailer"}
-                </p>
+                <p className="text-sm text-slate-500">{roleLabel}</p>
               )}
               <p className="mt-3 text-2xl font-black tabular-nums text-[#1565d8]">
                 {formatCurrency(amountValue || 0)}

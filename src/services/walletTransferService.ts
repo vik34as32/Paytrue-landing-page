@@ -154,12 +154,12 @@ export function mapWalletTransferHistory(row: unknown): WalletTransferHistoryIte
   };
 }
 
-async function fetchUsersByType(
+async function fetchUsersByTypePage(
   userType: WalletTransferRole,
   search?: string,
   page = 1,
   limit = 100
-): Promise<WalletTransferUser[]> {
+): Promise<{ items: WalletTransferUser[]; totalPages: number; total: number }> {
   const params: Record<string, string | number> = {
     page,
     limit,
@@ -168,7 +168,7 @@ async function fetchUsersByType(
   if (search?.trim()) params.search = search.trim();
 
   const response = await api.get(API_ENDPOINTS.users, { params });
-  return unwrapRows(response.data)
+  const items = unwrapRows(response.data)
     .map((row) => {
       const mapped = mapWalletTransferUser(row);
       return {
@@ -177,6 +177,41 @@ async function fetchUsersByType(
       };
     })
     .filter((row) => row.id);
+  const pagination = unwrapPagination(response.data, items.length);
+  return {
+    items,
+    totalPages: pagination.totalPages,
+    total: pagination.total,
+  };
+}
+
+async function fetchUsersByType(
+  userType: WalletTransferRole,
+  search?: string,
+  page = 1,
+  limit = 100
+): Promise<WalletTransferUser[]> {
+  const result = await fetchUsersByTypePage(userType, search, page, limit);
+  return result.items;
+}
+
+/** Load every page for a userType so hierarchy dropdowns are complete. */
+async function fetchAllUsersByType(
+  userType: WalletTransferRole,
+  search?: string,
+  pageSize = 100
+): Promise<WalletTransferUser[]> {
+  const first = await fetchUsersByTypePage(userType, search, 1, pageSize);
+  const items = [...first.items];
+  const totalPages = Math.max(1, first.totalPages || 1);
+  const maxPages = Math.min(totalPages, 50);
+
+  for (let page = 2; page <= maxPages; page += 1) {
+    const next = await fetchUsersByTypePage(userType, search, page, pageSize);
+    items.push(...next.items);
+    if (!next.items.length) break;
+  }
+  return items;
 }
 
 async function fetchSameRolePeers(
@@ -224,15 +259,23 @@ export async function fetchWalletTransferUsers(input: {
   search?: string;
   page?: number;
   limit?: number;
+  /** Override default TRANSFER_TARGET_ROLES for this sender */
+  targetRoles?: WalletTransferRole[];
+  /** Paginate through all hierarchy pages (for Balance Transfer dropdowns) */
+  fetchAll?: boolean;
 }): Promise<PaginatedResult<WalletTransferUser>> {
   const senderRole = normalizeWalletTransferRole(input.role) || input.role;
-  const targetRoles = TRANSFER_TARGET_ROLES[senderRole] ?? [senderRole];
+  const targetRoles =
+    input.targetRoles?.length
+      ? input.targetRoles
+      : TRANSFER_TARGET_ROLES[senderRole] ?? [senderRole];
   const page = input.page ?? 1;
   const limit = input.limit ?? 100;
   const search = input.search?.trim() || "";
   const searchDigits = search.replace(/\D/g, "");
   const isNumberSearch =
     searchDigits.length >= 3 && /^\d[\d\s+-]*$/.test(search);
+  const fetchAll = Boolean(input.fetchAll) && !isNumberSearch;
 
   const allowed = new Set(targetRoles);
 
@@ -280,7 +323,10 @@ export async function fetchWalletTransferUsers(input: {
         ...targetRoles.map((userType) =>
           safeList(() => fetchUsersByType(userType, undefined, page, limit))
         ),
-        safeList(() => fetchSameRolePeers(senderRole, undefined, page, limit)),
+        // Same-role peers only when peer role is in targetRoles
+        targetRoles.includes(senderRole)
+          ? safeList(() => fetchSameRolePeers(senderRole, undefined, page, limit))
+          : Promise.resolve([]),
       ]);
       const items = collectAllowed(lists.flat());
       return { items, page: 1, limit, total: items.length, totalPages: 1 };
@@ -289,16 +335,22 @@ export async function fetchWalletTransferUsers(input: {
 
   const lists = await Promise.all([
     ...targetRoles.map((userType) =>
-      safeList(() => fetchUsersByType(userType, search || undefined, page, limit))
+      safeList(() =>
+        fetchAll
+          ? fetchAllUsersByType(userType, search || undefined, limit)
+          : fetchUsersByType(userType, search || undefined, page, limit)
+      )
     ),
-    safeList(() => fetchSameRolePeers(senderRole, search || undefined, page, limit)),
+    targetRoles.includes(senderRole)
+      ? safeList(() => fetchSameRolePeers(senderRole, search || undefined, page, limit))
+      : Promise.resolve([]),
   ]);
 
   const items = collectAllowed(lists.flat());
 
   return {
     items,
-    page,
+    page: fetchAll ? 1 : page,
     limit,
     total: items.length,
     totalPages: 1,

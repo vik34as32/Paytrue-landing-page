@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { motion } from "framer-motion";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
-import { ArrowLeftRight, Users, Store, Wallet, FileText } from "lucide-react";
+import { ArrowLeftRight, Users, Store, Wallet, FileText, Repeat } from "lucide-react";
 import StatsCards from "@/src/components/dashboard/StatsCards";
 import { Button } from "@/components/ui/button";
 import {
@@ -61,12 +61,14 @@ export default function DashboardPage({ role }) {
     ? [
         { label: "Create Distributor", href: `${basePath}/distributors/create`, icon: Users },
         { label: "Balance Transfer", href: `${basePath}/balance-transfer`, icon: ArrowLeftRight },
+        { label: "Wallet to Wallet", href: `${basePath}/wallet-to-wallet`, icon: Repeat },
         { label: "Fund Request", href: `${basePath}/fund-requests`, icon: Wallet },
         { label: "Transactions", href: `${basePath}/transactions`, icon: FileText },
       ]
     : [
         { label: "Create Retailer", href: `${basePath}/retailers/create`, icon: Store },
         { label: "Balance Transfer", href: `${basePath}/balance-transfer`, icon: ArrowLeftRight },
+        { label: "Wallet to Wallet", href: `${basePath}/wallet-to-wallet`, icon: Repeat },
         { label: "Fund Requests", href: `${basePath}/fund-requests`, icon: Wallet },
         { label: "Transactions", href: `${basePath}/transactions`, icon: FileText },
       ];

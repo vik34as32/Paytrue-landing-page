@@ -30,6 +30,7 @@ export default function Dmt2BeneficiariesPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  console.log("hhe")
 
   const load = useCallback(async () => {
     if (!retailer.mobile) return;

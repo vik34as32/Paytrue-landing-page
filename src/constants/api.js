@@ -7,6 +7,7 @@ export const API_ENDPOINTS = {
   resendLoginOtp: "/auth/resend-login-otp",
   profile: "/auth/profile",
   users: "/users",
+  usersSearch: "/users/search",
   wallet: "/wallet",
   walletTransfer: "/wallet/transfer",
   walletDeduct: "/wallet/deduct",

@@ -213,6 +213,12 @@ async function safeList(loader: () => Promise<WalletTransferUser[]>): Promise<Wa
   }
 }
 
+function mobileMatchesDigits(mobile: string | undefined, digits: string): boolean {
+  if (!digits) return false;
+  const normalized = String(mobile || "").replace(/\D/g, "");
+  return normalized.includes(digits);
+}
+
 export async function fetchWalletTransferUsers(input: {
   role: WalletTransferRole;
   search?: string;
@@ -223,27 +229,72 @@ export async function fetchWalletTransferUsers(input: {
   const targetRoles = TRANSFER_TARGET_ROLES[senderRole] ?? [senderRole];
   const page = input.page ?? 1;
   const limit = input.limit ?? 100;
-
-  const lists = await Promise.all([
-    ...targetRoles.map((userType) =>
-      safeList(() => fetchUsersByType(userType, input.search, page, limit))
-    ),
-    safeList(() => fetchSameRolePeers(senderRole, input.search, page, limit)),
-  ]);
+  const search = input.search?.trim() || "";
+  const searchDigits = search.replace(/\D/g, "");
+  const isNumberSearch =
+    searchDigits.length >= 3 && /^\d[\d\s+-]*$/.test(search);
 
   const allowed = new Set(targetRoles);
-  const seen = new Set<string>();
-  const items: WalletTransferUser[] = [];
-  for (const group of lists) {
-    for (const row of group) {
-      if (seen.has(row.id)) continue;
+
+  const collectAllowed = (rows: WalletTransferUser[]) => {
+    const seen = new Set<string>();
+    const items: WalletTransferUser[] = [];
+    for (const row of rows) {
+      if (!row.id || seen.has(row.id)) continue;
       if (isInactiveStatus(row.status)) continue;
       const role = normalizeWalletTransferRole(row.role) || row.role;
       if (role && !allowed.has(role as WalletTransferRole)) continue;
+      // Number search: ONLY users whose mobile contains the typed digits
+      if (isNumberSearch && !mobileMatchesDigits(row.mobile, searchDigits)) {
+        continue;
+      }
       seen.add(row.id);
       items.push({ ...row, role });
     }
+    return items;
+  };
+
+  // Number search → hierarchy-scoped /users/search (partial mobile match)
+  if (isNumberSearch) {
+    try {
+      const response = await api.get(API_ENDPOINTS.usersSearch, {
+        params: {
+          number: searchDigits,
+          page: 1,
+          limit: Math.max(limit, 50),
+        },
+      });
+      const items = collectAllowed(
+        unwrapRows(response.data).map((row) => {
+          const mapped = mapWalletTransferUser(row);
+          return {
+            ...mapped,
+            role: normalizeWalletTransferRole(mapped.role) || mapped.role,
+          };
+        })
+      );
+      return { items, page: 1, limit, total: items.length, totalPages: 1 };
+    } catch {
+      // Fallback: load allowed targets, then keep ONLY mobile matches
+      const lists = await Promise.all([
+        ...targetRoles.map((userType) =>
+          safeList(() => fetchUsersByType(userType, undefined, page, limit))
+        ),
+        safeList(() => fetchSameRolePeers(senderRole, undefined, page, limit)),
+      ]);
+      const items = collectAllowed(lists.flat());
+      return { items, page: 1, limit, total: items.length, totalPages: 1 };
+    }
   }
+
+  const lists = await Promise.all([
+    ...targetRoles.map((userType) =>
+      safeList(() => fetchUsersByType(userType, search || undefined, page, limit))
+    ),
+    safeList(() => fetchSameRolePeers(senderRole, search || undefined, page, limit)),
+  ]);
+
+  const items = collectAllowed(lists.flat());
 
   return {
     items,

@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { motion } from "framer-motion";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
-import { ArrowLeftRight, Users, Store, Wallet, FileText, Repeat } from "lucide-react";
+import { ArrowLeftRight, Users, Store, Wallet, Repeat } from "lucide-react";
 import StatsCards from "@/src/components/dashboard/StatsCards";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +19,6 @@ import { mdDashboardStats, ddDashboardStats } from "@/src/mock/dashboardData";
 import { fetchMdDashboard, fetchDdDashboard } from "@/src/redux/thunks/dashboardThunk";
 import { selectMdDashboard, selectDdDashboard } from "@/src/redux/slices/dashboardSlice";
 import { selectUser } from "@/src/redux/slices/authSlice";
-import { selectMdTransactions, selectDdTransactions } from "@/src/redux/slices/transactionSlice";
 import { selectDdWallet } from "@/src/redux/slices/walletSlice";
 import { selectProfileLoading } from "@/src/redux/slices/profileSlice";
 
@@ -37,8 +36,6 @@ export default function DashboardPage({ role }) {
   const user = useSelector(selectUser);
   const profileLoading = useSelector(selectProfileLoading);
   const ddWallet = useSelector(selectDdWallet);
-  const mdTransactions = useSelector(selectMdTransactions);
-  const ddTransactions = useSelector(selectDdTransactions);
 
   const isMd = role === "md";
   const dashboard = isMd ? mdDashboard : ddDashboard;
@@ -52,9 +49,6 @@ export default function DashboardPage({ role }) {
             ? ddWallet.balance
             : dashboard.stats?.walletBalance,
       };
-  const recentTransactions = (isMd ? mdTransactions : ddTransactions).slice(0, 5);
-  const recentDistributors = dashboard.stats?.recentDistributors || [];
-  const recentLogins = dashboard.stats?.recentLogins || [];
   const basePath = isMd ? "/md" : "/dd";
 
   const quickActions = isMd
@@ -63,14 +57,12 @@ export default function DashboardPage({ role }) {
         { label: "Balance Transfer", href: `${basePath}/balance-transfer`, icon: ArrowLeftRight },
         { label: "Wallet to Wallet", href: `${basePath}/wallet-to-wallet`, icon: Repeat },
         { label: "Fund Request", href: `${basePath}/fund-requests`, icon: Wallet },
-        { label: "Transactions", href: `${basePath}/transactions`, icon: FileText },
       ]
     : [
         { label: "Create Retailer", href: `${basePath}/retailers/create`, icon: Store },
         { label: "Balance Transfer", href: `${basePath}/balance-transfer`, icon: ArrowLeftRight },
         { label: "Wallet to Wallet", href: `${basePath}/wallet-to-wallet`, icon: Repeat },
         { label: "Fund Requests", href: `${basePath}/fund-requests`, icon: Wallet },
-        { label: "Transactions", href: `${basePath}/transactions`, icon: FileText },
       ];
 
   useEffect(() => {

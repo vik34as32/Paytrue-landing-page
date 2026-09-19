@@ -173,6 +173,85 @@ export function mapDmtToStatement(raw: Record<string, unknown>): StatementTransa
   };
 }
 
+/** Map DMT3 transaction list rows into the same statement shape as DMT. */
+export function mapDmt3ToStatement(
+  raw: Record<string, unknown>
+): StatementTransaction {
+  const beneficiary = asRecord(raw.beneficiary);
+  const remitter = asRecord(raw.remitter);
+
+  const beneficiaryName = String(
+    raw.payeeName ??
+      beneficiary.name ??
+      raw.accountHolderName ??
+      "Beneficiary"
+  );
+  const senderName = String(
+    raw.payerName ?? remitter.name ?? "Sender"
+  );
+  const transferMode = String(raw.transferMode ?? "IMPS");
+  const amount = toNumber(raw.amount);
+  const deductionAmount = toNumber(
+    raw.charges ?? raw.charge ?? raw.deductionAmount ?? raw.deduction
+  );
+  const commission = toNumber(
+    raw.commissionAmount ?? raw.commission ?? raw.retailerCommission
+  );
+  const remark = String(
+    raw.failureReason ??
+      raw.providerMessage ??
+      raw.remarks ??
+      raw.remark ??
+      ""
+  );
+
+  return {
+    id: String(raw.id ?? raw.reference ?? raw.clientTxnId ?? ""),
+    referenceNumber: String(
+      raw.reference ?? raw.clientTxnId ?? raw.providerTxnId ?? raw.id ?? ""
+    ),
+    createdAt: String(raw.createdAt ?? raw.finalizedAt ?? new Date().toISOString()),
+    service: "DMT3",
+    description: `DMT3 · ${beneficiaryName} · ${transferMode}`,
+    type: "debit",
+    status: normalizeStatus(raw.status ?? raw.providerStatus),
+    amount,
+    transferAmount: amount,
+    deductionAmount,
+    commission,
+    openingBalance: toNumber(raw.openingBalance),
+    balanceAfter: toNumber(raw.closingBalance),
+    senderName,
+    receiverName: beneficiaryName,
+    mobile: String(
+      remitter.mobile ?? beneficiary.mobile ?? raw.mobile ?? ""
+    ),
+    remark,
+    source: "dmt3",
+    bankReference: String(raw.bankRef ?? raw.utr ?? raw.providerTxnId ?? ""),
+    transferMode,
+    charges: deductionAmount,
+    bankName: String(raw.bankName ?? beneficiary.bankName ?? ""),
+    accountNumber: String(
+      beneficiary.accountNumber ??
+        raw.accountNumber ??
+        raw.accountMasked ??
+        beneficiary.accountMasked ??
+        ""
+    ),
+    accountHolderName: beneficiaryName,
+    ifscCode: String(
+      raw.ifscCode ??
+        raw.ifsc ??
+        beneficiary.ifscCode ??
+        beneficiary.ifsc ??
+        ""
+    )
+      .trim()
+      .toUpperCase(),
+  };
+}
+
 export function mapUpiAtmToStatement(
   raw: Record<string, unknown>
 ): StatementTransaction {

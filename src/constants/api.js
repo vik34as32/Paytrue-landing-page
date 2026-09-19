@@ -25,6 +25,7 @@ export const API_ENDPOINTS = {
   walletCommission: "/wallet/commission",
   walletCommissionLedger: "/wallet/commission/ledger",
   walletCommissionTransferToMain: "/wallet/commission/transfer-to-main",
+  downlineRetailerLedger: "/ledger/downline-retailers",
   fundRequests: "/fund-requests",
   myBankAccounts: "/my-bank-accounts",
   dashboardRetailer: "/dashboard/retailer",

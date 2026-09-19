@@ -10,9 +10,17 @@ export const RETAILER_USER: RetailerUser = {
 };
 
 export const SUPPORT_EMAIL = "support@paytrue.co.in";
-export const SUPPORT_MOBILE = "+91 98765 43210";
+export const SUPPORT_MOBILE = "+91 98995 99956";
+/** Digits only — used for wa.me support chat (+91 98995 99956) */
+export const SUPPORT_WHATSAPP = "919899599956";
 
 export const NEWS_ITEMS: NewsItem[] = [
+  {
+    id: "news_dmt3_limits",
+    message:
+      "DMT3: Minimum ₹1,000 and maximum ₹50,000 allowed per transaction.",
+    type: "warning",
+  },
   {
     id: "news_1",
     message:
@@ -108,11 +116,6 @@ export const SIDEBAR_SUPPORT_LINKS = [
 
 export const SIDEBAR_OTHER_LINKS = [
   {
-    label: "Refer & Earn",
-    href: "/rt/retailer/refer-earn",
-    icon: "Gift",
-  },
-  {
     label: "Settings",
     href: "/rt/retailer/settings",
     icon: "Settings",
@@ -154,6 +157,14 @@ export const FAQ_ITEMS = [
 
 export const PORTAL_NOTICES = [
   {
+    id: "notice_dmt3_limits",
+    title: "DMT3 transaction limit",
+    message:
+      "For DMT3, each transaction must be between ₹1,000 (minimum) and ₹50,000 (maximum). Amounts outside this range may fail.",
+    date: "2026-09-18",
+    type: "warning" as const,
+  },
+  {
     id: "notice_1",
     title: "New commission structure — July 2026",
     message:
@@ -194,15 +205,191 @@ export const REFERRAL_BONUS_TIERS = [
 ];
 
 export const TICKET_CATEGORIES = [
-  "Transaction Issue",
-  "Wallet / Fund Request",
-  "KYC & Profile",
-  "Technical Problem",
-  "Commission / Statement",
-  "Other",
+  "DMT3",
+  "DMT",
+  "AEPS",
+  "UPI ATM",
+  "AEPS Login Issue",
+  "AEPS Cash Withdrawal",
+  "AEPS Cash Deposit",
+  "AEPS Balance Enquiry",
+  "Fund Request Approval",
+  "Other Issue",
 ] as const;
 
 export const TICKET_PRIORITIES = ["Low", "Medium", "High", "Urgent"] as const;
+
+export type TicketCategory = (typeof TICKET_CATEGORIES)[number];
+
+export const TICKET_CATEGORY_TEMPLATES: Record<
+  TicketCategory,
+  { subject: string; description: string }
+> = {
+  DMT3: {
+    subject: "Support Required – DMT3 Money Transfer Issue",
+    description: `Dear Support Team,
+
+I am facing an issue with DMT3 money transfer.
+
+Transaction / Reference ID: 
+Beneficiary Name: 
+Account Number: 
+Amount (₹): 
+Date & Time: 
+Issue details: 
+
+Please check and assist at the earliest.
+
+Thank you.`,
+  },
+  DMT: {
+    subject: "Support Required – DMT Money Transfer Issue",
+    description: `Dear Support Team,
+
+I am facing an issue with DMT money transfer.
+
+Transaction / Reference ID: 
+Beneficiary Name: 
+Account Number: 
+Amount (₹): 
+Date & Time: 
+Issue details: 
+
+Please check and assist at the earliest.
+
+Thank you.`,
+  },
+  AEPS: {
+    subject: "Support Required – AEPS Service Issue",
+    description: `Dear Support Team,
+
+I am facing an issue with the AEPS service.
+
+AEPS Type (CW / CD / BE / Mini Statement): 
+Transaction / Reference ID / RRN: 
+Aadhaar (last 4 digits): 
+Bank Name: 
+Amount (₹): 
+Date & Time: 
+Issue details: 
+
+Please check and assist at the earliest.
+
+Thank you.`,
+  },
+  "UPI ATM": {
+    subject: "Support Required – UPI ATM / Cash Point Issue",
+    description: `Dear Support Team,
+
+I am facing an issue with UPI ATM / UPI Cash Point.
+
+Transaction / Reference ID: 
+Customer UPI / Mobile: 
+Amount (₹): 
+Date & Time: 
+Issue details: 
+
+Please check and assist at the earliest.
+
+Thank you.`,
+  },
+  "AEPS Login Issue": {
+    subject: "Support Required – AEPS Login Issue",
+    description: `Dear Support Team,
+
+I am unable to complete AEPS login / biometric authentication.
+
+Device / RD Service: 
+Error Message (if any): 
+Date & Time: 
+Issue details: 
+
+Please help me resolve this login issue.
+
+Thank you.`,
+  },
+  "AEPS Cash Withdrawal": {
+    subject: "Support Required – AEPS Cash Withdrawal Issue",
+    description: `Dear Support Team,
+
+I am facing an issue with AEPS Cash Withdrawal.
+
+Transaction / Reference ID / RRN: 
+Aadhaar (last 4 digits): 
+Bank Name: 
+Amount (₹): 
+Date & Time: 
+Issue details: 
+
+Please check the status and assist.
+
+Thank you.`,
+  },
+  "AEPS Cash Deposit": {
+    subject: "Support Required – AEPS Cash Deposit Issue",
+    description: `Dear Support Team,
+
+I am facing an issue with AEPS Cash Deposit.
+
+Transaction / Reference ID / RRN: 
+Aadhaar (last 4 digits): 
+Bank Name: 
+Amount (₹): 
+Date & Time: 
+Issue details: 
+
+Please check the status and assist.
+
+Thank you.`,
+  },
+  "AEPS Balance Enquiry": {
+    subject: "Support Required – AEPS Balance Enquiry Issue",
+    description: `Dear Support Team,
+
+I am facing an issue with AEPS Balance Enquiry.
+
+Transaction / Reference ID / RRN: 
+Aadhaar (last 4 digits): 
+Bank Name: 
+Date & Time: 
+Issue details: 
+
+Please check and assist at the earliest.
+
+Thank you.`,
+  },
+  "Fund Request Approval": {
+    subject: "Support Required – Fund Request Approval Pending",
+    description: `Dear Support Team,
+
+My fund request is pending for approval. Kindly process it.
+
+Fund Request ID / UTR: 
+Amount Deposited (₹): 
+Bank / Account Used: 
+Deposit Date & Time: 
+Issue details: 
+
+Please approve or update the status as soon as possible.
+
+Thank you.`,
+  },
+  "Other Issue": {
+    subject: "Support Required – Other Issue",
+    description: `Dear Support Team,
+
+I need assistance with the following issue.
+
+Related Service / Module: 
+Reference ID (if any): 
+Date & Time: 
+Issue details: 
+
+Please check and assist at the earliest.
+
+Thank you.`,
+  },
+};
 
 export const POPULAR_SERVICES: ServiceItem[] = [
   {

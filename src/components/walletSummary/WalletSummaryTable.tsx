@@ -30,6 +30,7 @@ import {
   cyanDataTableStyles,
   CyanDataTableSortIcon,
 } from "@/src/components/common/cyanDataTableStyles";
+import ReferenceCopyCell from "@/src/components/statement/ReferenceCopyCell";
 import { cn } from "@/lib/utils";
 import {
   exportWalletSummaryCsv,
@@ -49,7 +50,7 @@ import type {
 } from "@/src/types/walletSummary";
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 25, 50, 100];
-const TABLE_MIN_WIDTH = "1680px";
+const TABLE_MIN_WIDTH = "1860px";
 
 function HeaderLabel({ children }: { children: ReactNode }) {
   return (
@@ -261,15 +262,14 @@ export default function WalletSummaryTable({
         name: <HeaderLabel>Ledger No</HeaderLabel>,
         selector: (row) => row.ledgerNo,
         sortable: true,
-        minWidth: "190px",
-        cell: (row) => (
-          <span
-            className="block max-w-[200px] truncate font-mono text-[11px] font-medium text-slate-700"
-            title={row.ledgerNo}
-          >
-            {row.ledgerNo || "—"}
-          </span>
-        ),
+        minWidth: "280px",
+        grow: 1,
+        cell: (row) =>
+          row.ledgerNo ? (
+            <ReferenceCopyCell value={row.ledgerNo} />
+          ) : (
+            <span className="text-slate-400">—</span>
+          ),
       },
       {
         id: "service",

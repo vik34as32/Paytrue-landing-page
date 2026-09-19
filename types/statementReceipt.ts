@@ -1,6 +1,6 @@
 export type TransactionType = "debit" | "credit";
 export type TransactionStatus = "success" | "pending" | "failed" | "expired";
-export type StatementSource = "dmt" | "upi-atm" | "aeps";
+export type StatementSource = "dmt" | "dmt3" | "upi-atm" | "aeps";
 
 export type AepsTransactionTypeCode =
   | "BALANCE_ENQUIRY"

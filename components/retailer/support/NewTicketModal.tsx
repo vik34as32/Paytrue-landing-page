@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { ImagePlus, Loader2, Ticket, Trash2, Upload, X } from "lucide-react";
+import { ImagePlus, Loader2, MessageCircle, Ticket, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,17 +13,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
   TICKET_CATEGORIES,
+  TICKET_CATEGORY_TEMPLATES,
   TICKET_PRIORITIES,
+  type TicketCategory,
 } from "@/features/retailer/constants";
 import type {
   NewTicketFormValues,
@@ -34,11 +29,22 @@ const MAX_IMAGES = 3;
 const MAX_SIZE_MB = 5;
 const ACCEPT = "image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
 
+function getCategoryTemplate(category: string) {
+  const key = category as TicketCategory;
+  return (
+    TICKET_CATEGORY_TEMPLATES[key] ??
+    TICKET_CATEGORY_TEMPLATES["Other Issue"]
+  );
+}
+
 interface NewTicketModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   submitting?: boolean;
   onSubmit: (values: NewTicketFormValues) => void;
+  retailerName?: string;
+  retailerMobile?: string;
+  retailerId?: string;
 }
 
 function formatFileSize(bytes: number) {
@@ -69,29 +75,48 @@ function validateImage(file: File): string | null {
   return null;
 }
 
-const inputClassName =
-  "text-slate-900 placeholder:text-slate-400 dark:border-slate-600 dark:bg-[#0b1f3a] dark:text-white dark:placeholder:text-slate-500";
+const fieldClassName =
+  "w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-[#1565d8]";
+
+const inputClassName = cn(fieldClassName, "h-11");
+
+const selectClassName = cn(
+  inputClassName,
+  "appearance-none bg-[url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2716%27 height=%2716%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%2364748b%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpolyline points=%276 9 12 15 18 9%27/%3E%3C/svg%3E')] bg-[length:16px] bg-[right_12px_center] bg-no-repeat pr-10"
+);
 
 export default function NewTicketModal({
   open,
   onOpenChange,
   submitting = false,
   onSubmit,
+  retailerName,
+  retailerMobile,
+  retailerId,
 }: NewTicketModalProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [subject, setSubject] = useState("");
+  const initial = getCategoryTemplate(TICKET_CATEGORIES[0]);
+  const [subject, setSubject] = useState(initial.subject);
   const [category, setCategory] = useState<string>(TICKET_CATEGORIES[0]);
   const [priority, setPriority] = useState<string>("Medium");
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(initial.description);
   const [attachments, setAttachments] = useState<TicketAttachment[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
+  const applyCategoryTemplate = useCallback((nextCategory: string) => {
+    const template = getCategoryTemplate(nextCategory);
+    setCategory(nextCategory);
+    setSubject(template.subject);
+    setDescription(template.description);
+  }, []);
+
   const resetForm = useCallback(() => {
-    setSubject("");
+    const template = getCategoryTemplate(TICKET_CATEGORIES[0]);
     setCategory(TICKET_CATEGORIES[0]);
+    setSubject(template.subject);
     setPriority("Medium");
-    setDescription("");
+    setDescription(template.description);
     setAttachments([]);
     setUploadError("");
   }, []);
@@ -166,10 +191,10 @@ export default function NewTicketModal({
               </div>
               <div>
                 <DialogTitle className="text-base font-bold text-[#001F5B]">
-                  Create Support Ticket
+                  Create Support Query
                 </DialogTitle>
                 <DialogDescription className="mt-0.5 text-xs text-slate-500">
-                  Describe your issue clearly — include transaction IDs if applicable.
+                  Opens WhatsApp chat with support (+91 98995 99956) — your details are included.
                 </DialogDescription>
               </div>
             </div>
@@ -189,50 +214,70 @@ export default function NewTicketModal({
             className="flex min-h-0 flex-1 flex-col overflow-hidden"
           >
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
+              {(retailerName || retailerMobile || retailerId) && (
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-xs text-slate-600">
+                  <p className="font-semibold text-emerald-800">
+                    Will be sent with your details
+                  </p>
+                  <p className="mt-1">
+                    {[
+                      retailerName && `Name: ${retailerName}`,
+                      retailerMobile && `Mobile: ${retailerMobile}`,
+                      retailerId && `ID: ${retailerId}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </div>
+              )}
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="ticket-subject">Subject</Label>
-                  <Input
-                    id="ticket-subject"
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    placeholder="Brief summary of the issue"
-                    maxLength={120}
-                    className={inputClassName}
-                    required
-                  />
+                  <Label htmlFor="ticket-category">Category</Label>
+                  <select
+                    id="ticket-category"
+                    value={category}
+                    onChange={(e) => applyCategoryTemplate(e.target.value)}
+                    className={selectClassName}
+                  >
+                    {TICKET_CATEGORIES.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Select value={category} onValueChange={setCategory}>
-                    <SelectTrigger className={inputClassName}>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TICKET_CATEGORIES.map((item) => (
-                        <SelectItem key={item} value={item}>
-                          {item}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="ticket-priority">Priority</Label>
+                  <select
+                    id="ticket-priority"
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value)}
+                    className={selectClassName}
+                  >
+                    {TICKET_PRIORITIES.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              <div className="space-y-2 sm:max-w-xs">
-                <Label>Priority</Label>
-                <Select value={priority} onValueChange={setPriority}>
-                  <SelectTrigger className={inputClassName}>
-                    <SelectValue placeholder="Select priority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TICKET_PRIORITIES.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {item}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2">
+                <Label htmlFor="ticket-subject">Subject</Label>
+                <Input
+                  id="ticket-subject"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="Auto-filled from category — you can edit"
+                  maxLength={140}
+                  className={inputClassName}
+                  required
+                />
+                <p className="text-[11px] text-slate-400">
+                  Auto-filled from category. You can edit if needed.
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -241,17 +286,20 @@ export default function NewTicketModal({
                   id="ticket-description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Explain the problem in detail..."
-                  rows={4}
-                  className={cn(inputClassName, "min-h-[100px] resize-y")}
+                  placeholder="Fill the blank fields with your transaction details..."
+                  rows={10}
+                  className={cn(fieldClassName, "min-h-[180px] resize-y py-3 font-normal leading-relaxed")}
                   required
                 />
+                <p className="text-[11px] text-slate-400">
+                  Template is in English. Fill the blank lines with your details, then send.
+                </p>
               </div>
 
               <div className="space-y-2">
                 <Label>Attach Images</Label>
                 <p className="text-xs text-slate-500">
-                  Upload screenshots or payment proof (JPG, PNG — max {MAX_IMAGES} images, {MAX_SIZE_MB} MB each)
+                  Optional screenshots (saved in your query history). After WhatsApp opens, you can also share images in the chat. Max {MAX_IMAGES} images, {MAX_SIZE_MB} MB each.
                 </p>
 
                 {attachments.length < MAX_IMAGES && (
@@ -354,14 +402,21 @@ export default function NewTicketModal({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={submitting}>
+              <Button
+                type="submit"
+                disabled={submitting}
+                className="bg-[#25D366] text-white hover:bg-[#1ebe57]"
+              >
                 {submitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Submitting...
+                    Opening WhatsApp...
                   </>
                 ) : (
-                  "Submit Ticket"
+                  <>
+                    <MessageCircle className="h-4 w-4" />
+                    Send on WhatsApp
+                  </>
                 )}
               </Button>
             </footer>

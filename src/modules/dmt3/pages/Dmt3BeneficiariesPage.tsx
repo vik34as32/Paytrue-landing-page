@@ -76,14 +76,16 @@ export default function Dmt3BeneficiariesPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
-    return rows.filter(
-      (item) =>
+    return rows.filter((item) => {
+      const ifsc = String(item.ifsc || "").toLowerCase();
+      return (
         item.name.toLowerCase().includes(q) ||
         item.mobile.includes(q) ||
         item.accountNumber.includes(q) ||
-        item.ifsc.toLowerCase().includes(q) ||
+        ifsc.includes(q) ||
         item.bankName.toLowerCase().includes(q)
-    );
+      );
+    });
   }, [rows, search]);
 
   const onPay = (item: DmtBeneficiary) => {

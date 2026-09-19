@@ -18,6 +18,7 @@ import {
   FileSpreadsheet,
   IndianRupee,
   Repeat,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,7 @@ const iconMap = {
   FileSpreadsheet,
   IndianRupee,
   Repeat,
+  BookOpen,
 };
 
 export default function PortalSidebar({

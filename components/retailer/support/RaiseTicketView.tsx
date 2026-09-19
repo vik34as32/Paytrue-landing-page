@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ImageIcon, Plus, Ticket } from "lucide-react";
+import { ImageIcon, MessageCircle, Plus, Ticket } from "lucide-react";
+import { useSelector } from "react-redux";
 import { toast } from "sonner";
 import {
   Card,
@@ -25,6 +26,10 @@ import type {
   NewTicketFormValues,
   SupportTicket,
 } from "@/components/retailer/support/ticketTypes";
+import { RETAILER_USER } from "@/features/retailer/constants";
+import { openSupportWhatsApp } from "@/src/lib/supportWhatsApp";
+import { getUserDisplayName } from "@/src/lib/userUtils";
+import { selectUser } from "@/src/redux/slices/authSlice";
 
 const STORAGE_KEY = "paytrue_retailer_tickets";
 
@@ -40,10 +45,24 @@ function statusVariant(status: SupportTicket["status"]) {
 }
 
 export default function RaiseTicketView() {
+  const user = useSelector(selectUser) as Record<string, unknown> | null;
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [previewTicket, setPreviewTicket] = useState<SupportTicket | null>(null);
+
+  const retailerName = getUserDisplayName(user, RETAILER_USER.name);
+  const retailerMobile = String(
+    user?.mobile || user?.phoneNumber || user?.phone || RETAILER_USER.mobile
+  );
+  const retailerId = String(
+    user?.userId ||
+      user?.retailerId ||
+      user?.retailerCode ||
+      user?.userCode ||
+      RETAILER_USER.retailerId
+  );
+  const retailerEmail = String(user?.email || RETAILER_USER.email || "");
 
   useEffect(() => {
     try {
@@ -91,10 +110,21 @@ export default function RaiseTicketView() {
 
     try {
       persistTickets([ticket, ...tickets]);
-      toast.success(`Ticket ${ticket.id} raised successfully.`);
+      openSupportWhatsApp({
+        subject: values.subject,
+        category: values.category,
+        priority: values.priority,
+        description: values.description,
+        retailerName,
+        retailerMobile,
+        retailerId,
+        retailerEmail: retailerEmail || undefined,
+        attachmentCount: values.attachments.length,
+      });
+      toast.success("Opening WhatsApp with your query…");
       setModalOpen(false);
     } catch {
-      toast.error("Failed to save ticket.");
+      toast.error("Failed to open WhatsApp. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -105,25 +135,58 @@ export default function RaiseTicketView() {
     [tickets]
   );
 
+  const whatsappDisplay = "+91 98995 99956";
+
   return (
     <div className="min-w-0 space-y-6">
       <RetailerPageHeader
         title="Raise Ticket"
-        description="Report issues, track responses, and get help from our support team."
+        description="Send your query on WhatsApp — your name, mobile and retailer ID are included automatically."
         icon={Ticket}
         iconClassName="from-amber-500 to-orange-600"
         actions={
           <Button onClick={() => setModalOpen(true)}>
-            <Plus className="h-4 w-4" />
-            New Ticket
+            <MessageCircle className="h-4 w-4" />
+            New Query
           </Button>
         }
       />
 
+      <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-blue-50 px-5 py-4 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#25D366] text-white shadow-sm">
+              <MessageCircle className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-[#0b1f3a]">
+                Queries go to WhatsApp support
+              </p>
+              <p className="mt-0.5 text-xs text-slate-600">
+                Support number:{" "}
+                <span className="font-semibold text-emerald-700">
+                  {whatsappDisplay}
+                </span>
+                {" · "}
+                Logged in as{" "}
+                <span className="font-semibold text-[#0b1f3a]">
+                  {retailerName}
+                </span>{" "}
+                ({retailerMobile})
+              </p>
+            </div>
+          </div>
+          <Button onClick={() => setModalOpen(true)} className="shrink-0">
+            <Plus className="h-4 w-4" />
+            Create Query
+          </Button>
+        </div>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-3">
         {[
-          { label: "Total Tickets", value: tickets.length },
-          { label: "Open Tickets", value: openCount },
+          { label: "Total Queries", value: tickets.length },
+          { label: "Open Queries", value: openCount },
           { label: "Avg. Response", value: "2 hrs" },
         ].map((stat, index) => (
           <motion.div
@@ -146,28 +209,31 @@ export default function RaiseTicketView() {
         onOpenChange={setModalOpen}
         submitting={submitting}
         onSubmit={handleSubmit}
+        retailerName={retailerName}
+        retailerMobile={retailerMobile}
+        retailerId={retailerId}
       />
 
       <Card>
         <CardHeader>
-          <CardTitle>Your Tickets</CardTitle>
+          <CardTitle>Your Queries</CardTitle>
           <CardDescription>
-            Track status of tickets you have raised
+            Local history of queries you sent to WhatsApp support
           </CardDescription>
         </CardHeader>
         <CardContent>
           {tickets.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-6 py-10 text-center">
-              <Ticket className="mx-auto h-10 w-10 text-slate-300" />
+              <MessageCircle className="mx-auto h-10 w-10 text-slate-300" />
               <p className="mt-3 text-sm font-semibold text-[#0b1f3a]">
-                No tickets yet
+                No queries yet
               </p>
               <p className="mt-1 text-sm text-slate-500">
-                Click &quot;New Ticket&quot; to report an issue.
+                Click &quot;New Query&quot; to message support on WhatsApp.
               </p>
               <Button className="mt-4" onClick={() => setModalOpen(true)}>
                 <Plus className="h-4 w-4" />
-                New Ticket
+                New Query
               </Button>
             </div>
           ) : (
@@ -255,7 +321,7 @@ export default function RaiseTicketView() {
         <DialogContent className="max-w-lg border-slate-200 bg-white">
           <DialogHeader>
             <DialogTitle className="text-[#001F5B]">
-              Ticket Attachments
+              Query Attachments
             </DialogTitle>
           </DialogHeader>
           {previewTicket && (

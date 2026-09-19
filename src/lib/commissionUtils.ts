@@ -84,6 +84,14 @@ export function normalizeCommissionLedgerEntry(
   rawInput: unknown
 ): CommissionLedgerEntry {
   const raw = asRecord(rawInput);
+  const retailer = asRecord(
+    raw.retailer || raw.sourceRetailer || raw.fromRetailer || raw.child || raw.sourceUser
+  );
+  const metadata = asRecord(raw.metadata || raw.meta || raw.extra);
+  const metaRetailer = asRecord(
+    metadata.retailer || metadata.sourceRetailer || metadata.fromRetailer
+  );
+
   const createdAt = pickString(raw.createdAt, raw.date, raw.txnDate, raw.timestamp);
   const { date, time } = splitDateTime(createdAt);
   const amount = toNumber(raw.amount);
@@ -104,6 +112,73 @@ export function normalizeCommissionLedgerEntry(
       ? toNumber(raw.debit ?? raw.dr ?? amount)
       : toNumber(raw.debit ?? raw.dr);
 
+  const remarks = pickString(
+    raw.remarks,
+    raw.remark,
+    raw.description,
+    raw.narration
+  );
+
+  const retailerName = pickString(
+    raw.retailerName,
+    raw.sourceRetailerName,
+    raw.fromRetailerName,
+    raw.childName,
+    raw.sourceUserName,
+    retailer.name,
+    retailer.fullName,
+    [retailer.firstName, retailer.lastName].filter(Boolean).join(" ").trim(),
+    metaRetailer.name,
+    metaRetailer.fullName,
+    metadata.retailerName,
+    // Remarks sometimes: "Commission from RAJAN KUMAR (RET000014)"
+    (() => {
+      const match = remarks.match(
+        /(?:from|retailer)\s*[:\-]?\s*([A-Za-z][A-Za-z0-9 .'-]{1,60})/i
+      );
+      return match?.[1]?.trim() || "";
+    })()
+  );
+
+  const retailerMobile = pickString(
+    raw.retailerMobile,
+    raw.sourceRetailerMobile,
+    raw.fromRetailerMobile,
+    retailer.mobile,
+    retailer.phone,
+    retailer.phoneNumber,
+    metaRetailer.mobile,
+    metaRetailer.phone,
+    metadata.retailerMobile
+  );
+
+  const retailerCode = pickString(
+    raw.retailerCode,
+    raw.sourceRetailerCode,
+    retailer.userCode,
+    retailer.retailerCode,
+    retailer.code,
+    metaRetailer.userCode,
+    metaRetailer.retailerCode,
+    metadata.retailerCode,
+    (() => {
+      const match = remarks.match(/\b(RET\d{4,})\b/i);
+      return match?.[1]?.toUpperCase() || "";
+    })()
+  );
+
+  const retailerId = pickString(
+    raw.retailerId,
+    raw.sourceRetailerId,
+    raw.fromRetailerId,
+    raw.childUserId,
+    raw.sourceUserId,
+    retailer.id,
+    retailer.userId,
+    metaRetailer.id,
+    metadata.retailerId
+  );
+
   return {
     id: pickString(raw.id, raw._id) || `row_${Math.random()}`,
     walletId: pickString(raw.walletId),
@@ -116,14 +191,19 @@ export function normalizeCommissionLedgerEntry(
     serviceName: pickString(raw.serviceName) || "COMMISSION",
     serviceId: pickString(raw.serviceId, raw.service),
     walletType: pickString(raw.walletType, raw.serviceName) || "COMMISSION",
-    remarks: pickString(raw.remarks, raw.remark, raw.description, raw.narration),
-    type: pickString(raw.type, raw.transactionType) || "COMMISSION",
+    remarks,
+    type:
+      pickString(raw.txnType, raw.transactionType, raw.type) || "COMMISSION",
     reference: pickString(raw.reference, raw.referenceId),
     createdAt,
     date,
     time,
     credit,
     debit,
+    retailerId,
+    retailerName,
+    retailerMobile,
+    retailerCode,
   };
 }
 

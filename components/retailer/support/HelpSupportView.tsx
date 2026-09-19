@@ -9,7 +9,6 @@ import {
   Mail,
   MessageCircle,
   Phone,
-  Ticket,
 } from "lucide-react";
 import {
   Card,
@@ -33,14 +32,14 @@ export default function HelpSupportView() {
     <div className="min-w-0 space-y-6">
       <RetailerPageHeader
         title="Help & Support"
-        description="Find answers, contact our team, or raise a support ticket anytime."
+        description="Find answers, contact our team, or send a WhatsApp support query anytime."
         icon={Headset}
         iconClassName="from-violet-500 to-violet-700"
         actions={
           <Button asChild>
             <Link href="/rt/retailer/raise-ticket">
-              <Ticket className="h-4 w-4" />
-              Raise Ticket
+              <MessageCircle className="h-4 w-4" />
+              WhatsApp Query
             </Link>
           </Button>
         }
@@ -64,10 +63,10 @@ export default function HelpSupportView() {
           },
           {
             icon: MessageCircle,
-            title: "Live Chat",
-            detail: "Mon–Sat, 9 AM – 9 PM",
+            title: "WhatsApp Query",
+            detail: "Send query with your details",
             href: "/rt/retailer/raise-ticket",
-            color: "from-orange-500 to-orange-700",
+            color: "from-[#25D366] to-[#128C7E]",
           },
         ].map((item, index) => (
           <motion.a

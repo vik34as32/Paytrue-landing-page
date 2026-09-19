@@ -8,10 +8,10 @@ export const MD_SIDEBAR_LINKS = [
   { label: "Wallet to Wallet Transfer", href: "/md/wallet-to-wallet", icon: "Repeat" },
   { label: "Balance Deduct", href: "/md/wallet-deduct", icon: "MinusCircle" },
   { label: "Fund Requests", href: "/md/fund-requests", icon: "Wallet" },
-  { label: "Transactions", href: "/md/transactions", icon: "FileText" },
   { label: "Reports", href: "/md/reports", icon: "BarChart3" },
   { label: "Wallet", href: "/md/wallet", icon: "CreditCard" },
   { label: "Wallet Summary", href: "/md/wallet-summary", icon: "FileSpreadsheet" },
+  { label: "report", href: "/md/report", icon: "BookOpen" },
   { label: "Commission Report", href: "/md/commission", icon: "IndianRupee" },
 ];
 
@@ -22,9 +22,9 @@ export const DD_SIDEBAR_LINKS = [
   { label: "Wallet to Wallet Transfer", href: "/dd/wallet-to-wallet", icon: "Repeat" },
   { label: "Balance Deduct", href: "/dd/wallet-deduct", icon: "MinusCircle" },
   { label: "Fund Requests", href: "/dd/fund-requests", icon: "Wallet" },
-  { label: "Transactions", href: "/dd/transactions", icon: "FileText" },
   { label: "Wallet", href: "/dd/wallet", icon: "CreditCard" },
   { label: "Wallet Summary", href: "/dd/wallet-summary", icon: "FileSpreadsheet" },
+  { label: "report", href: "/dd/report", icon: "BookOpen" },
   { label: "Commission Report", href: "/dd/commission", icon: "IndianRupee" },
 ];
 

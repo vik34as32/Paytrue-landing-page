@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useReactToPrint } from "react-to-print";
 import { CheckCircle2, Printer, XCircle } from "lucide-react";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
+import { isAutoPrintReceiptEnabled } from "@/src/lib/retailerSettings";
 import { isUpiAtmSuccessStatus, normalizeUpiAtmStatus } from "@/src/lib/upiAtmUtils";
 import type { UpiAtmTransaction } from "@/src/types/upiAtm";
 
@@ -37,11 +38,36 @@ export default function UpiAtmReceiptModal({
   onClose,
 }: UpiAtmReceiptModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
+  const autoPrintedKeyRef = useRef<string | null>(null);
   const handlePrint = useReactToPrint({ contentRef: printRef });
 
   const status = normalizeUpiAtmStatus(transaction?.status);
   const success = isUpiAtmSuccessStatus(status);
   const amount = Number(transaction?.amount || 0);
+
+  useEffect(() => {
+    if (!open) {
+      autoPrintedKeyRef.current = null;
+      return;
+    }
+    if (!success || !transaction || !isAutoPrintReceiptEnabled()) return;
+
+    const key = String(
+      transaction.referenceId || transaction.transactionId || transaction.id || ""
+    );
+    if (!key || autoPrintedKeyRef.current === key) return;
+    autoPrintedKeyRef.current = key;
+
+    const timer = window.setTimeout(() => {
+      try {
+        handlePrint();
+      } catch {
+        /* ignore print errors */
+      }
+    }, 700);
+
+    return () => window.clearTimeout(timer);
+  }, [open, success, transaction, handlePrint]);
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>

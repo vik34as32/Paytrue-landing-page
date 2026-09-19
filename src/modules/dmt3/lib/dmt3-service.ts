@@ -2,7 +2,7 @@ import { refreshRetailerWalletData } from "@/features/retailer/utils/walletValid
 import dmt3Api from "../services/dmt3.api";
 import { normalizeRemitter, pickApiMessage } from "../services/dmt3.mapper";
 import { buildDmt3TransferRemarks, resolveDmt3Location } from "../utils/dmt3.utils";
-import { DMT3_MIN_TRANSFER_AMOUNT } from "./dmt3-constants";
+import { DMT3_MAX_TRANSFER_AMOUNT, DMT3_MIN_TRANSFER_AMOUNT } from "./dmt3-constants";
 import { resolveDmt3Service } from "@/features/retailer/store/retailerServicesStore";
 import type {
   Dmt3AddBeneficiaryInput,
@@ -153,6 +153,9 @@ export async function submitTransfer(input: {
 }): Promise<Dmt3Transaction> {
   if (Number(input.transfer.amount) < DMT3_MIN_TRANSFER_AMOUNT) {
     throw new Error("This transaction is valid for ₹1,000 and above.");
+  }
+  if (Number(input.transfer.amount) > DMT3_MAX_TRANSFER_AMOUNT) {
+    throw new Error("Maximum ₹50,000 allowed per DMT3 transaction.");
   }
   const location = await resolveDmt3Location();
   const service = await resolveDmt3Service();

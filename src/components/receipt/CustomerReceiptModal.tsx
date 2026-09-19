@@ -19,6 +19,7 @@ import {
 } from "@/src/lib/statementReceiptUtils";
 import { enrichStatementWithIfsc } from "@/src/services/ifscService";
 import { RECEIPT_PRINT_PAGE_STYLE } from "@/src/constants/receiptPrint";
+import { isAutoPrintReceiptEnabled } from "@/src/lib/retailerSettings";
 import { selectUser } from "@/src/redux/slices/authSlice";
 import type { StatementTransaction } from "@/types/statementReceipt";
 
@@ -37,6 +38,7 @@ export default function CustomerReceiptModal({
 }: CustomerReceiptModalProps) {
   const user = useSelector(selectUser);
   const printRef = useRef<HTMLDivElement>(null);
+  const autoPrintedKeyRef = useRef<string | null>(null);
   const [enrichedTxn, setEnrichedTxn] = useState<StatementTransaction | null>(null);
   const [downloading, setDownloading] = useState(false);
 
@@ -55,12 +57,33 @@ export default function CustomerReceiptModal({
   useEffect(() => {
     if (!open || !transaction) {
       setEnrichedTxn(null);
+      autoPrintedKeyRef.current = null;
       return;
     }
 
     setEnrichedTxn(transaction);
     void enrichStatementWithIfsc(transaction).then(setEnrichedTxn);
   }, [open, transaction]);
+
+  // Auto-print when setting is enabled and a successful receipt opens
+  useEffect(() => {
+    if (!open || !displayTxn || displayTxn.status !== "success") return;
+    if (!isAutoPrintReceiptEnabled()) return;
+
+    const key = String(displayTxn.id || displayTxn.referenceNumber || "");
+    if (!key || autoPrintedKeyRef.current === key) return;
+    autoPrintedKeyRef.current = key;
+
+    const timer = window.setTimeout(() => {
+      try {
+        handlePrint();
+      } catch {
+        /* print can fail if dialog not ready */
+      }
+    }, 700);
+
+    return () => window.clearTimeout(timer);
+  }, [open, displayTxn, handlePrint]);
 
   const handleDownload = useCallback(async () => {
     if (!displayTxn) return;

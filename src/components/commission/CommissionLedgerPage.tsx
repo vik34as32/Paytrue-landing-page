@@ -96,13 +96,14 @@ function CommissionLedgerContent({ role }: { role: CommissionPortalRole }) {
     walletQuery.data?.availableBalance ?? walletQuery.data?.balance ?? 0;
   const items = ledgerQuery.data?.items ?? [];
   const pagination = ledgerQuery.data?.pagination;
+  const showRetailerColumn = role === "dd" || role === "md";
 
   const columns: TableColumn<CommissionLedgerEntry>[] = [
     {
       name: "Date",
       selector: (row) => row.date,
       sortable: true,
-      minWidth: "110px",
+      width: "110px",
       cell: (row) => (
         <span className="whitespace-nowrap text-xs font-medium text-slate-700">
           {row.date || "—"}
@@ -113,18 +114,49 @@ function CommissionLedgerContent({ role }: { role: CommissionPortalRole }) {
       name: "Time",
       selector: (row) => row.time,
       sortable: true,
-      minWidth: "110px",
+      width: "110px",
       cell: (row) => (
         <span className="whitespace-nowrap text-xs text-slate-600">{row.time || "—"}</span>
       ),
     },
+    ...(showRetailerColumn
+      ? ([
+          {
+            name: "Retailer",
+            selector: (row: CommissionLedgerEntry) => row.retailerName,
+            sortable: true,
+            width: "180px",
+            cell: (row: CommissionLedgerEntry) => (
+              <div className="min-w-0 max-w-[170px] space-y-0.5 overflow-hidden">
+                <p
+                  className="truncate font-semibold text-[#0b1f3a]"
+                  title={row.retailerName || undefined}
+                >
+                  {row.retailerName || "—"}
+                </p>
+                <p className="truncate text-xs tabular-nums text-slate-500">
+                  {row.retailerMobile || "—"}
+                </p>
+                {row.retailerCode ? (
+                  <p className="truncate font-mono text-[10px] font-semibold text-[#1565d8]">
+                    {row.retailerCode}
+                  </p>
+                ) : null}
+              </div>
+            ),
+          },
+        ] as TableColumn<CommissionLedgerEntry>[])
+      : []),
     {
       name: "Transaction ID",
       selector: (row) => row.transactionId,
       sortable: true,
-      minWidth: "220px",
+      width: "160px",
       cell: (row) => (
-        <span className="font-mono text-[11px] text-slate-600 break-all">
+        <span
+          className="block max-w-[150px] truncate font-mono text-[11px] text-slate-600"
+          title={row.transactionId || undefined}
+        >
           {row.transactionId || "—"}
         </span>
       ),
@@ -133,10 +165,12 @@ function CommissionLedgerContent({ role }: { role: CommissionPortalRole }) {
       name: "Reference",
       selector: (row) => row.reference,
       sortable: true,
-      minWidth: "240px",
-      grow: 2,
+      width: "160px",
       cell: (row) => (
-        <span className="font-mono text-[11px] text-slate-500 break-all">
+        <span
+          className="block max-w-[150px] truncate font-mono text-[11px] text-slate-500"
+          title={row.reference || undefined}
+        >
           {row.reference || "—"}
         </span>
       ),
@@ -146,19 +180,19 @@ function CommissionLedgerContent({ role }: { role: CommissionPortalRole }) {
       selector: (row) => row.openingBalance,
       sortable: true,
       right: true,
-      minWidth: "130px",
+      width: "130px",
       cell: (row) => (
         <span className="font-semibold text-slate-700">
           {formatCurrency(row.openingBalance)}
         </span>
       ),
     },
-        {
+    {
       name: "Credit / Debit",
       selector: (row) => row.creditDebit,
       sortable: true,
       center: true,
-      minWidth: "120px",
+      width: "120px",
       cell: (row) => (
         <span
           className={cn(
@@ -177,7 +211,7 @@ function CommissionLedgerContent({ role }: { role: CommissionPortalRole }) {
       selector: (row) => row.amount,
       sortable: true,
       right: true,
-      minWidth: "110px",
+      width: "110px",
       cell: (row) => (
         <span
           className={cn(
@@ -194,7 +228,7 @@ function CommissionLedgerContent({ role }: { role: CommissionPortalRole }) {
       selector: (row) => row.closingBalance,
       sortable: true,
       right: true,
-      minWidth: "130px",
+      width: "130px",
       cell: (row) => (
         <span className="font-semibold text-[#0b1f3a]">
           {formatCurrency(row.closingBalance)}
@@ -202,23 +236,31 @@ function CommissionLedgerContent({ role }: { role: CommissionPortalRole }) {
       ),
     },
     {
-      name: "Service name",
+      name: "Service",
       selector: (row) => row.serviceName,
       sortable: true,
-      minWidth: "120px",
+      width: "120px",
       cell: (row) => (
-        <span className="text-xs font-semibold text-slate-600">
+        <span
+          className="block truncate text-xs font-semibold text-slate-600"
+          title={row.serviceName || undefined}
+        >
           {row.serviceName || "—"}
         </span>
       ),
     },
     {
-      name: "Service ID",
-      selector: (row) => row.serviceId,
+      name: "Remarks",
+      selector: (row) => row.remarks,
       sortable: true,
-      minWidth: "110px",
+      width: "180px",
       cell: (row) => (
-        <span className="font-mono text-xs text-slate-600">{row.serviceId || "—"}</span>
+        <span
+          className="line-clamp-2 text-xs text-slate-500"
+          title={row.remarks || undefined}
+        >
+          {row.remarks || "—"}
+        </span>
       ),
     },
   ];
@@ -293,7 +335,9 @@ function CommissionLedgerContent({ role }: { role: CommissionPortalRole }) {
           <div>
             <h1 className="text-xl font-bold text-[#0b1f3a] sm:text-2xl">{meta.title}</h1>
             <p className="text-sm text-slate-500">
-              Full commission wallet ledger with export & top-up
+              {showRetailerColumn
+                ? "See which retailer earned you each commission — with export & top-up"
+                : "Full commission wallet ledger with export & top-up"}
             </p>
           </div>
         </div>
@@ -321,7 +365,9 @@ function CommissionLedgerContent({ role }: { role: CommissionPortalRole }) {
           <div>
             <CardTitle>Commission Ledger</CardTitle>
             <CardDescription>
-              Date, time, balances, reference & service details from commission wallet
+              {showRetailerColumn
+                ? "Each credit shows the downline retailer (name, mobile, code) who generated the commission"
+                : "Date, time, balances, reference & service details from commission wallet"}
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -392,7 +438,11 @@ function CommissionLedgerContent({ role }: { role: CommissionPortalRole }) {
                 <Input
                   id="commission-search"
                   className="pl-9"
-                  placeholder="Search reference / transaction ID"
+                  placeholder={
+                    showRetailerColumn
+                      ? "Search retailer, reference, transaction ID…"
+                      : "Search reference / transaction ID"
+                  }
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                 />
@@ -438,7 +488,21 @@ function CommissionLedgerContent({ role }: { role: CommissionPortalRole }) {
                 setLimit(next);
                 setPage(nextPage);
               }}
-              customStyles={cyanDataTableStyles}
+              customStyles={{
+                ...cyanDataTableStyles,
+                table: {
+                  style: {
+                    ...cyanDataTableStyles.table?.style,
+                    minWidth: showRetailerColumn ? "1680px" : "1400px",
+                  },
+                },
+                cells: {
+                  style: {
+                    ...cyanDataTableStyles.cells?.style,
+                    overflow: "hidden",
+                  },
+                },
+              }}
               sortIcon={<CyanDataTableSortIcon />}
               highlightOnHover
               dense

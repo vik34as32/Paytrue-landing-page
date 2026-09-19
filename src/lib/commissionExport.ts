@@ -7,12 +7,15 @@ const WORKSHEET_NAME = "Commission Ledger";
 const HEADER_FILL = "FF1565D8";
 const TOTAL_FILL = "FFFFD966";
 const BRAND_NAVY = "FF001F5B";
-const COLUMN_COUNT = 12;
+const COLUMN_COUNT = 15;
 
 const COLUMN_HEADERS = [
   "Sr No",
   "Date",
   "Time",
+  "Retailer Name",
+  "Retailer Mobile",
+  "Retailer Code",
   "Transaction ID",
   "Reference",
   "Opening Balance",
@@ -28,15 +31,18 @@ const MIN_COLUMN_WIDTHS: Record<number, number> = {
   1: 8,
   2: 14,
   3: 14,
-  4: 38,
-  5: 42,
-  6: 16,
-  7: 16,
-  8: 14,
-  9: 14,
-  10: 14,
-  11: 12,
-  12: 28,
+  4: 22,
+  5: 16,
+  6: 14,
+  7: 34,
+  8: 34,
+  9: 16,
+  10: 16,
+  11: 14,
+  12: 14,
+  13: 14,
+  14: 12,
+  15: 28,
 };
 
 const CURRENCY_FORMAT = '"₹"#,##0.00';
@@ -178,6 +184,9 @@ export async function exportCommissionLedgerToExcel(
       index + 1,
       entry.date || "—",
       entry.time || "—",
+      entry.retailerName || "—",
+      entry.retailerMobile || "—",
+      entry.retailerCode || "—",
       entry.transactionId || "—",
       entry.reference || "—",
       entry.openingBalance,
@@ -193,18 +202,18 @@ export async function exportCommissionLedgerToExcel(
       const cell = row.getCell(colIndex + 1);
       cell.value = value;
       cell.alignment = {
-        horizontal: [0, 8, 9, 10].includes(colIndex) ? "center" : "left",
+        horizontal: [0, 11, 12, 13].includes(colIndex) ? "center" : "left",
         vertical: "middle",
-        wrapText: colIndex === 4 || colIndex === 11,
+        wrapText: colIndex === 7 || colIndex === 14,
       };
       applyBorder(cell);
 
-      if ([5, 6, 7].includes(colIndex)) {
+      if ([8, 9, 10].includes(colIndex)) {
         cell.numFmt = CURRENCY_FORMAT;
         cell.alignment = { horizontal: "right", vertical: "middle" };
       }
 
-      if (colIndex === 8) {
+      if (colIndex === 11) {
         cell.font = {
           bold: true,
           color: {
@@ -229,8 +238,11 @@ export async function exportCommissionLedgerToExcel(
     "",
     "",
     "",
-    "",
     "TOTAL",
+    "",
+    "",
+    "",
+    "",
     "",
     "",
     totalCredit - totalDebit,
@@ -280,6 +292,9 @@ function buildExportColumns(rows: CommissionLedgerEntry[]) {
     sr: index + 1,
     date: entry.date || "—",
     time: entry.time || "—",
+    retailerName: entry.retailerName || "—",
+    retailerMobile: entry.retailerMobile || "—",
+    retailerCode: entry.retailerCode || "—",
     transactionId: entry.transactionId || "—",
     reference: entry.reference || "—",
     openingBalance: formatCurrency(entry.openingBalance),
@@ -351,6 +366,9 @@ export async function exportCommissionLedgerToPdf(
         "Sr",
         "Date",
         "Time",
+        "Retailer",
+        "Mobile",
+        "Code",
         "Transaction ID",
         "Reference",
         "Opening",
@@ -366,6 +384,9 @@ export async function exportCommissionLedgerToPdf(
       row.sr,
       row.date,
       row.time,
+      row.retailerName,
+      row.retailerMobile,
+      row.retailerCode,
       row.transactionId,
       row.reference,
       row.openingBalance,
@@ -416,6 +437,9 @@ export function printCommissionLedger(
     "Sr",
     "Date",
     "Time",
+    "Retailer",
+    "Mobile",
+    "Code",
     "Transaction ID",
     "Reference",
     "Opening Balance",
@@ -480,12 +504,15 @@ export function printCommissionLedger(
           <td>${row.sr}</td>
           <td>${row.date}</td>
           <td>${row.time}</td>
+          <td>${row.retailerName}</td>
+          <td>${row.retailerMobile}</td>
+          <td>${row.retailerCode}</td>
           <td>${row.transactionId}</td>
           <td>${row.reference}</td>
           <td>${row.openingBalance}</td>
           <td>${row.closingBalance}</td>
-          <td>${row.amount}</td>
-          <td class="${row.creditDebit === "CREDIT" ? "credit" : row.creditDebit === "DEBIT" ? "debit" : ""}">${row.creditDebit}</td>
+          <td class="${String(row.creditDebit).toUpperCase() === "CREDIT" ? "credit" : "debit"}">${row.amount}</td>
+          <td>${row.creditDebit}</td>
           <td>${row.walletType}</td>
           <td>${row.serviceId}</td>
           <td>${row.remarks}</td>

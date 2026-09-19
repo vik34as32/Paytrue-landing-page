@@ -32,6 +32,11 @@ export interface CommissionLedgerEntry {
   time: string;
   credit: number;
   debit: number;
+  /** Downline retailer who generated this commission (DD/MD). */
+  retailerId: string;
+  retailerName: string;
+  retailerMobile: string;
+  retailerCode: string;
 }
 
 export interface CommissionLedgerResult {

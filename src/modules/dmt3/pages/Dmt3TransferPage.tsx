@@ -19,7 +19,7 @@ import {
   RequireSelectedBeneficiary,
 } from "../components/Dmt3Guards";
 import { useDmt3RetailerContext } from "../hooks/useDmt3RetailerContext";
-import { DMT3_MIN_TRANSFER_AMOUNT } from "../lib/dmt3-constants";
+import { DMT3_MAX_TRANSFER_AMOUNT, DMT3_MIN_TRANSFER_AMOUNT } from "../lib/dmt3-constants";
 import { useDmt3Store } from "../lib/dmt3-store";
 import { submitTransfer } from "../lib/dmt3-service";
 import type { Dmt3Beneficiary } from "../types/dmt3.types";
@@ -29,16 +29,19 @@ import {
   formatDmt3Inr,
 } from "../utils/dmt3.utils";
 
-const QUICK_AMOUNTS = [1000, 2000, 5000, 10000, 20000, 50000, 100000] as const;
+const QUICK_AMOUNTS = [1000, 2000, 5000, 10000, 20000, 50000] as const;
 
 const MIN_AMOUNT_MESSAGE =
   "This transaction is valid for ₹1,000 and above. Please enter at least ₹1,000.";
+const MAX_AMOUNT_MESSAGE =
+  "Maximum ₹50,000 allowed per DMT3 transaction. Please enter ₹50,000 or less.";
 
 const schema = z.object({
   amount: z.coerce
     .number()
     .positive("Enter a valid amount")
-    .min(DMT3_MIN_TRANSFER_AMOUNT, MIN_AMOUNT_MESSAGE),
+    .min(DMT3_MIN_TRANSFER_AMOUNT, MIN_AMOUNT_MESSAGE)
+    .max(DMT3_MAX_TRANSFER_AMOUNT, MAX_AMOUNT_MESSAGE),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -98,6 +101,10 @@ function Dmt3TransferForm() {
   const onContinue = (values: FormValues) => {
     if (values.amount < DMT3_MIN_TRANSFER_AMOUNT) {
       form.setError("amount", { type: "min", message: MIN_AMOUNT_MESSAGE });
+      return;
+    }
+    if (values.amount > DMT3_MAX_TRANSFER_AMOUNT) {
+      form.setError("amount", { type: "max", message: MAX_AMOUNT_MESSAGE });
       return;
     }
     setTransfer({
@@ -235,8 +242,9 @@ function Dmt3TransferForm() {
                   <Input
                     type="number"
                     min={DMT3_MIN_TRANSFER_AMOUNT}
+                    max={DMT3_MAX_TRANSFER_AMOUNT}
                     step="1"
-                    placeholder="Minimum ₹1,000"
+                    placeholder="₹1,000 – ₹50,000"
                     className="h-12 rounded-xl pl-8 text-lg font-semibold tracking-wide"
                     {...form.register("amount")}
                   />
@@ -245,10 +253,16 @@ function Dmt3TransferForm() {
                   <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
                     This transaction is valid for ₹1,000 and above.
                   </p>
+                ) : amountValue > DMT3_MAX_TRANSFER_AMOUNT ? (
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+                    Maximum ₹50,000 allowed per DMT3 transaction.
+                  </p>
                 ) : form.formState.errors.amount ? (
                   <p className="text-sm text-rose-600">{form.formState.errors.amount.message}</p>
                 ) : (
-                  <p className="text-xs text-slate-500">Minimum transfer amount is ₹1,000.</p>
+                  <p className="text-xs text-slate-500">
+                    Per transaction limit: minimum ₹1,000 · maximum ₹50,000.
+                  </p>
                 )}
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                   {QUICK_AMOUNTS.map((value) => {
@@ -282,7 +296,10 @@ function Dmt3TransferForm() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={amountValue < DMT3_MIN_TRANSFER_AMOUNT}
+                  disabled={
+                    amountValue < DMT3_MIN_TRANSFER_AMOUNT ||
+                    amountValue > DMT3_MAX_TRANSFER_AMOUNT
+                  }
                   className="min-w-[160px] flex-1 bg-gradient-to-r from-indigo-500 to-violet-700 sm:flex-none"
                 >
                   Continue

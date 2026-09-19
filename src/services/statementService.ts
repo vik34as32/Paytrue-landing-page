@@ -5,10 +5,13 @@ import api from "@/src/lib/axios";
 import { unwrapApiData } from "@/src/lib/dmtUtils";
 import {
   mapAepsToStatement,
+  mapDmt3ToStatement,
   mapDmtToStatement,
   mapUpiAtmToStatement,
   mergeStatementTransactions,
 } from "@/src/lib/statementMappers";
+import { DMT3_ENDPOINTS } from "@/src/modules/dmt3/services/dmt3.endpoints";
+import { unwrapList } from "@/src/modules/dmt3/services/dmt3.mapper";
 import type { StatementTransaction } from "@/types/statementReceipt";
 
 export interface StatementFetchOptions {
@@ -21,6 +24,7 @@ export interface RetailerStatementResult {
   errors: string[];
   totals: {
     dmt: number;
+    dmt3: number;
     upiAtm: number;
     aeps: number;
     all: number;
@@ -50,6 +54,11 @@ function parseDmtRows(payload: unknown): StatementTransaction[] {
   return (rows as Record<string, unknown>[]).map(mapDmtToStatement);
 }
 
+function parseDmt3Rows(payload: unknown): StatementTransaction[] {
+  // API may return data as array OR indexed object ("0","1",…)
+  return unwrapList(payload).map((row) => mapDmt3ToStatement(asRecord(row)));
+}
+
 function parseUpiAtmRows(payload: unknown): StatementTransaction[] {
   const root = asRecord(payload);
   const rows = Array.isArray(root.data)
@@ -75,8 +84,9 @@ export async function fetchRetailerStatement(
   const limit = options.limit ?? 100;
   const params = { page, limit };
 
-  const [dmtResult, upiResult, aepsResult] = await Promise.allSettled([
+  const [dmtResult, dmt3Result, upiResult, aepsResult] = await Promise.allSettled([
     api.get(DMT_ENDPOINTS.transactions, { params }),
+    api.get(DMT3_ENDPOINTS.transactions, { params }),
     api.get(UPI_ATM_ENDPOINTS.history, { params }),
     api.get(AEPS_ENDPOINTS.ledger, { params }),
   ]);
@@ -86,6 +96,14 @@ export async function fetchRetailerStatement(
     dmtResult.status === "fulfilled"
       ? parseDmtRows(dmtResult.value.data)
       : (errors.push(extractErrorMessage(dmtResult.reason, "DMT history failed")),
+        []);
+
+  const dmt3Rows =
+    dmt3Result.status === "fulfilled"
+      ? parseDmt3Rows(dmt3Result.value.data)
+      : (errors.push(
+          extractErrorMessage(dmt3Result.reason, "DMT3 history failed")
+        ),
         []);
 
   const upiRows =
@@ -104,6 +122,7 @@ export async function fetchRetailerStatement(
 
   const transactions = mergeStatementTransactions([
     ...dmtRows,
+    ...dmt3Rows,
     ...upiRows,
     ...aepsRows,
   ]);
@@ -113,6 +132,7 @@ export async function fetchRetailerStatement(
     errors,
     totals: {
       dmt: dmtRows.length,
+      dmt3: dmt3Rows.length,
       upiAtm: upiRows.length,
       aeps: aepsRows.length,
       all: transactions.length,

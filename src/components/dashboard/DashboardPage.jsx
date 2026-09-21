@@ -11,9 +11,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { mdDashboardStats, ddDashboardStats } from "@/src/mock/dashboardData";
 import { fetchMdDashboard, fetchDdDashboard } from "@/src/redux/thunks/dashboardThunk";

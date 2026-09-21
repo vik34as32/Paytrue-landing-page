@@ -332,7 +332,7 @@ export async function fetchCommissionLedger(
   const response = await api.get(API_ENDPOINTS.walletCommissionLedger, { params });
   const rows = extractCommissionLedgerRows(response.data);
   const walletType = extractCommissionWalletType(response.data);
-  const items = rows.map((row) => {
+  const items: CommissionLedgerEntry[] = rows.map((row) => {
     const entry = normalizeCommissionLedgerEntry(row);
     return {
       ...entry,
@@ -340,7 +340,7 @@ export async function fetchCommissionLedger(
     };
   });
 
-  let enrichedItems = items;
+  let enrichedItems: CommissionLedgerEntry[] = items;
   try {
     enrichedItems = await enrichCommissionEntriesWithRetailers(items, rows);
   } catch {

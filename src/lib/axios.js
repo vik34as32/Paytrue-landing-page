@@ -44,7 +44,9 @@ export function isUnauthorizedApiError(error) {
       ""
   ).toLowerCase();
 
-  if (status === 401 || status === 403) {
+  // Only 401 means the session is invalid. 403 is permission denied for a
+  // resource and must not force a full portal logout (e.g. optional lookups).
+  if (status === 401) {
     return true;
   }
 

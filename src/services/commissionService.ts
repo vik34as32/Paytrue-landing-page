@@ -1,6 +1,5 @@
 import api from "@/src/lib/axios";
 import { API_ENDPOINTS } from "@/src/constants/api";
-import { fetchUserById } from "@/src/services/profileApi";
 import {
   extractCommissionLedgerRows,
   extractCommissionPagination,
@@ -17,6 +16,9 @@ import type {
   CommissionLedgerEntry,
 } from "@/src/types/commission";
 import { COMMISSION_TRANSFER_REMARKS } from "@/src/types/commission";
+
+/** Optional lookups must never clear the portal session on 401/403. */
+const skipSessionLogout = { skipSessionLogout: true } as const;
 
 export async function fetchCommissionWallet(): Promise<CommissionWallet> {
   const response = await api.get(API_ENDPOINTS.walletCommission);
@@ -118,14 +120,15 @@ async function resolveRetailerByUserId(
   if (cache.has(id)) return cache.get(id) || null;
 
   try {
-    const user = await fetchUserById(id);
+    const response = await api.get(`${API_ENDPOINTS.users}/${id}`, skipSessionLogout);
+    const user = asRecord(response.data?.data ?? response.data);
     const info = retailerFromUserRecord(user, id);
     if (info.retailerName || info.retailerMobile || info.retailerCode) {
       cache.set(id, info);
       return info;
     }
   } catch {
-    /* user may be inaccessible */
+    /* user may be inaccessible — do not logout */
   }
   cache.set(id, null);
   return null;
@@ -144,6 +147,7 @@ async function resolveRetailerByTxnReference(
 
   try {
     const response = await api.get(API_ENDPOINTS.downlineRetailerLedger, {
+      ...skipSessionLogout,
       params: { search: sourceRef, page: 1, limit: 20 },
     });
     const body = asRecord(response.data);
@@ -336,7 +340,13 @@ export async function fetchCommissionLedger(
     };
   });
 
-  const enrichedItems = await enrichCommissionEntriesWithRetailers(items, rows);
+  let enrichedItems = items;
+  try {
+    enrichedItems = await enrichCommissionEntriesWithRetailers(items, rows);
+  } catch {
+    // Keep ledger visible even if retailer enrichment fails
+    enrichedItems = items;
+  }
 
   const pagination = extractCommissionPagination(response.data, {
     page: Number(params.page) || 1,

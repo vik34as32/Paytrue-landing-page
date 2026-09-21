@@ -45,11 +45,20 @@ function merchantSources(state: MerchantThunkState): unknown[] {
 function buildBiometricStatusRequest(state: MerchantThunkState) {
   const sources = merchantSources(state);
   const request = buildMerchantStatusRequest(...sources);
-  const retailerId =
+  const candidate =
     request.retailerId ||
     resolveAuthRetailerId(...sources) ||
     state.merchant.retailerId ||
     undefined;
+
+  // Backend validates retailerId/id as UUID — never send RET000003 display codes
+  const retailerId =
+    candidate &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      candidate
+    )
+      ? candidate
+      : undefined;
 
   return {
     retailerId,
@@ -97,13 +106,23 @@ export const submitMerchantBiometricVerification = createAsyncThunk(
         ...merchantSources(latestState)
       );
 
-      const retailerId =
+      const candidate =
         resolveAuthRetailerId(...merchantSources(latestState)) ||
         statusRequest.retailerId ||
         refs.retailerId;
 
+      const retailerId =
+        candidate &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          String(candidate)
+        )
+          ? String(candidate)
+          : "";
+
       if (!retailerId) {
-        return rejectWithValue("Retailer ID not found. Please re-login.");
+        return rejectWithValue(
+          "Retailer UUID not found. Please logout and login again."
+        );
       }
 
       if (!hasRequiredBiometricReferences(refs)) {

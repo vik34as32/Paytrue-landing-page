@@ -1,8 +1,8 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "@/src/lib/axios";
 import { API_ENDPOINTS } from "@/src/constants/api";
-import { setUserCookie, getAccessToken } from "@/src/lib/cookies";
-import { normalizeUser } from "@/src/lib/authUtils";
+import { setUserCookie, getAccessToken, getUserCookie } from "@/src/lib/cookies";
+import { normalizeUser, resolveUserUuid, isUserUuid } from "@/src/lib/authUtils";
 import {
   fetchUserById,
   updateUserById,
@@ -24,8 +24,18 @@ export const fetchProfile = createAsyncThunk(
 
       const response = await api.get(API_ENDPOINTS.profile);
       const profile = response.data?.data || response.data;
+      const previous = getUserCookie();
+
+      // Merge previous session UUID so profile responses without `id` don't
+      // break /users/:id and biometric-status (uuid validation).
       const normalized = normalizeUser({
+        ...(previous && typeof previous === "object" ? previous : {}),
         ...profile,
+        id:
+          resolveUserUuid(profile) ||
+          resolveUserUuid(previous) ||
+          profile?.id ||
+          previous?.id,
         bankAccount: profile?.bankDetails || profile?.bankAccount,
       });
 
@@ -47,8 +57,14 @@ export const getUserById = createAsyncThunk(
   "profile/getUserById",
   async (id: string, { rejectWithValue }) => {
     try {
-      if (!id) return rejectWithValue("User id is required");
-      const user = await fetchUserById(String(id));
+      const uuid = String(id || "").trim();
+      if (!uuid) return rejectWithValue("User id is required");
+      if (!isUserUuid(uuid)) {
+        return rejectWithValue(
+          "Invalid user id. Expected a UUID — please logout and login again."
+        );
+      }
+      const user = await fetchUserById(uuid);
       const normalized = normalizeUser({
         ...user,
         bankAccount: user?.bankDetails || user?.bankAccount,
@@ -78,8 +94,14 @@ export const updateUser = createAsyncThunk(
     { rejectWithValue, dispatch }
   ) => {
     try {
-      if (!id) return rejectWithValue("User id is required");
-      const updated = await updateUserById(String(id), values);
+      const uuid = String(id || "").trim();
+      if (!uuid) return rejectWithValue("User id is required");
+      if (!isUserUuid(uuid)) {
+        return rejectWithValue(
+          "Invalid user id. Expected a UUID — please logout and login again."
+        );
+      }
+      const updated = await updateUserById(uuid, values);
       const normalized = normalizeUser({
         ...updated,
         bankAccount: updated?.bankDetails || updated?.bankAccount,

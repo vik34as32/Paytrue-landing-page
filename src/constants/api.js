@@ -46,4 +46,9 @@ export const API_ENDPOINTS = {
   mpinForgot: "/auth/mpin/forgot",
   mpinForgotVerifyOtp: "/auth/mpin/verify-otp",
   mpinReset: "/auth/mpin/reset",
+  /** GET /permissions/check/:permissionName → { data: { permission, allowed } } */
+  permissionCheck: (permissionName) =>
+    `/permissions/check/${encodeURIComponent(String(permissionName || "").trim())}`,
+  /** GET /permissions/user → { data: { user, permissions: [{ key, isAllowed }] } } */
+  permissionsUser: "/permissions/user",
 };

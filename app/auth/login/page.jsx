@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useDispatch, useSelector } from "react-redux";
@@ -28,7 +28,7 @@ import {
   clearAuthError,
 } from "@/src/redux/slices/authSlice";
 import { resolvePostLoginRedirect } from "@/src/lib/authUtils";
-import { USER_TYPES } from "@/src/constants/auth";
+import { ROLE_PORTAL_PATHS, USER_TYPES } from "@/src/constants/auth";
 import { fetchMpinStatus } from "@/features/mpin/services/mpinApi";
 import { toast } from "sonner";
 import { saveLoginOtpSession } from "@/src/lib/loginOtpSession";
@@ -44,8 +44,22 @@ function goToVerifyOtp(redirectParam) {
   window.location.assign(otpUrl);
 }
 
+/** Match OTP-success navigation: portal home + hard assign so cookies bind for /wallet APIs. */
+function goToPostLoginDestination(userType, redirectParam) {
+  let redirect = resolvePostLoginRedirect(redirectParam, userType);
+
+  if (userType === USER_TYPES.RETAILER) {
+    redirect = ROLE_PORTAL_PATHS[USER_TYPES.RETAILER] || "/rt/retailer";
+  } else if (userType === USER_TYPES.DISTRIBUTOR) {
+    redirect = ROLE_PORTAL_PATHS[USER_TYPES.DISTRIBUTOR] || "/dd/dashboard";
+  } else if (userType === USER_TYPES.MASTER_DISTRIBUTOR) {
+    redirect = ROLE_PORTAL_PATHS[USER_TYPES.MASTER_DISTRIBUTOR] || "/md/dashboard";
+  }
+
+  window.location.assign(redirect);
+}
+
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useDispatch();
   const loading = useSelector(selectAuthLoading);
@@ -106,23 +120,22 @@ function LoginForm() {
       toast.success(action.payload.message || "Login successful");
 
       const userType = action.payload.user?.userType;
-      let redirect = resolvePostLoginRedirect(
-        searchParams.get("redirect"),
-        userType
-      );
+      let redirectParam = searchParams.get("redirect");
 
       if (userType === USER_TYPES.RETAILER) {
         try {
           const status = await fetchMpinStatus();
           if (!status.isMpinCreated) {
-            redirect = "/rt/retailer/mpin/create";
+            window.location.assign("/rt/retailer/mpin/create");
+            return;
           }
         } catch {
           /* fall through to normal dashboard; gate will retry */
         }
       }
 
-      router.replace(redirect);
+      // Same as OTP verify: hard navigate so Authorization cookie is visible to /wallet & biometric APIs
+      goToPostLoginDestination(userType, redirectParam);
       return;
     }
 
@@ -354,7 +367,7 @@ function LoginForm() {
       <ProcessLoadingOverlay
         open={loading}
         message="Please wait..."
-        detail="Signing you in securely — do not refresh"
+        detail="Verifying credentials — do not refresh"
       />
     </div>
   );

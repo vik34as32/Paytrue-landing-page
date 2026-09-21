@@ -1,5 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { getAccessToken, getUserCookie } from "@/src/lib/cookies";
+import { clearAuthCookies, getAccessToken, getUserCookie } from "@/src/lib/cookies";
 import { clearClientSession } from "@/src/lib/sessionCleanup";
 import { normalizeUser } from "@/src/lib/authUtils";
 import {
@@ -12,6 +12,10 @@ import {
   toLoginOtpApiError,
   verifyLoginOtp as verifyLoginOtpRequest,
 } from "@/src/services/loginOtpService";
+import {
+  canLoginWithoutOtp,
+  isLoginWithoutOtpEligibleRole,
+} from "@/src/services/permissionService";
 import type { NormalizedAuthUser } from "@/src/types/authLogin";
 
 export type LoginUserArg = {
@@ -63,6 +67,11 @@ export type AuthRejectValue = {
 /**
  * Login with email OR mobile.
  * May return OTP challenge (requiresOtp) instead of JWT.
+ *
+ * For RETAILER / DISTRIBUTOR / MASTER_DISTRIBUTOR: after a direct JWT login,
+ * LOGIN_WITHOUT_OTP is checked via the permissions API. Only allowed === true
+ * skips the OTP screen; otherwise session is cleared (fail closed → OTP).
+ * ADMIN / SUPER_ADMIN: unchanged — JWT login proceeds without this check.
  */
 export const loginUser = createAsyncThunk<
   LoginUserResult,
@@ -91,6 +100,7 @@ export const loginUser = createAsyncThunk<
     });
 
     if (result.kind === "otp_required") {
+      // Backend issued OTP challenge — keep existing OTP flow (no permission bypass).
       saveLoginOtpSession({
         loginToken: result.loginToken,
         remember: result.remember,
@@ -103,6 +113,49 @@ export const loginUser = createAsyncThunk<
         remember: result.remember,
       };
     }
+
+    const userType = result.user?.userType;
+
+    // Eligible portal roles: JWT alone is not enough — confirm LOGIN_WITHOUT_OTP.
+    if (isLoginWithoutOtpEligibleRole(userType)) {
+      const allowed = await canLoginWithoutOtp(userType, {
+        accessToken: result.accessToken,
+        permissions: result.permissions ?? undefined,
+      });
+
+      if (!allowed) {
+        // Fail closed for OTP UI — but keep cookies only if we can continue OTP.
+        // Never leave a half-cleared session that breaks /wallet afterwards.
+        if (result.loginToken && result.loginToken !== result.accessToken) {
+          clearAuthCookies();
+          saveLoginOtpSession({
+            loginToken: result.loginToken,
+            remember: result.remember,
+            identifierHint,
+          });
+          return {
+            requiresOtp: true as const,
+            loginToken: result.loginToken,
+            message:
+              result.message ||
+              "OTP verification is required. Please enter the OTP sent to you.",
+            remember: result.remember,
+          };
+        }
+
+        // Login already issued the session JWT as loginToken (= accessToken).
+        // Clearing it would break /wallet & biometric-status — keep session and
+        // require OTP only when we have a separate challenge token.
+        clearAuthCookies();
+        clearLoginOtpSession();
+        return rejectWithValue({
+          status: 403,
+          message:
+            "OTP verification is required for this account. Please try logging in again to receive an OTP.",
+        });
+      }
+    }
+    // ADMIN / SUPER_ADMIN (and any other non-eligible role): existing direct JWT flow.
 
     return {
       requiresOtp: false as const,

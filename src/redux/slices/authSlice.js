@@ -99,7 +99,17 @@ const authSlice = createSlice({
         Object.assign(state, { ...initialState, hydrated: true });
       })
       .addCase(fetchProfile.fulfilled, (state, action) => {
-        state.user = action.payload;
+        const prev = state.user;
+        const next = action.payload;
+        const prevId = prev?.id || prev?._id;
+        const nextId = next?.id || next?._id;
+        state.user = {
+          ...prev,
+          ...next,
+          // Keep UUID if profile payload omitted it
+          id: nextId || prevId || next?.id,
+          _id: next?._id || prev?._id || nextId || prevId,
+        };
       });
   },
 });

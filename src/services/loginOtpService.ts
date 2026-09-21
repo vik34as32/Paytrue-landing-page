@@ -2,6 +2,7 @@ import api from "@/src/lib/axios";
 import { API_BASE_URL, API_ENDPOINTS } from "@/src/constants/api";
 import { extractAuthPayload, normalizeUser } from "@/src/lib/authUtils";
 import { persistAuthSession } from "@/src/lib/cookies";
+import { extractPermissionsList } from "@/src/services/permissionService";
 import type { NormalizedAuthUser } from "@/src/types/authLogin";
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -336,21 +337,35 @@ function extractOtpChallenge(
 
   const data = unwrap(normalized);
   const root = asRecord(normalized);
+  const user = asRecord(
+    getProp(data, "user", "profile") || getProp(root, "user", "profile")
+  );
+  const hasUser = Boolean(user.id || user.userId || user.userType || user.email);
+
   const accessToken = String(
     getProp(data, "accessToken", "access_token") ||
       getProp(root, "accessToken", "access_token") ||
       ""
   ).trim();
 
-  // Genuine JWT login — not an OTP challenge
-  if (accessToken && !otpHint) {
+  // Explicit accessToken → authenticated path (not OTP)
+  if (accessToken) {
     return null;
   }
 
   const loginToken = pickLoginToken(normalized, responseHeaders);
+  const loginTokenIsJwt = /^eyJ[A-Za-z0-9_-]+\./.test(loginToken);
+
+  // Backend LOGIN_WITHOUT_OTP response: loginToken is the JWT + user object,
+  // message "Login successful" — must NOT open OTP screen.
+  if (hasUser && loginTokenIsJwt && !otpHint) {
+    return null;
+  }
 
   if (!otpHint) {
-    if (!loginToken || accessToken) return null;
+    // Opaque challenge token without a completed user session → OTP
+    if (!loginToken) return null;
+    if (hasUser && loginTokenIsJwt) return null;
     return { loginToken, message };
   }
 
@@ -384,6 +399,10 @@ export type LoginApiResult =
       user: NormalizedAuthUser | null;
       remember: boolean;
       message?: string;
+      /** Present when API also returns an OTP challenge token (permission fail-closed fallback). */
+      loginToken?: string;
+      /** Permissions from login payload when present (LOGIN_WITHOUT_OTP etc.). */
+      permissions?: unknown[] | null;
     };
 
 export interface VerifyLoginOtpPayload {
@@ -464,8 +483,10 @@ export function toLoginOtpApiError(
 
 /**
  * POST /auth/login
- * - SUPER_ADMIN may receive tokens directly
- * - Other roles typically receive requiresOtp + loginToken
+ * - SUPER_ADMIN / ADMIN may receive tokens directly
+ * - RETAILER / DISTRIBUTOR / MASTER_DISTRIBUTOR may receive JWT when
+ *   LOGIN_WITHOUT_OTP is granted (frontend still verifies via permissions API),
+ *   otherwise typically receives requiresOtp + loginToken
  * Uses fetch so response headers (Authorization / x-login-token) are reliably readable cross-origin.
  */
 export async function loginWithPassword(
@@ -587,6 +608,12 @@ export async function loginWithPassword(
       remember,
     });
 
+    const otpLoginTokenRaw = pickLoginToken(payload);
+    const otpLoginToken =
+      otpLoginTokenRaw && otpLoginTokenRaw !== accessToken
+        ? otpLoginTokenRaw
+        : undefined;
+
     return {
       kind: "authenticated",
       accessToken,
@@ -594,6 +621,8 @@ export async function loginWithPassword(
       user: normalizeUser(user),
       remember,
       message: pickMessage(payload, "Login successful"),
+      loginToken: otpLoginToken,
+      permissions: extractPermissionsList(payload),
     };
   } catch (error) {
     const challenge = recoverOtpChallengeFromError(error);

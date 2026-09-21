@@ -471,7 +471,7 @@ export function mapMerchantError(error: unknown): Error {
     const validationErrors = err.data?.errors;
     if (Array.isArray(validationErrors) && validationErrors.length > 0) {
       const retailerIdError = validationErrors.find(
-        (item) => item.field === "retailerId"
+        (item) => item.field === "retailerId" || item.field === "id"
       );
       if (retailerIdError) {
         return new Error(

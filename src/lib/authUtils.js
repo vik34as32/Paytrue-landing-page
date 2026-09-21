@@ -5,6 +5,30 @@ import {
   ROLE_PATH_PREFIXES,
 } from "@/src/constants/auth";
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isUserUuid(value) {
+  return UUID_REGEX.test(String(value || "").trim());
+}
+
+/** Prefer real UUID for API path/query params — never RET000003 / display codes. */
+export function resolveUserUuid(user) {
+  if (!user || typeof user !== "object") return null;
+  for (const value of [
+    user.id,
+    user._id,
+    user.userId,
+    user.retailerId,
+    user.distributorId,
+  ]) {
+    if (value != null && isUserUuid(value)) {
+      return String(value).trim();
+    }
+  }
+  return null;
+}
+
 export function normalizeUser(user) {
   if (!user) return null;
 
@@ -23,21 +47,27 @@ export function normalizeUser(user) {
     user.image ||
     null;
 
+  const uuid = resolveUserUuid(user);
+  const userCode =
+    user.userCode ||
+    user.retailerCode ||
+    user.distributorCode ||
+    (!isUserUuid(user.userId) ? user.userId : null) ||
+    null;
+
   return {
     ...user,
+    // Always keep UUID on `id` when known — APIs validate :id as uuid
+    id: uuid || user.id || user._id || null,
+    _id: user._id || uuid || null,
+    userCode: userCode || undefined,
     firstName,
     lastName,
     name: fullName || user.email,
     profileImage,
     roleLabel: USER_TYPE_LABELS[user.userType] || user.userType,
-    userId:
-      user.userCode ||
-      user.id ||
-      user.userId ||
-      user._id ||
-      user.distributorId ||
-      user.retailerId ||
-      user.retailerCode,
+    // Display code for UI (RET000003). Do NOT use this for /users/:id or retailerId APIs.
+    userId: userCode || uuid || user.userId || user.id || null,
     status:
       user.status ||
       user.accountStatus ||

@@ -1,5 +1,6 @@
-import DownlineLedgerPage from "@/src/components/downlineLedger/DownlineLedgerPage";
+import { redirect } from "next/navigation";
 
-export default function DdDownlineLedgerPage() {
-  return <DownlineLedgerPage role="dd" />;
+/** Legacy path — ledger Report now lives at /dd/report */
+export default function DdDownlineLedgerRedirect() {
+  redirect("/dd/report");
 }

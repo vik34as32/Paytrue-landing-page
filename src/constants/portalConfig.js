@@ -11,7 +11,7 @@ export const MD_SIDEBAR_LINKS = [
   { label: "Reports", href: "/md/reports", icon: "BarChart3" },
   { label: "Wallet", href: "/md/wallet", icon: "CreditCard" },
   { label: "Wallet Summary", href: "/md/wallet-summary", icon: "FileSpreadsheet" },
-  { label: "report", href: "/md/report", icon: "BookOpen" },
+  { label: "Report", href: "/md/report", icon: "BookOpen" },
   { label: "Commission Report", href: "/md/commission", icon: "IndianRupee" },
 ];
 
@@ -24,7 +24,7 @@ export const DD_SIDEBAR_LINKS = [
   { label: "Fund Requests", href: "/dd/fund-requests", icon: "Wallet" },
   { label: "Wallet", href: "/dd/wallet", icon: "CreditCard" },
   { label: "Wallet Summary", href: "/dd/wallet-summary", icon: "FileSpreadsheet" },
-  { label: "report", href: "/dd/report", icon: "BookOpen" },
+  { label: "Report", href: "/dd/report", icon: "BookOpen" },
   { label: "Commission Report", href: "/dd/commission", icon: "IndianRupee" },
 ];
 

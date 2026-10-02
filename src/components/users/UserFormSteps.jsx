@@ -16,6 +16,7 @@ import { BUSINESS_TYPES } from "@/src/constants/businessTypes";
 import { generateSecurePassword } from "@/src/lib/passwordUtils";
 import { lookupPincode } from "@/src/lib/pincodeLookup";
 import { lookupCoordinates } from "@/src/lib/geoLookup";
+import { getCurrentLocation } from "@/src/lib/rdService";
 import { formatDateDisplay } from "@/src/validation/schemas";
 import EmailVerificationField from "@/src/components/users/EmailVerificationField";
 import MobileVerificationField from "@/src/components/users/MobileVerificationField";
@@ -164,44 +165,35 @@ export function useCurrentGeolocation(methods, { enabled = false } = {}) {
   const [geoError, setGeoError] = useState(null);
   const fetchedRef = useRef(false);
 
-  const captureLocation = useCallback(() => {
-    if (typeof window === "undefined" || !navigator.geolocation) {
-      setGeoError("Geolocation is not supported on this device.");
-      return;
-    }
-
+  const captureLocation = useCallback(async () => {
     setLoadingCoords(true);
     setGeoError(null);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setValue("latitude", position.coords.latitude.toFixed(6), {
-          shouldValidate: true,
-          shouldDirty: true,
-        });
-        setValue("longitude", position.coords.longitude.toFixed(6), {
-          shouldValidate: true,
-          shouldDirty: true,
-        });
-        setLoadingCoords(false);
-      },
-      (error) => {
-        setLoadingCoords(false);
-        const messages = {
-          1: "Location permission denied. Please allow location access.",
-          2: "Unable to determine your location. Try again.",
-          3: "Location request timed out. Try again.",
-        };
-        setGeoError(messages[error.code] || "Failed to get current location.");
-      },
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-    );
+    try {
+      const coords = await getCurrentLocation();
+      setValue("latitude", coords.latitude, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      setValue("longitude", coords.longitude, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    } catch (error) {
+      setGeoError(
+        error instanceof Error
+          ? error.message
+          : "Failed to get current location."
+      );
+    } finally {
+      setLoadingCoords(false);
+    }
   }, [setValue]);
 
   useEffect(() => {
     if (!enabled || fetchedRef.current) return;
     fetchedRef.current = true;
-    captureLocation();
+    void captureLocation();
   }, [enabled, captureLocation]);
 
   return { loadingCoords, geoError, captureLocation };

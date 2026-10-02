@@ -187,7 +187,7 @@ function AutoPrintFeatureCard({
               </span>
             </div>
             <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-slate-600">
-              After a successful DMT / DMT3 / AEPS / UPI ATM transaction, the
+              After a successful DMT / DMT1 / DMT3 / AEPS / UPI ATM transaction, the
               print dialog opens automatically so you can give the customer a
               receipt without extra clicks.
             </p>

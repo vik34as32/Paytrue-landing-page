@@ -163,6 +163,7 @@ export function serviceTypeLabel(serviceType: string): string {
   }
   if (key.startsWith("DMT3") || key === "DMT3") return "DMT3";
   if (key.startsWith("DMT2") || key === "DMT2") return "DMT2";
+  if (key.startsWith("DMT1") || key === "DMT1") return "DMT1";
   if (key.startsWith("DMT") || key === "DMT") return "DMT";
   if (key.includes("RECHARGE")) return "Recharge";
   if (key.includes("BBPS")) return "BBPS";
@@ -227,6 +228,7 @@ export function resolveServiceTypeParam(
   if (key === "AEPS") return "AEPS";
   if (key === "DMT3") return "DMT3";
   if (key === "DMT2") return "DMT2";
+  if (key === "DMT1") return "DMT1";
   if (key === "DMT") return "DMT";
   return key;
 }

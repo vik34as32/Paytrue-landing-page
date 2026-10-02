@@ -88,6 +88,7 @@ export const SIDEBAR_LINKS = [
 
 export const SIDEBAR_MONEY_TRANSFER_LINKS = [
   { label: "DMT", href: "/rt/retailer/dmt", icon: "Send" },
+  { label: "DMT1", href: "/rt/retailer/dmt1", icon: "Banknote" },
   { label: "DMT2", href: "/rt/retailer/dmt2", icon: "Zap" },
   { label: "DMT3", href: "/rt/retailer/dmt3", icon: "ArrowRightLeft" },
 ] as const;
@@ -206,6 +207,7 @@ export const REFERRAL_BONUS_TIERS = [
 
 export const TICKET_CATEGORIES = [
   "DMT3",
+  "DMT1",
   "DMT",
   "AEPS",
   "UPI ATM",
@@ -230,6 +232,23 @@ export const TICKET_CATEGORY_TEMPLATES: Record<
     description: `Dear Support Team,
 
 I am facing an issue with DMT3 money transfer.
+
+Transaction / Reference ID: 
+Beneficiary Name: 
+Account Number: 
+Amount (₹): 
+Date & Time: 
+Issue details: 
+
+Please check and assist at the earliest.
+
+Thank you.`,
+  },
+  DMT1: {
+    subject: "Support Required – DMT1 Money Transfer Issue",
+    description: `Dear Support Team,
+
+I am facing an issue with DMT1 money transfer.
 
 Transaction / Reference ID: 
 Beneficiary Name: 
@@ -406,6 +425,14 @@ export const POPULAR_SERVICES: ServiceItem[] = [
     href: "/rt/retailer/dmt",
     icon: "Send",
     color: "from-blue-500 to-blue-700",
+    category: "transfer",
+  },
+  {
+    id: "dmt1",
+    title: "DMT1",
+    href: "/rt/retailer/dmt1",
+    icon: "Banknote",
+    color: "from-cyan-500 to-blue-700",
     category: "transfer",
   },
  {

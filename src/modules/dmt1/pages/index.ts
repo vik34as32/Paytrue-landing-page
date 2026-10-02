@@ -1,0 +1,13 @@
+export { default as Dmt1StartPage } from "./Dmt1SearchPage";
+export { default as Dmt1SearchPage } from "./Dmt1SearchPage";
+export { default as Dmt1RegisterPage } from "./Dmt1RegisterPage";
+export { default as Dmt1VerifyPage } from "./Dmt1VerifyPage";
+export { default as Dmt1RetailerHubPage } from "./Dmt1RetailerHubPage";
+export { default as Dmt1BeneficiariesPage } from "./Dmt1BeneficiariesPage";
+export { default as Dmt1AddBeneficiaryPage } from "./Dmt1AddBeneficiaryPage";
+export { default as Dmt1TransferPage } from "./Dmt1TransferPage";
+export { default as Dmt1CommissionPage } from "./Dmt1CommissionPage";
+export { default as Dmt1ReviewPage } from "./Dmt1ReviewPage";
+export { default as Dmt1ReceiptPage } from "./Dmt1ReceiptPage";
+export { default as Dmt1TransactionsPage } from "./Dmt1TransactionsPage";
+export { default as Dmt1TransactionDetailPage } from "./Dmt1TransactionDetailPage";

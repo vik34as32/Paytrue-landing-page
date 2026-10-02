@@ -22,13 +22,13 @@ const PAGE_CONFIG: Record<
   md: {
     title: "Report",
     description:
-      "Wallet ledger of retailers under your distributor hierarchy. Filter by DMT, DMT3, AEPS, and UPI ATM.",
+      "Wallet ledger of retailers under your distributor hierarchy. Filter by DMT, DMT1, DMT3, AEPS, and UPI ATM.",
     backHref: "/md/dashboard",
   },
   dd: {
     title: "Report",
     description:
-      "Wallet ledger of your retailers. Filter by DMT, DMT3, AEPS, and UPI ATM with date range and pagination.",
+      "Wallet ledger of your retailers. Filter by DMT, DMT1, DMT3, AEPS, and UPI ATM with date range and pagination.",
     backHref: "/dd/dashboard",
   },
 };

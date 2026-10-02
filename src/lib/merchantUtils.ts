@@ -533,6 +533,8 @@ export function isBiometricProtectedPath(pathname: string): boolean {
   return (
     pathname.startsWith("/rt/retailer/aeps") ||
     pathname === "/rt/retailer/dmt" ||
-    pathname.startsWith("/rt/retailer/dmt/")
+    pathname.startsWith("/rt/retailer/dmt/") ||
+    pathname === "/rt/retailer/dmt1" ||
+    pathname.startsWith("/rt/retailer/dmt1/")
   );
 }

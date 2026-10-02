@@ -2,6 +2,7 @@ import { mapAepsToStatement, mapDmtToStatement } from "@/src/lib/statementMapper
 import type { AepsTransactionResult } from "@/src/types/aeps";
 import type { StatementTransaction } from "@/types/statementReceipt";
 import type { Dmt3Beneficiary, Dmt3Transaction } from "@/src/modules/dmt3/types/dmt3.types";
+import type { Dmt1Beneficiary, Dmt1Transaction } from "@/src/modules/dmt1/types/dmt1.types";
 
 /** Loose DMT txn shape accepted by receipt mapper (both legacy and module types). */
 export interface ReceiptDmtTransactionSource {
@@ -151,4 +152,23 @@ export function mapDmt3TransactionToStatement(
       mobile: payee?.mobile || payerMobile,
     },
   });
+}
+
+export function mapDmt1TransactionToStatement(
+  txn: Dmt1Transaction | null | undefined,
+  beneficiary?: Dmt1Beneficiary | null,
+  sender?: { name?: string; mobile?: string }
+): StatementTransaction | null {
+  const mapped = mapDmt3TransactionToStatement(
+    txn as unknown as Dmt3Transaction,
+    beneficiary as unknown as Dmt3Beneficiary,
+    sender
+  );
+  if (!mapped) return null;
+  return {
+    ...mapped,
+    service: "DMT1",
+    description: mapped.description.replace(/^DMT3/, "DMT1").replace(/^DMT ·/, "DMT1 ·"),
+    source: "dmt1",
+  };
 }

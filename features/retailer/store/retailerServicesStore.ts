@@ -6,6 +6,7 @@ import {
 } from "@/src/lib/retailerServices";
 import { fetchRetailerServices } from "@/src/services/retailerServicesService";
 import {
+  DMT1_SERVICE_NAME_ALIASES,
   DMT3_SERVICE_CODE,
   DMT3_SERVICE_NAME_ALIASES,
   RETAILER_SERVICE_NAMES,
@@ -204,6 +205,55 @@ export function getDmt3Service(): ResolvedRetailerService {
 export async function resolveDmt3Service(): Promise<ResolvedRetailerService> {
   await ensureRetailerServicesLoaded();
   return getDmt3Service();
+}
+
+/** Resolve DMT1 InstantPay remittance from GET /retailer/services (name aliases). */
+export function getDmt1Service(): ResolvedRetailerService {
+  const { loaded } = useRetailerServicesStore.getState();
+  if (!loaded) {
+    throw new Error(
+      "Retailer services are not loaded yet. Please wait and try again."
+    );
+  }
+
+  const rows = catalogRows();
+  for (const alias of DMT1_SERVICE_NAME_ALIASES) {
+    const target = normalizeServiceNameKey(alias);
+    const match = rows.find(
+      (row) => normalizeServiceNameKey(row.name) === target
+    );
+    if (match?.id) {
+      return {
+        serviceId: match.id,
+        serviceCode: String(match.code || "").trim(),
+        name: match.name,
+      };
+    }
+  }
+
+  // Soft match: name contains "dmt1" / "dmt 1" / "instant"
+  const soft = rows.find((row) => {
+    const key = normalizeServiceNameKey(row.name);
+    return (
+      key.includes("dmt1") ||
+      key.includes("dmt 1") ||
+      (key.includes("instant") && key.includes("dmt"))
+    );
+  });
+  if (soft?.id) {
+    return {
+      serviceId: soft.id,
+      serviceCode: String(soft.code || "").trim(),
+      name: soft.name,
+    };
+  }
+
+  throw new Error("DMT1 service is not configured. Contact support.");
+}
+
+export async function resolveDmt1Service(): Promise<ResolvedRetailerService> {
+  await ensureRetailerServicesLoaded();
+  return getDmt1Service();
 }
 
 export function appendServiceId<T extends Record<string, unknown>>(

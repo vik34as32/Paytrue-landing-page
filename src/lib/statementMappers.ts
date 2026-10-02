@@ -173,9 +173,11 @@ export function mapDmtToStatement(raw: Record<string, unknown>): StatementTransa
   };
 }
 
-/** Map DMT3 transaction list rows into the same statement shape as DMT. */
-export function mapDmt3ToStatement(
-  raw: Record<string, unknown>
+/** Shared remitter→beneficiary payout row → statement shape (DMT1 / DMT3). */
+function mapRemitPayoutToStatement(
+  raw: Record<string, unknown>,
+  service: "DMT1" | "DMT3",
+  source: "dmt1" | "dmt3"
 ): StatementTransaction {
   const beneficiary = asRecord(raw.beneficiary);
   const remitter = asRecord(raw.remitter);
@@ -186,11 +188,9 @@ export function mapDmt3ToStatement(
       raw.accountHolderName ??
       "Beneficiary"
   );
-  const senderName = String(
-    raw.payerName ?? remitter.name ?? "Sender"
-  );
+  const senderName = String(raw.payerName ?? remitter.name ?? "Sender");
   const transferMode = String(raw.transferMode ?? "IMPS");
-  const amount = toNumber(raw.amount);
+  const amount = toNumber(raw.amount ?? raw.transferAmount);
   const deductionAmount = toNumber(
     raw.charges ?? raw.charge ?? raw.deductionAmount ?? raw.deduction
   );
@@ -206,13 +206,20 @@ export function mapDmt3ToStatement(
   );
 
   return {
-    id: String(raw.id ?? raw.reference ?? raw.clientTxnId ?? ""),
+    id: String(raw.id ?? raw.reference ?? raw.externalRef ?? raw.clientTxnId ?? ""),
     referenceNumber: String(
-      raw.reference ?? raw.clientTxnId ?? raw.providerTxnId ?? raw.id ?? ""
+      raw.reference ??
+        raw.externalRef ??
+        raw.clientTxnId ??
+        raw.providerTxnId ??
+        raw.id ??
+        ""
     ),
-    createdAt: String(raw.createdAt ?? raw.finalizedAt ?? new Date().toISOString()),
-    service: "DMT3",
-    description: `DMT3 · ${beneficiaryName} · ${transferMode}`,
+    createdAt: String(
+      raw.createdAt ?? raw.finalizedAt ?? new Date().toISOString()
+    ),
+    service,
+    description: `${service} · ${beneficiaryName} · ${transferMode}`,
     type: "debit",
     status: normalizeStatus(raw.status ?? raw.providerStatus),
     amount,
@@ -224,10 +231,15 @@ export function mapDmt3ToStatement(
     senderName,
     receiverName: beneficiaryName,
     mobile: String(
-      remitter.mobile ?? beneficiary.mobile ?? raw.mobile ?? ""
+      remitter.mobile ??
+        raw.remitterMobile ??
+        raw.remitterMobileNumber ??
+        beneficiary.mobile ??
+        raw.mobile ??
+        ""
     ),
     remark,
-    source: "dmt3",
+    source,
     bankReference: String(raw.bankRef ?? raw.utr ?? raw.providerTxnId ?? ""),
     transferMode,
     charges: deductionAmount,
@@ -250,6 +262,20 @@ export function mapDmt3ToStatement(
       .trim()
       .toUpperCase(),
   };
+}
+
+/** Map DMT1 InstantPay remittance rows into statement shape. */
+export function mapDmt1ToStatement(
+  raw: Record<string, unknown>
+): StatementTransaction {
+  return mapRemitPayoutToStatement(raw, "DMT1", "dmt1");
+}
+
+/** Map DMT3 transaction list rows into the same statement shape as DMT. */
+export function mapDmt3ToStatement(
+  raw: Record<string, unknown>
+): StatementTransaction {
+  return mapRemitPayoutToStatement(raw, "DMT3", "dmt3");
 }
 
 export function mapUpiAtmToStatement(

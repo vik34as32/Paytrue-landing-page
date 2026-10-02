@@ -25,6 +25,7 @@ import {
   Zap,
   CreditCard,
   ArrowRightLeft,
+  Banknote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -56,6 +57,7 @@ const iconMap = {
   Zap,
   CreditCard,
   ArrowRightLeft,
+  Banknote,
 };
 
 type SidebarLinkItem = {

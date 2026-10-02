@@ -44,6 +44,7 @@ const ROWS_PER_PAGE_OPTIONS = [10, 20, 25, 50, 100];
 const SERVICE_FILTERS: { label: string; value: DownlineLedgerServiceFilter }[] = [
   { label: "All Services", value: "ALL" },
   { label: "DMT", value: "DMT" },
+  { label: "DMT1", value: "DMT1" },
   { label: "DMT2", value: "DMT2" },
   { label: "DMT3", value: "DMT3" },
   { label: "AEPS", value: "AEPS" },

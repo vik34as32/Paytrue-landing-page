@@ -45,7 +45,11 @@ import {
 } from "@/src/lib/dmtSession";
 import { getCurrentLocation } from "@/src/lib/rdService";
 import { refreshRetailerWalletData } from "@/features/retailer/utils/walletValidation";
-import { codeToNextAction, ensureTransferSuccessResponse } from "../services/normalizers";
+import {
+  codeToNextAction,
+  ensureTransferSuccessResponse,
+  isRemitterNotFoundResponse,
+} from "../services/normalizers";
 import {
   buildRdPidOptionsXml,
   logEkycDebug,
@@ -225,16 +229,16 @@ export function useDmtOrchestrator() {
       const verifyLocked = latest.ekycReferenceKeySource === "verify-otp";
       const incomingKey = String(response.referenceKey || "").trim();
 
-      // Backend BIO_AUTH means InstantPay registration OTP is already done —
-      // never invent VERIFY_OTP here (that opens the dialog without sending SMS).
-      if (response.nextAction === "BIO_AUTH") {
+      // BIO_AUTH implies registration OTP is done — except on RNF, where InstantPay
+      // has no remitter yet and the remitter OTP must be verified in this session.
+      const bioAuthImpliesOtpDone =
+        response.nextAction === "BIO_AUTH" && !isRemitterNotFoundResponse(response);
+      if (bioAuthImpliesOtpDone) {
         dispatch(setOtpVerified(true));
       }
 
       const otpVerifiedNow =
-        latest.otpVerified ||
-        verifyLocked ||
-        response.nextAction === "BIO_AUTH";
+        latest.otpVerified || verifyLocked || bioAuthImpliesOtpDone;
 
       dispatch(applyWorkflowResponse(response));
 
@@ -508,6 +512,41 @@ export function useDmtOrchestrator() {
         dispatch(setSenderMobile(mobile));
         setActiveSenderMobile(mobile);
         const response = await searchSenderMutation({ mobile }).unwrap();
+
+        // RNF: InstantPay has no remitter for this mobile. Even if backend says
+        // BIO_AUTH (or the remitter was registered before), require remitter OTP first.
+        if (isRemitterNotFoundResponse(response)) {
+          dispatch(clearEkycSession());
+          clearPersistedSenderReferenceKey();
+          clearSenderPidOptionWadh();
+
+          const rnfReferenceKey = String(response.referenceKey || "").trim();
+          try {
+            const sent = await sendRemitterOtpMutation({
+              mobile,
+              referenceKey: rnfReferenceKey || undefined,
+            }).unwrap();
+            dispatch(
+              showSnackbar({
+                message: "Remitter not found on bank. OTP sent to sender mobile — verify to continue.",
+                severity: "success",
+              })
+            );
+            return applyResponse({
+              ...response,
+              referenceKey: sent.referenceKey || rnfReferenceKey || undefined,
+              nextAction: "VERIFY_OTP",
+            });
+          } catch (otpError) {
+            dispatch(
+              showSnackbar({
+                message: `${getErrorMessage(otpError)} — please register sender to receive OTP.`,
+                severity: "info",
+              })
+            );
+            return applyResponse({ ...response, nextAction: "REGISTER" });
+          }
+        }
 
         // Pending OTP after prior register — dispatch InstantPay OTP so the dialog is usable
         if (response.nextAction === "VERIFY_OTP") {

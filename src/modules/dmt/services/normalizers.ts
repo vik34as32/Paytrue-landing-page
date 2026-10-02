@@ -98,6 +98,29 @@ export function codeToNextAction(raw: unknown): DmtNextAction | null {
   }
 }
 
+/**
+ * InstantPay "Remitter Not Found" (statuscode RNF) on remitter/check.
+ * Backend may still say nextAction=BIO_AUTH, but remitter OTP must be verified first.
+ */
+export function isRemitterNotFoundResponse(response: unknown): boolean {
+  const root = asRecord(response);
+  const data = asRecord(root.data);
+  const nested = asRecord(data.data);
+  const records = [root, data, nested];
+
+  const statusCode = records
+    .map((rec) => pickString(rec.statuscode, rec.statusCode, rec.status_code))
+    .find(Boolean);
+  if (String(statusCode || "").toUpperCase() === "RNF") return true;
+
+  const status = records
+    .map((rec) => pickString(rec.status))
+    .find(Boolean);
+  if (/remitter\s+not\s+found/i.test(String(status || ""))) return true;
+
+  return data.remitterFound === false || data.found === false;
+}
+
 export function normalizeSender(raw: Record<string, unknown> = {}): DmtSender {
   const firstName = pickString(raw.firstName, raw.first_name) ?? "";
   const lastName = pickString(raw.lastName, raw.last_name) ?? "";

@@ -3,6 +3,7 @@ export type DownlineLedgerPortalRole = "dd" | "md";
 export type DownlineLedgerServiceFilter =
   | "ALL"
   | "DMT"
+  | "DMT1"
   | "DMT2"
   | "DMT3"
   | "AEPS"

@@ -19,6 +19,7 @@ import {
   apiVerifyBeneficiary,
   apiVerifyRemitterOtp,
 } from "./dmt2-api";
+import { buildDmt2TransferRemarks } from "./dmt2-bank";
 import { resolveDmt2Location } from "./dmt2-geo";
 import {
   dmt2ApiMessage,
@@ -166,7 +167,12 @@ export async function submitTransfer(input: {
 }): Promise<Dmt2Transaction> {
   try {
     const location = await resolveDmt2Location();
-    const remarks = (input.transfer.purpose || "DMT2").replace(/\s+/g, " ").slice(0, 10);
+    const remarks = (
+      input.transfer.purpose ||
+      buildDmt2TransferRemarks(input.transfer.amount, input.beneficiary.accountNumber)
+    )
+      .replace(/\s+/g, " ")
+      .slice(0, 50);
     const payload = await apiPayout(input.transfer.mode, {
       beneficiaryId: input.beneficiary.id,
       amount: input.transfer.amount,

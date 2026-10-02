@@ -72,6 +72,13 @@ export function formatAccountNumber(accountNumber: string): string {
   return raw.replace(/(.{4})(?=.)/g, "$1 ");
 }
 
+/** Hidden payout remark (max 50) — never shown or edited in UI. */
+export function buildDmt2TransferRemarks(amount: number, accountNumber: string): string {
+  const n = Math.trunc(Number.isFinite(amount) ? amount : 0);
+  const account = String(accountNumber || "").replace(/\s+/g, "");
+  return `Rs ${n} sent to A/c ${account}`.slice(0, 50);
+}
+
 const ONES = [
   "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
   "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen",

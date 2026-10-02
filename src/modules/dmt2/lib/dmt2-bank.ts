@@ -72,11 +72,19 @@ export function formatAccountNumber(accountNumber: string): string {
   return raw.replace(/(.{4})(?=.)/g, "$1 ");
 }
 
-/** Hidden payout remark (max 50) — never shown or edited in UI. */
+/** DMT2 backend validator rejects remarks longer than 10 characters. */
+export const DMT2_REMARKS_MAX = 10;
+
+/**
+ * Hidden payout remark, never shown in UI: "<amount>-<account tail>",
+ * e.g. 10000-7486 / 100000-486, always within DMT2_REMARKS_MAX.
+ */
 export function buildDmt2TransferRemarks(amount: number, accountNumber: string): string {
-  const n = Math.trunc(Number.isFinite(amount) ? amount : 0);
-  const account = String(accountNumber || "").replace(/\s+/g, "");
-  return `Rs ${n} sent to A/c ${account}`.slice(0, 50);
+  const amountText = String(Math.trunc(Number.isFinite(amount) ? amount : 0));
+  const digits = String(accountNumber || "").replace(/\D/g, "");
+  const tailLength = Math.min(4, DMT2_REMARKS_MAX - amountText.length - 1);
+  if (tailLength < 2 || !digits) return amountText.slice(0, DMT2_REMARKS_MAX);
+  return `${amountText}-${digits.slice(-tailLength)}`;
 }
 
 const ONES = [

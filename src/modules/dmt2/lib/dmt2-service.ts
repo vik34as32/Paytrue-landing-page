@@ -19,7 +19,7 @@ import {
   apiVerifyBeneficiary,
   apiVerifyRemitterOtp,
 } from "./dmt2-api";
-import { buildDmt2TransferRemarks } from "./dmt2-bank";
+import { buildDmt2TransferRemarks, DMT2_REMARKS_MAX } from "./dmt2-bank";
 import { resolveDmt2Location } from "./dmt2-geo";
 import {
   dmt2ApiMessage,
@@ -172,7 +172,7 @@ export async function submitTransfer(input: {
       buildDmt2TransferRemarks(input.transfer.amount, input.beneficiary.accountNumber)
     )
       .replace(/\s+/g, " ")
-      .slice(0, 50);
+      .slice(0, DMT2_REMARKS_MAX);
     const payload = await apiPayout(input.transfer.mode, {
       beneficiaryId: input.beneficiary.id,
       amount: input.transfer.amount,

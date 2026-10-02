@@ -4,9 +4,10 @@ import { useMemo } from "react";
 import DataTable, { type TableColumn } from "react-data-table-component";
 import { Button, Chip, Skeleton } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import SendIcon from "@mui/icons-material/Send";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import { ArrowRight, IndianRupee } from "lucide-react";
 import { BankLogo } from "@/components/retailer/BankLogo";
+import { formatAccountNumber, ifscPrefix, resolveDmt2BankName } from "../lib/dmt2-bank";
 import {
   cyanDataTableStyles,
   CyanDataTableSortIcon,
@@ -35,35 +36,32 @@ export default function Dmt2BeneficiaryList({
         sortable: true,
         grow: 1,
         minWidth: "200px",
-        cell: (row) => (
-          <div className="flex min-w-0 max-w-[240px] items-center gap-2 py-1">
-            <BankLogo
-              bank={{
-                name: row.ifsc.slice(0, 4),
-                ifscPrefix: row.ifsc.slice(0, 4),
-              }}
-              size={28}
-            />
-            <div className="min-w-0">
-              <div className="truncate text-[13px] font-bold text-[#0b1f3a]">
-                {row.name || "—"}
-              </div>
-              <div className="truncate text-[11px] text-slate-500">
-                {row.ifsc.slice(0, 4) || "Bank"}
+        cell: (row) => {
+          const bankName = resolveDmt2BankName(row);
+          return (
+            <div className="flex min-w-0 max-w-[260px] items-center gap-3 py-1.5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-200">
+                <BankLogo bank={{ name: bankName, ifscPrefix: ifscPrefix(row.ifsc) }} size={30} />
+              </span>
+              <div className="min-w-0">
+                <div className="truncate text-[13px] font-bold uppercase tracking-wide text-[#0b1f3a]">
+                  {row.name || "—"}
+                </div>
+                <div className="truncate text-[11px] font-medium text-slate-500">{bankName}</div>
               </div>
             </div>
-          </div>
-        ),
+          );
+        },
       },
       {
         id: "account",
         name: "Account",
         selector: (row) => row.accountNumber,
         sortable: true,
-        minWidth: "150px",
+        minWidth: "170px",
         cell: (row) => (
-          <span className="font-mono text-[12px] font-semibold tracking-wide text-[#0b1f3a]">
-            {row.accountMasked || row.accountNumber || "—"}
+          <span className="font-mono text-[12px] font-semibold tracking-wider text-[#0b1f3a]">
+            {formatAccountNumber(row.accountMasked || row.accountNumber || "")}
           </span>
         ),
       },
@@ -133,28 +131,22 @@ export default function Dmt2BeneficiaryList({
       {
         id: "actions",
         name: "Actions",
-        minWidth: "160px",
+        minWidth: "190px",
         right: true,
         ignoreRowClick: true,
         button: true,
         cell: (row) => (
-          <Button
-            size="small"
-            variant="contained"
-            startIcon={<SendIcon sx={{ fontSize: 16 }} />}
+          <button
+            type="button"
             onClick={() => onPay(row)}
-            sx={{
-              textTransform: "none",
-              fontWeight: 800,
-              borderRadius: 1.5,
-              boxShadow: "none",
-              px: 1.5,
-              bgcolor: "#1565d8",
-              "&:hover": { bgcolor: "#0d47a1" },
-            }}
+            className="group inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 pl-3 pr-2 text-[13px] font-bold text-white shadow-[0_8px_18px_-10px_rgba(79,70,229,0.9)] ring-1 ring-inset ring-white/10 transition hover:-translate-y-px hover:brightness-110 active:translate-y-0"
           >
+            <IndianRupee className="h-4 w-4" />
             Proceed to Pay
-          </Button>
+            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-white/15 transition group-hover:translate-x-0.5 group-hover:bg-white/25">
+              <ArrowRight className="h-3.5 w-3.5" />
+            </span>
+          </button>
         ),
       },
     ],

@@ -33,6 +33,7 @@ export interface Dmt2Beneficiary {
   accountNumber: string;
   accountMasked?: string;
   ifsc: string;
+  bankName?: string;
   accountType?: string;
   mobile: string;
   verified?: boolean;

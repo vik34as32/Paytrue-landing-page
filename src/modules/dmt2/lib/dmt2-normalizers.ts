@@ -176,6 +176,12 @@ export function normalizeBeneficiary(
       row.bankIfsc,
       row.ifsc_code
     ).toUpperCase(),
+    bankName:
+      pickString(
+        row.bankName,
+        row.bank_name,
+        typeof row.bank === "string" ? row.bank : undefined
+      ) || undefined,
     accountType: pickString(row.accountType, row.account_type) || undefined,
     mobile: pickString(
       row.beneficiaryMobile,

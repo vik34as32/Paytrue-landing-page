@@ -10,13 +10,11 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
-  BadgeCheck,
   CheckCircle2,
   Clock3,
   Landmark,
   Loader2,
   LockKeyhole,
-  ReceiptText,
   ShieldCheck,
   Zap,
 } from "lucide-react";
@@ -300,134 +298,53 @@ function Dmt2TransferForm() {
 
         <form
           onSubmit={form.handleSubmit(onContinue)}
-          className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[1fr_420px]"
+          className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_32px_-20px_rgba(15,23,42,0.35)]"
         >
-          <div className="space-y-5">
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-extrabold tracking-tight text-[#0b1f3a]">
-                    Transfer Money
-                  </h2>
-                  <p className="mt-0.5 text-sm text-slate-500">Money will be credited to this account.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => router.push("/rt/retailer/dmt2/beneficiaries")}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                  Change
-                </button>
-              </div>
-              <Dmt2BeneficiaryCard beneficiary={beneficiary} />
-            </section>
-
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-[#0b1f3a]">
-                Transfer Mode
-              </h3>
-              <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                {MODE_OPTIONS.map(({ mode, title, subtitle, tag, icon: Icon }) => {
-                  const active = watchedMode === mode;
-                  return (
-                    <label
-                      key={mode}
-                      className={cn(
-                        "group relative flex cursor-pointer flex-col gap-3 rounded-xl border-2 p-4 transition",
-                        active
-                          ? "border-indigo-600 bg-gradient-to-br from-indigo-50 to-violet-50 shadow-[0_8px_20px_-12px_rgba(79,70,229,0.7)]"
-                          : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-slate-50"
-                      )}
-                    >
-                      <input type="radio" value={mode} className="sr-only" {...form.register("mode")} />
-                      <div className="flex items-center justify-between">
-                        <span
-                          className={cn(
-                            "flex h-9 w-9 items-center justify-center rounded-lg transition",
-                            active
-                              ? "bg-indigo-600 text-white"
-                              : "bg-slate-100 text-slate-500 group-hover:text-indigo-600"
-                          )}
-                        >
-                          <Icon className="h-[18px] w-[18px]" />
-                        </span>
-                        {active ? (
-                          <CheckCircle2 className="h-5 w-5 text-indigo-600" />
-                        ) : (
-                          <span className="h-5 w-5 rounded-full border-2 border-slate-300" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-base font-extrabold text-[#0b1f3a]">{title}</span>
-                          <span
-                            className={cn(
-                              "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-                              active ? "bg-indigo-600/10 text-indigo-700" : "bg-slate-100 text-slate-500"
-                            )}
-                          >
-                            {tag}
-                          </span>
-                        </div>
-                        <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-            </section>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <TrustItem icon={LockKeyhole} title="MPIN authorized" text="Every transfer needs your MPIN" />
-              <TrustItem
-                icon={BadgeCheck}
-                title={beneficiary.verified ? "Verified account" : "Account on file"}
-                text={beneficiary.verified ? "Name matched with bank" : "Confirm details with customer"}
-              />
-              <TrustItem icon={ReceiptText} title="Instant receipt" text="Printable receipt after payment" />
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-7">
+            <div>
+              <h2 className="text-xl font-extrabold tracking-tight text-[#0b1f3a]">Transfer Money</h2>
+              <p className="mt-0.5 text-sm text-slate-500">Money will be credited to the account below.</p>
             </div>
+            <button
+              type="button"
+              onClick={() => router.push("/rt/retailer/dmt2/beneficiaries")}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Change
+            </button>
           </div>
 
-          <aside className="lg:sticky lg:top-4 lg:self-start">
-            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_-24px_rgba(15,23,42,0.35)]">
-              <div className="bg-gradient-to-br from-[#0b1f3a] to-[#312e81] px-5 py-4 text-white">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">
-                  Enter Amount
-                </p>
-                <p className="mt-0.5 text-sm text-white/80">
-                  To {beneficiary.name || "beneficiary"} · {bankName}
-                </p>
+          <div className="space-y-7 p-5 sm:p-7">
+            <Dmt2BeneficiaryCard beneficiary={beneficiary} />
+
+            <div>
+              <SectionLabel>Amount</SectionLabel>
+              <div
+                className={cn(
+                  "mt-2 flex items-center rounded-xl border-2 bg-white px-4 transition focus-within:border-indigo-500 focus-within:shadow-[0_0_0_4px_rgba(99,102,241,0.12)]",
+                  amountError ? "border-rose-400" : "border-slate-200"
+                )}
+              >
+                <span className="text-2xl font-bold text-slate-400">₹</span>
+                <input
+                  id="dmt2-amount"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  placeholder="Enter amount"
+                  aria-label="Amount"
+                  className="h-14 w-full bg-transparent pl-2 text-2xl font-extrabold tabular-nums text-[#0b1f3a] outline-none placeholder:text-base placeholder:font-medium placeholder:text-slate-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  {...form.register("amount")}
+                />
               </div>
+              {amountError ? (
+                <p className="mt-1.5 text-sm font-medium text-rose-600">{amountError}</p>
+              ) : (
+                <p className="mt-1.5 min-h-4 text-xs font-medium text-indigo-600">{words}</p>
+              )}
 
-              <div className="space-y-4 p-5">
-                <div>
-                  <div
-                    className={cn(
-                      "flex items-center rounded-xl border-2 bg-white px-4 transition focus-within:border-indigo-500 focus-within:shadow-[0_0_0_4px_rgba(99,102,241,0.12)]",
-                      amountError ? "border-rose-400" : "border-slate-200"
-                    )}
-                  >
-                    <span className="text-3xl font-bold text-slate-400">₹</span>
-                    <input
-                      id="dmt2-amount"
-                      type="number"
-                      inputMode="numeric"
-                      min={1}
-                      placeholder="0"
-                      aria-label="Amount"
-                      className="h-16 w-full bg-transparent pl-2 text-3xl font-extrabold tabular-nums text-[#0b1f3a] outline-none placeholder:text-slate-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                      {...form.register("amount")}
-                    />
-                  </div>
-                  {amountError ? (
-                    <p className="mt-1.5 text-sm font-medium text-rose-600">{amountError}</p>
-                  ) : (
-                    <p className="mt-1.5 min-h-4 text-xs font-medium text-indigo-600">{words}</p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-4 gap-2">
+              <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-8">
                   {QUICK_AMOUNTS.map((value) => {
                     const active = watchedAmount === value;
                     return (
@@ -446,87 +363,104 @@ function Dmt2TransferForm() {
                       </button>
                     );
                   })}
-                </div>
-
-                <dl className="space-y-2.5 rounded-xl bg-slate-50 p-4 text-sm">
-                  <SummaryRow label="Beneficiary" value={beneficiary.name || "—"} />
-                  <SummaryRow label="Account" value={`${bankName} •••• ${accountTail || "—"}`} />
-                  <SummaryRow label="Mode" value={watchedMode} />
-                  <div className="border-t border-dashed border-slate-200 pt-2.5">
-                    <SummaryRow
-                      label="Total Debit"
-                      value={formatInr(watchedAmount)}
-                      emphasize
-                    />
-                  </div>
-                </dl>
-
-                <button
-                  type="submit"
-                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 text-[15px] font-bold text-white shadow-[0_10px_24px_-10px_rgba(79,70,229,0.8)] transition hover:brightness-110 active:scale-[0.99]"
-                >
-                  Transfer{watchedAmount > 0 ? ` ${formatInr(watchedAmount)}` : ""}
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-                <p className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  You will confirm details and enter MPIN on the next step
-                </p>
               </div>
-            </section>
-          </aside>
+            </div>
+
+            <div>
+              <SectionLabel>Transfer Mode</SectionLabel>
+              <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                {MODE_OPTIONS.map(({ mode, title, subtitle, tag, icon: Icon }) => {
+                  const active = watchedMode === mode;
+                  return (
+                    <label
+                      key={mode}
+                      className={cn(
+                        "group flex cursor-pointer items-center gap-3 rounded-xl border-2 px-3.5 py-3 transition",
+                        active
+                          ? "border-indigo-600 bg-indigo-50/70 shadow-[0_6px_16px_-10px_rgba(79,70,229,0.7)]"
+                          : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-slate-50"
+                      )}
+                    >
+                      <input type="radio" value={mode} className="sr-only" {...form.register("mode")} />
+                      <span
+                        className={cn(
+                          "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition",
+                          active
+                            ? "bg-indigo-600 text-white"
+                            : "bg-slate-100 text-slate-500 group-hover:text-indigo-600"
+                        )}
+                      >
+                        <Icon className="h-[18px] w-[18px]" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-[15px] font-extrabold text-[#0b1f3a]">{title}</span>
+                          {mode === "IMPS" ? (
+                            <span className="rounded bg-emerald-100 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-emerald-700">
+                              {tag}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">
+                          {subtitle}
+                        </span>
+                      </span>
+                      {active ? (
+                        <CheckCircle2 className="h-5 w-5 shrink-0 text-indigo-600" />
+                      ) : (
+                        <span className="h-5 w-5 shrink-0 rounded-full border-2 border-slate-300" />
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80">
+              <dl className="grid gap-x-6 gap-y-2.5 p-4 text-sm sm:grid-cols-3">
+                <SummaryRow label="Beneficiary" value={beneficiary.name || "—"} />
+                <SummaryRow label="Account" value={`${bankName} •••• ${accountTail || "—"}`} />
+                <SummaryRow label="Mode" value={watchedMode} />
+              </dl>
+              <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
+                <span className="text-sm font-bold text-[#0b1f3a]">Total Debit</span>
+                <span className="text-xl font-extrabold tabular-nums text-[#0b1f3a]">
+                  {formatInr(watchedAmount)}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 text-[15px] font-bold text-white shadow-[0_10px_24px_-10px_rgba(79,70,229,0.8)] transition hover:brightness-110 active:scale-[0.99]"
+              >
+                Transfer
+                <ArrowRight className="h-4 w-4" />
+              </button>
+              <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                You will confirm details and enter MPIN on the next step
+              </p>
+            </div>
+          </div>
         </form>
       </div>
     </RequireVerifiedRetailer>
   );
 }
 
-function TrustItem({
-  icon: Icon,
-  title,
-  text,
-}: {
-  icon: typeof Zap;
-  title: string;
-  text: string;
-}) {
+function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-        <Icon className="h-4 w-4" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-[13px] font-bold text-[#0b1f3a]">{title}</p>
-        <p className="text-[11px] text-slate-500">{text}</p>
-      </div>
-    </div>
+    <p className="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-500">{children}</p>
   );
 }
 
-function SummaryRow({
-  label,
-  value,
-  emphasize = false,
-}: {
-  label: string;
-  value: string;
-  emphasize?: boolean;
-}) {
+function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <dt className={cn("shrink-0", emphasize ? "font-bold text-[#0b1f3a]" : "text-slate-500")}>
-        {label}
-      </dt>
-      <dd
-        className={cn(
-          "min-w-0 truncate text-right",
-          emphasize
-            ? "text-lg font-extrabold tabular-nums text-[#0b1f3a]"
-            : "font-semibold text-[#0b1f3a]"
-        )}
-      >
-        {value}
-      </dd>
+    <div className="min-w-0">
+      <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</dt>
+      <dd className="mt-0.5 truncate font-bold text-[#0b1f3a]">{value}</dd>
     </div>
   );
 }

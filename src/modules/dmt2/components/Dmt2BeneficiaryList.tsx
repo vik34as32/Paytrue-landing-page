@@ -129,26 +129,31 @@ export default function Dmt2BeneficiaryList({
           ),
       },
       {
-        id: "actions",
-        name: "Actions",
-        minWidth: "350px",
-        right: true,
-        ignoreRowClick: true,
-        button: true,
-        cell: (row) => (
-          <button
-            type="button"
-            onClick={() => onPay(row)}
-            className="group inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 pl-3 pr-2 text-[13px] font-bold text-white shadow-[0_8px_18px_-10px_rgba(79,70,229,0.9)] ring-1 ring-inset ring-white/10 transition hover:-translate-y-px hover:brightness-110 active:translate-y-0"
-          >
-            <IndianRupee className="h-4 w-4" />
-             Transfer now
-            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-white/15 transition group-hover:translate-x-0.5 group-hover:bg-white/25">
-              <ArrowRight className="h-3.5 w-3.5" />
-            </span>
-          </button>
-        ),
-      },
+  id: "actions",
+  name: "Actions",
+  minWidth: "120px",
+  width: "120px",
+  right: true,
+  ignoreRowClick: true,
+  button: true,
+  cell: (row) => (
+    <button
+      type="button"
+      onClick={() => onPay(row)}
+      className="group flex w-[110px] h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-700 px-2 text-[11px] font-bold text-white shadow-[0_8px_18px_-10px_rgba(79,70,229,0.9)] ring-1 ring-inset ring-white/10 transition hover:-translate-y-px hover:brightness-110 active:translate-y-0"
+    >
+      <IndianRupee className="h-3.5 w-3.5 shrink-0" />
+
+      <span className="truncate">
+        Transfer
+      </span>
+
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white/15 transition group-hover:translate-x-0.5 group-hover:bg-white/25">
+        <ArrowRight className="h-3 w-3" />
+      </span>
+    </button>
+  ),
+},
     ],
     [onPay]
   );

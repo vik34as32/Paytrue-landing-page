@@ -47,4 +47,13 @@ export const DMT1_SERVICE_NAME_ALIASES = [
   "InstantPay DMT",
 ] as const;
 
+/** Catalog parent "XPRESS DMT" (NIFI) — used by the DMT2 / Xpress Transfer module */
+export const XPRESS_DMT_SERVICE_CODE = "DMT004";
+
+export const XPRESS_DMT_SERVICE_NAME_ALIASES = [
+  "XPRESS DMT",
+  "Xpress DMT",
+  "Express DMT",
+] as const;
+
 export const RETAILER_SERVICES_ENDPOINT = "/retailer/services";

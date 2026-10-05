@@ -101,6 +101,8 @@ export async function apiPayout(
     longitude: string;
     payerName?: string;
     remitterMobile?: string;
+    serviceCode: string;
+    serviceId?: string;
   }
 ): Promise<unknown> {
   const path =

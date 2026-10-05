@@ -11,6 +11,8 @@ import {
   DMT3_SERVICE_NAME_ALIASES,
   RETAILER_SERVICE_NAMES,
   UPI_CASH_POINT_ALIASES,
+  XPRESS_DMT_SERVICE_CODE,
+  XPRESS_DMT_SERVICE_NAME_ALIASES,
 } from "@/src/constants/retailerServices";
 import type {
   RetailerChildService,
@@ -254,6 +256,52 @@ export function getDmt1Service(): ResolvedRetailerService {
 export async function resolveDmt1Service(): Promise<ResolvedRetailerService> {
   await ensureRetailerServicesLoaded();
   return getDmt1Service();
+}
+
+/** Resolve Xpress DMT (DMT2 module) from GET /retailer/services — prefers serviceCode DMT004. */
+export function getXpressDmtService(): ResolvedRetailerService {
+  const { loaded } = useRetailerServicesStore.getState();
+  if (!loaded) {
+    throw new Error(
+      "Retailer services are not loaded yet. Please wait and try again."
+    );
+  }
+
+  const rows = catalogRows();
+  const byCode = rows.find(
+    (row) =>
+      String(row.code || "").trim().toUpperCase() === XPRESS_DMT_SERVICE_CODE
+  );
+  if (byCode?.id) {
+    return {
+      serviceId: byCode.id,
+      serviceCode: XPRESS_DMT_SERVICE_CODE,
+      name: byCode.name,
+    };
+  }
+
+  for (const alias of XPRESS_DMT_SERVICE_NAME_ALIASES) {
+    const target = normalizeServiceNameKey(alias);
+    const match = rows.find(
+      (row) => normalizeServiceNameKey(row.name) === target
+    );
+    if (match?.id) {
+      return {
+        serviceId: match.id,
+        serviceCode: XPRESS_DMT_SERVICE_CODE,
+        name: match.name,
+      };
+    }
+  }
+
+  throw new Error(
+    `Xpress DMT service (code ${XPRESS_DMT_SERVICE_CODE}) is not configured. Contact support.`
+  );
+}
+
+export async function resolveXpressDmtService(): Promise<ResolvedRetailerService> {
+  await ensureRetailerServicesLoaded();
+  return getXpressDmtService();
 }
 
 export function appendServiceId<T extends Record<string, unknown>>(

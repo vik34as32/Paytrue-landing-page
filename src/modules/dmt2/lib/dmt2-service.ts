@@ -1,3 +1,5 @@
+import { resolveXpressDmtService } from "@/features/retailer/store/retailerServicesStore";
+import { XPRESS_DMT_SERVICE_CODE } from "@/src/constants/retailerServices";
 import type {
   Dmt2Beneficiary,
   Dmt2Gender,
@@ -159,6 +161,18 @@ export async function verifyBeneficiaryApi(beneficiaryId: string): Promise<Dmt2B
   }
 }
 
+async function resolveXpressServiceFields(): Promise<{
+  serviceCode: string;
+  serviceId?: string;
+}> {
+  try {
+    const service = await resolveXpressDmtService();
+    return { serviceCode: XPRESS_DMT_SERVICE_CODE, serviceId: service.serviceId };
+  } catch {
+    return { serviceCode: XPRESS_DMT_SERVICE_CODE };
+  }
+}
+
 export async function submitTransfer(input: {
   retailer: Dmt2Retailer;
   beneficiary: Dmt2Beneficiary;
@@ -166,7 +180,10 @@ export async function submitTransfer(input: {
   mpin: string;
 }): Promise<Dmt2Transaction> {
   try {
-    const location = await resolveDmt2Location();
+    const [location, service] = await Promise.all([
+      resolveDmt2Location(),
+      resolveXpressServiceFields(),
+    ]);
     const remarks = (
       input.transfer.purpose ||
       buildDmt2TransferRemarks(input.transfer.amount, input.beneficiary.accountNumber)
@@ -183,6 +200,7 @@ export async function submitTransfer(input: {
       longitude: location.longitude,
       payerName: input.retailer.fullName || undefined,
       remitterMobile: input.retailer.mobile,
+      ...service,
     });
     return normalizeTransaction(payload, {
       customerName: input.beneficiary.name,

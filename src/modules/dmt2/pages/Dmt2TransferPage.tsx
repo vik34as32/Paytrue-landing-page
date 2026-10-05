@@ -247,7 +247,6 @@ function Dmt2TransferForm() {
                         </span>
                       }
                     />
-                    <DetailRow label="To Account" value={`•••• ${accountTail || "—"}`} mono />
                     <DetailRow label="Total Debit" value={formatInr(transfer.amount)} strong />
                   </dl>
                 </section>

@@ -61,7 +61,7 @@ export default function Dmt2BeneficiaryList({
         minWidth: "170px",
         cell: (row) => (
           <span className="font-mono text-[12px] font-semibold tracking-wider text-[#0b1f3a]">
-            {formatAccountNumber(row.accountMasked || row.accountNumber || "")}
+            {formatAccountNumber(row.accountNumber || row.accountNumber || "")}
           </span>
         ),
       },
@@ -131,7 +131,7 @@ export default function Dmt2BeneficiaryList({
       {
         id: "actions",
         name: "Actions",
-        minWidth: "190px",
+        minWidth: "350px",
         right: true,
         ignoreRowClick: true,
         button: true,
@@ -142,7 +142,7 @@ export default function Dmt2BeneficiaryList({
             className="group inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 pl-3 pr-2 text-[13px] font-bold text-white shadow-[0_8px_18px_-10px_rgba(79,70,229,0.9)] ring-1 ring-inset ring-white/10 transition hover:-translate-y-px hover:brightness-110 active:translate-y-0"
           >
             <IndianRupee className="h-4 w-4" />
-            Proceed to Pay
+             Transfer now
             <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-white/15 transition group-hover:translate-x-0.5 group-hover:bg-white/25">
               <ArrowRight className="h-3.5 w-3.5" />
             </span>

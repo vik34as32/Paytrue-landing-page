@@ -34,6 +34,19 @@ export interface CcbpTransaction {
   status: CcbpStatus;
   createdAt: string;
   message?: string;
+  charges?: number;
+  gst?: number;
+  totalDebit?: number;
+  bankRef?: string;
+  failureReason?: string;
+}
+
+export interface CcbpCommissionPreview {
+  amount: number;
+  charges: number;
+  gst: number;
+  commission: number;
+  totalDebit: number;
 }
 
 export interface CcbpIssuer {

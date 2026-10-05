@@ -1,4 +1,9 @@
-import type { CcbpPaymentType, CcbpStatus, CcbpTransaction } from "../types";
+import type {
+  CcbpCommissionPreview,
+  CcbpPaymentType,
+  CcbpStatus,
+  CcbpTransaction,
+} from "../types";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -51,11 +56,16 @@ function pickString(...values: unknown[]): string {
 }
 
 function pickNumber(...values: unknown[]): number {
+  return pickOptionalNumber(...values) ?? 0;
+}
+
+function pickOptionalNumber(...values: unknown[]): number | undefined {
   for (const value of values) {
+    if (value == null || value === "") continue;
     const num = typeof value === "number" ? value : Number(value);
     if (Number.isFinite(num)) return num;
   }
-  return 0;
+  return undefined;
 }
 
 export function ccbpApiMessage(error: unknown, fallback: string): string {
@@ -66,13 +76,27 @@ export function ccbpApiMessage(error: unknown, fallback: string): string {
 const STATUS_MAP: Record<string, CcbpStatus> = {
   SUCCESS: "SUCCESS",
   SUCCESSFUL: "SUCCESS",
+  COMPLETED: "SUCCESS",
   PROCESSING: "PROCESSING",
+  IN_PROGRESS: "PROCESSING",
+  INITIATED: "PROCESSING",
+  SUBMITTED: "PROCESSING",
+  ACCEPTED: "PROCESSING",
   PENDING: "PENDING",
   FAILED: "FAILED",
   FAILURE: "FAILED",
+  REJECTED: "FAILED",
+  DECLINED: "FAILED",
   REFUNDED: "REFUNDED",
   REVERSED: "REVERSED",
 };
+
+export const CCBP_TERMINAL_STATUSES: readonly CcbpStatus[] = [
+  "SUCCESS",
+  "FAILED",
+  "REFUNDED",
+  "REVERSED",
+];
 
 const MODE_MAP: Record<string, CcbpPaymentType> = {
   IMPS: "IMPS",
@@ -100,7 +124,12 @@ export function normalizeCcbpTxn(
   payload: unknown,
   fallback?: Partial<CcbpTransaction>
 ): CcbpTransaction {
-  const data = unwrapRecord(payload);
+  const root = unwrapRecord(payload);
+  const data = {
+    ...root,
+    ...asRecord(root.transaction),
+    ...asRecord(root.receipt),
+  };
   const statusKey = pickString(data.status, fallback?.status).toUpperCase();
   const modeKey = pickString(data.paymentType, data.mode, fallback?.paymentType).toUpperCase();
   const reference = pickString(
@@ -138,7 +167,55 @@ export function normalizeCcbpTxn(
       fallback?.createdAt,
       new Date().toISOString()
     ),
-    message: pickString(data.message, fallback?.message) || undefined,
+    message:
+      pickString(
+        data.providerMessage,
+        data.statusMessage,
+        data.message,
+        fallback?.message
+      ) || undefined,
+    charges: pickOptionalNumber(data.charges, data.charge, data.fees, fallback?.charges),
+    gst: pickOptionalNumber(data.gst, data.gstAmount, data.tax, fallback?.gst),
+    totalDebit: pickOptionalNumber(
+      data.totalDebit,
+      data.totalAmount,
+      data.debitAmount,
+      fallback?.totalDebit
+    ),
+    bankRef:
+      pickString(
+        data.bankRef,
+        data.bankRefNo,
+        data.bankReference,
+        data.utr,
+        data.utrNumber,
+        data.rrn,
+        fallback?.bankRef
+      ) || undefined,
+    failureReason:
+      pickString(data.failureReason, data.reason, data.errorMessage, fallback?.failureReason) ||
+      undefined,
+  };
+}
+
+export function normalizeCcbpPreview(payload: unknown, amount: number): CcbpCommissionPreview {
+  const root = unwrapRecord(payload);
+  const preview = { ...root, ...asRecord(root.preview), ...asRecord(root.commission) };
+  const baseAmount = pickNumber(preview.amount, preview.transferAmount, amount);
+  const charges = pickNumber(preview.charges, preview.charge, preview.fees, preview.serviceCharge);
+  const gst = pickNumber(preview.gst, preview.gstAmount, preview.tax);
+  return {
+    amount: baseAmount,
+    charges,
+    gst,
+    commission: pickNumber(
+      preview.commission,
+      preview.commissionAmount,
+      preview.retailerCommission
+    ),
+    totalDebit:
+      pickOptionalNumber(preview.totalDebit, preview.totalAmount, preview.debitAmount) ??
+      baseAmount + charges + gst,
   };
 }
 

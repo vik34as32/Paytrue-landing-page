@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AnimatedMpinInput, MPIN_LENGTH } from "@/features/mpin";
 import { formatInr, maskCard } from "../lib/ccbp-normalizers";
 import { detectCardNetwork, networkLabel } from "../lib/ccbp-bin";
-import type { CcbpIssuer, CcbpPaymentType } from "../types";
+import type { CcbpCommissionPreview, CcbpIssuer, CcbpPaymentType } from "../types";
 
 export default function CcbpConfirmStep({
   issuer,
@@ -15,6 +15,7 @@ export default function CcbpConfirmStep({
   amount,
   paymentType,
   ifscCode,
+  preview,
   mpin,
   paying,
   onMpin,
@@ -27,6 +28,7 @@ export default function CcbpConfirmStep({
   amount: number;
   paymentType: CcbpPaymentType;
   ifscCode: string;
+  preview?: CcbpCommissionPreview | null;
   mpin: string;
   paying: boolean;
   onMpin: (value: string) => void;
@@ -56,6 +58,13 @@ export default function CcbpConfirmStep({
           <Row label="Cardholder" value={name} />
           <Row label="IFSC" value={ifscCode} />
           <Row label="Rail" value={paymentType} />
+          {preview ? (
+            <>
+              <Row label="Charges" value={formatInr(preview.charges)} />
+              {preview.gst > 0 ? <Row label="GST" value={formatInr(preview.gst)} /> : null}
+              <Row label="Total debit" value={formatInr(preview.totalDebit)} />
+            </>
+          ) : null}
         </dl>
       </div>
 

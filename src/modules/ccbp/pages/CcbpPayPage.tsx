@@ -28,9 +28,9 @@ import {
 } from "../lib/ccbp-form-schema";
 import { detectCardNetwork, detectIssuerFromBin, networkLabel } from "../lib/ccbp-bin";
 import { getCcbpIssuer } from "../lib/ccbp-issuers";
-import { payCreditCardBill } from "../lib/ccbp-service";
+import { payCreditCardBill, previewCcbpCharges } from "../lib/ccbp-service";
 import { formatInr } from "../lib/ccbp-normalizers";
-import type { CcbpPaymentType } from "../types";
+import type { CcbpCommissionPreview, CcbpPaymentType } from "../types";
 
 const slide = {
   enter: (dir: number) => ({ x: dir > 0 ? 28 : -28, opacity: 0 }),
@@ -44,6 +44,8 @@ export default function CcbpPayPage() {
   const [direction, setDirection] = useState(1);
   const [mpin, setMpin] = useState("");
   const [paying, setPaying] = useState(false);
+  const [preview, setPreview] = useState<CcbpCommissionPreview | null>(null);
+  const [previewing, setPreviewing] = useState(false);
 
   const form = useForm<CcbpFormValues>({
     resolver: zodResolver(ccbpFormSchema) as Resolver<CcbpFormValues>,
@@ -102,7 +104,21 @@ export default function CcbpPayPage() {
     if (!valid) return;
     if (step === "amount") {
       const payable = Number(form.getValues("amount") || 0);
-      if (!validateRetailerWalletBalance(payable)) return;
+      setPreview(null);
+      setPreviewing(true);
+      let quote: CcbpCommissionPreview | null = null;
+      try {
+        quote = await previewCcbpCharges({
+          amount: payable,
+          paymentType: form.getValues("paymentType") as CcbpPaymentType,
+        });
+      } catch {
+        quote = null;
+      } finally {
+        setPreviewing(false);
+      }
+      if (!validateRetailerWalletBalance(quote?.totalDebit || payable)) return;
+      setPreview(quote);
     }
     const index = CCBP_STEPS.indexOf(step);
     goTo(CCBP_STEPS[index + 1]);
@@ -120,7 +136,7 @@ export default function CcbpPayPage() {
       toast.error("Enter your 4-digit MPIN");
       return;
     }
-    if (!validateRetailerWalletBalance(values.amount)) return;
+    if (!validateRetailerWalletBalance(preview?.totalDebit || values.amount)) return;
     setPaying(true);
     try {
       const txn = await payCreditCardBill({
@@ -205,6 +221,7 @@ export default function CcbpPayPage() {
                   amount={Number(amount) || 0}
                   paymentType={paymentType}
                   ifscCode={ifscCode}
+                  preview={preview}
                   mpin={mpin}
                   paying={paying}
                   onMpin={setMpin}
@@ -237,6 +254,7 @@ export default function CcbpPayPage() {
               <Button
                 type="button"
                 className="h-11 min-w-[140px] rounded-xl bg-[#0b1f3a] font-semibold hover:bg-[#132a4a]"
+                disabled={previewing}
                 onClick={() => void goNext()}
               >
                 Continue

@@ -1,8 +1,36 @@
-import type { CcbpPayInput, CcbpTransaction } from "../types";
-import { apiCcbpList, apiCcbpPay, apiCcbpReceipt, apiCcbpStatus } from "./ccbp-api";
+import type {
+  CcbpCommissionPreview,
+  CcbpPayInput,
+  CcbpPaymentType,
+  CcbpTransaction,
+} from "../types";
+import {
+  apiCcbpCommissionPreview,
+  apiCcbpList,
+  apiCcbpPay,
+  apiCcbpReceipt,
+  apiCcbpStatus,
+} from "./ccbp-api";
 import { resolveCcbpLocation } from "./ccbp-geo";
-import { ccbpApiMessage, normalizeCcbpTxn } from "./ccbp-normalizers";
+import { ccbpApiMessage, normalizeCcbpPreview, normalizeCcbpTxn } from "./ccbp-normalizers";
 
+/** POST /ccbp/commission/preview */
+export async function previewCcbpCharges(input: {
+  amount: number;
+  paymentType: CcbpPaymentType;
+}): Promise<CcbpCommissionPreview> {
+  try {
+    const payload = await apiCcbpCommissionPreview({
+      amount: input.amount,
+      paymentType: input.paymentType,
+    });
+    return normalizeCcbpPreview(payload, input.amount);
+  } catch (error) {
+    throw new Error(ccbpApiMessage(error, "Unable to preview charges"));
+  }
+}
+
+/** POST /ccbp/pay */
 export async function payCreditCardBill(input: CcbpPayInput): Promise<CcbpTransaction> {
   try {
     const location = await resolveCcbpLocation();
@@ -36,6 +64,7 @@ export async function payCreditCardBill(input: CcbpPayInput): Promise<CcbpTransa
   }
 }
 
+/** GET /ccbp/transactions */
 export async function fetchCcbpTransactions(): Promise<CcbpTransaction[]> {
   try {
     const rows = await apiCcbpList();
@@ -45,6 +74,20 @@ export async function fetchCcbpTransactions(): Promise<CcbpTransaction[]> {
   }
 }
 
+/** GET /ccbp/transaction/status/:reference */
+export async function fetchCcbpStatus(
+  reference: string,
+  fallback?: Partial<CcbpTransaction>
+): Promise<CcbpTransaction> {
+  try {
+    const payload = await apiCcbpStatus(reference);
+    return normalizeCcbpTxn(payload, { ...fallback, reference, id: reference });
+  } catch (error) {
+    throw new Error(ccbpApiMessage(error, "Unable to fetch payment status"));
+  }
+}
+
+/** GET /ccbp/receipt/:reference, falling back to the status API. */
 export async function fetchCcbpReceipt(reference: string): Promise<CcbpTransaction> {
   try {
     const payload = await apiCcbpReceipt(reference);

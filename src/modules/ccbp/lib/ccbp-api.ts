@@ -5,14 +5,26 @@ import { unwrapList, unwrapRecord } from "./ccbp-normalizers";
 
 const skipAuthLogout: AxiosRequestConfig = { skipSessionLogout: true };
 
+export async function apiCcbpCommissionPreview(body: Record<string, unknown>): Promise<unknown> {
+  const { data } = await api.post(CCBP_ENDPOINTS.commissionPreview, body, skipAuthLogout);
+  return data;
+}
+
 export async function apiCcbpPay(body: Record<string, unknown>): Promise<unknown> {
   const { data } = await api.post(CCBP_ENDPOINTS.pay, body, skipAuthLogout);
   return data;
 }
 
+/** GET /ccbp/transaction/status/:reference — falls back to the /ccbp/status alias on 404. */
 export async function apiCcbpStatus(reference: string): Promise<unknown> {
-  const { data } = await api.get(CCBP_ENDPOINTS.status(reference), skipAuthLogout);
-  return unwrapRecord(data);
+  try {
+    const { data } = await api.get(CCBP_ENDPOINTS.transactionStatus(reference), skipAuthLogout);
+    return unwrapRecord(data);
+  } catch (error) {
+    if ((error as { status?: number })?.status !== 404) throw error;
+    const { data } = await api.get(CCBP_ENDPOINTS.status(reference), skipAuthLogout);
+    return unwrapRecord(data);
+  }
 }
 
 export async function apiCcbpList(query?: {

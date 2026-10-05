@@ -2,30 +2,58 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { CheckCircle2, Copy, Printer, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import CcbpStatusBadge from "../components/CcbpStatusBadge";
-import { fetchCcbpReceipt } from "../lib/ccbp-service";
-import { formatDateTime, formatInr, maskCard } from "../lib/ccbp-normalizers";
+import { fetchCcbpReceipt, fetchCcbpStatus } from "../lib/ccbp-service";
+import {
+  CCBP_TERMINAL_STATUSES,
+  formatDateTime,
+  formatInr,
+  maskCard,
+} from "../lib/ccbp-normalizers";
 import type { CcbpTransaction } from "../types";
+
+const STATUS_POLL_INTERVAL_MS = 4000;
+const STATUS_POLL_MAX_MS = 3 * 60 * 1000;
 
 export default function CcbpReceiptPage() {
   const params = useParams<{ reference: string }>();
-  const searchParams = useSearchParams();
   const reference = decodeURIComponent(params?.reference ?? "");
-  const success = searchParams?.get("success") === "1";
   const [txn, setTxn] = useState<CcbpTransaction | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const startedAt = Date.now();
+
+    const poll = async (current: CcbpTransaction) => {
+      if (!active) return;
+      try {
+        const next = await fetchCcbpStatus(reference, current);
+        if (!active) return;
+        current = { ...current, ...next, createdAt: current.createdAt };
+        setTxn(current);
+      } catch {
+        /* transient status error — retry on next tick */
+      }
+      if (!active || CCBP_TERMINAL_STATUSES.includes(current.status)) return;
+      if (Date.now() - startedAt >= STATUS_POLL_MAX_MS) return;
+      timer = setTimeout(() => void poll(current), STATUS_POLL_INTERVAL_MS);
+    };
+
     const load = async () => {
       try {
         const row = await fetchCcbpReceipt(reference);
-        if (active) setTxn(row);
+        if (!active) return;
+        setTxn(row);
+        if (!CCBP_TERMINAL_STATUSES.includes(row.status)) {
+          timer = setTimeout(() => void poll(row), STATUS_POLL_INTERVAL_MS);
+        }
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Receipt not found");
       } finally {
@@ -35,6 +63,7 @@ export default function CcbpReceiptPage() {
     if (reference) void load();
     return () => {
       active = false;
+      if (timer) clearTimeout(timer);
     };
   }, [reference]);
 
@@ -58,6 +87,14 @@ export default function CcbpReceiptPage() {
   }
 
   const ok = txn.status === "SUCCESS";
+  const inFlight = !CCBP_TERMINAL_STATUSES.includes(txn.status);
+  const heading = ok
+    ? "Settlement complete"
+    : inFlight
+      ? "Payment processing"
+      : `Payment ${txn.status.toLowerCase()}`;
+  const failedReason =
+    txn.status === "FAILED" ? txn.failureReason || txn.message : undefined;
 
   return (
     <div className="mx-auto max-w-lg space-y-4">
@@ -78,13 +115,14 @@ export default function CcbpReceiptPage() {
           {ok ? <CheckCircle2 className="h-9 w-9" /> : <XCircle className="h-9 w-9" />}
         </motion.div>
         <h1 className="mt-3 text-xl font-extrabold tracking-tight text-[#0b1f3a]">
-          {success || ok ? "Settlement complete" : `Payment ${txn.status.toLowerCase()}`}
+          {heading}
         </h1>
         <p className="mt-1 text-3xl font-extrabold tabular-nums text-[#0b1f3a]">{formatInr(txn.amount)}</p>
         <p className="mt-2">
           <CcbpStatusBadge status={txn.status} />
         </p>
         <p className="mt-2 text-xs text-slate-400">{formatDateTime(txn.createdAt)}</p>
+        {failedReason ? <p className="mt-2 text-sm text-rose-600">{failedReason}</p> : null}
       </motion.div>
 
       <div className="overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-white">
@@ -99,6 +137,12 @@ export default function CcbpReceiptPage() {
           <Info label="Card" value={maskCard(txn.creditCardNumber)} />
           <Info label="IFSC" value={txn.ifscCode} />
           <Info label="Rail" value={txn.paymentType} />
+          {txn.bankRef ? <Info label="Bank ref (UTR)" value={txn.bankRef} /> : null}
+          {txn.charges != null ? <Info label="Charges" value={formatInr(txn.charges)} /> : null}
+          {txn.gst ? <Info label="GST" value={formatInr(txn.gst)} /> : null}
+          {txn.totalDebit != null ? (
+            <Info label="Total debit" value={formatInr(txn.totalDebit)} />
+          ) : null}
           {txn.remarks ? <Info label="Remarks" value={txn.remarks} /> : null}
         </div>
       </div>

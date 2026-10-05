@@ -60,4 +60,14 @@ export const XPRESS_DMT_SERVICE_NAME_ALIASES = [
 export const CCBP_SERVICE_CODE = "CREDIT_CARD_BILL_PAYMENT";
 export const CCBP_PARENT_SERVICE_CODE = "CREDIT_CARD";
 
+/** UPI Payout — retailer wallet → any UPI ID */
+export const UPI_PAYOUT_SERVICE_CODE = "UPI_PAYOUT";
+
+export const UPI_PAYOUT_SERVICE_NAME_ALIASES = [
+  "UPI Payout",
+  "UPI Transfer",
+  "Payout UPI",
+  "UPI Payment",
+] as const;
+
 export const RETAILER_SERVICES_ENDPOINT = "/retailer/services";

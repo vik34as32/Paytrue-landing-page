@@ -13,6 +13,8 @@ import {
   DMT3_SERVICE_NAME_ALIASES,
   RETAILER_SERVICE_NAMES,
   UPI_CASH_POINT_ALIASES,
+  UPI_PAYOUT_SERVICE_CODE,
+  UPI_PAYOUT_SERVICE_NAME_ALIASES,
   XPRESS_DMT_SERVICE_CODE,
   XPRESS_DMT_SERVICE_NAME_ALIASES,
 } from "@/src/constants/retailerServices";
@@ -342,6 +344,46 @@ export function getCcbpService(): ResolvedRetailerService {
 export async function resolveCcbpService(): Promise<ResolvedRetailerService> {
   await ensureRetailerServicesLoaded();
   return getCcbpService();
+}
+
+/** Resolve UPI Payout from GET /retailer/services — prefers serviceCode UPI_PAYOUT, then name aliases. */
+export function getUpiPayoutService(): ResolvedRetailerService {
+  const { loaded } = useRetailerServicesStore.getState();
+  if (!loaded) {
+    throw new Error(
+      "Retailer services are not loaded yet. Please wait and try again."
+    );
+  }
+
+  const rows = catalogRows();
+  const byCode = rows.find(
+    (row) =>
+      String(row.code || "").trim().toUpperCase() === UPI_PAYOUT_SERVICE_CODE
+  );
+  if (byCode?.id) {
+    return { serviceId: byCode.id, serviceCode: UPI_PAYOUT_SERVICE_CODE, name: byCode.name };
+  }
+
+  for (const alias of UPI_PAYOUT_SERVICE_NAME_ALIASES) {
+    const target = normalizeServiceNameKey(alias);
+    const match = rows.find((row) => normalizeServiceNameKey(row.name) === target);
+    if (match?.id) {
+      return {
+        serviceId: match.id,
+        serviceCode: String(match.code || UPI_PAYOUT_SERVICE_CODE).trim(),
+        name: match.name,
+      };
+    }
+  }
+
+  throw new Error(
+    `UPI Payout service (code ${UPI_PAYOUT_SERVICE_CODE}) is not configured. Contact support.`
+  );
+}
+
+export async function resolveUpiPayoutService(): Promise<ResolvedRetailerService> {
+  await ensureRetailerServicesLoaded();
+  return getUpiPayoutService();
 }
 
 export function appendServiceId<T extends Record<string, unknown>>(

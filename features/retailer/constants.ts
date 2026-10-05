@@ -451,6 +451,14 @@ export const POPULAR_SERVICES: ServiceItem[] = [
     color: "from-sky-500 to-blue-700",
     category: "transfer",
   },
+  {
+    id: "upi_payout",
+    title: "UPI Payout",
+    href: "/rt/retailer/upi-payout",
+    icon: "SendHorizontal",
+    color: "from-emerald-500 to-violet-600",
+    category: "transfer",
+  },
 
   {
     id: "icici_aeps",

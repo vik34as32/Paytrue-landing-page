@@ -25,6 +25,7 @@ import {
   QrCode,
   ArrowRightLeft,
   Banknote,
+  SendHorizontal,
   Lock,
   type LucideIcon,
 } from "lucide-react";
@@ -64,6 +65,7 @@ const iconMap: Record<string, LucideIcon> = {
   QrCode,
   ArrowRightLeft,
   Banknote,
+  SendHorizontal,
 };
 
 const iconBgMap: Record<string, string> = {

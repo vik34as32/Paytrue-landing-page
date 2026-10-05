@@ -1,3 +1,5 @@
+import { resolveCcbpService } from "@/features/retailer/store/retailerServicesStore";
+import { CCBP_SERVICE_CODE } from "@/src/constants/retailerServices";
 import type {
   CcbpCommissionPreview,
   CcbpPayInput,
@@ -14,15 +16,29 @@ import {
 import { resolveCcbpLocation } from "./ccbp-geo";
 import { ccbpApiMessage, normalizeCcbpPreview, normalizeCcbpTxn } from "./ccbp-normalizers";
 
+async function resolveCcbpServiceFields(): Promise<{
+  serviceCode: string;
+  serviceId?: string;
+}> {
+  try {
+    const service = await resolveCcbpService();
+    return { serviceCode: CCBP_SERVICE_CODE, serviceId: service.serviceId };
+  } catch {
+    return { serviceCode: CCBP_SERVICE_CODE };
+  }
+}
+
 /** POST /ccbp/commission/preview */
 export async function previewCcbpCharges(input: {
   amount: number;
   paymentType: CcbpPaymentType;
 }): Promise<CcbpCommissionPreview> {
   try {
+    const service = await resolveCcbpServiceFields();
     const payload = await apiCcbpCommissionPreview({
       amount: input.amount,
       paymentType: input.paymentType,
+      ...service,
     });
     return normalizeCcbpPreview(payload, input.amount);
   } catch (error) {
@@ -33,7 +49,10 @@ export async function previewCcbpCharges(input: {
 /** POST /ccbp/pay */
 export async function payCreditCardBill(input: CcbpPayInput): Promise<CcbpTransaction> {
   try {
-    const location = await resolveCcbpLocation();
+    const [location, service] = await Promise.all([
+      resolveCcbpLocation(),
+      resolveCcbpServiceFields(),
+    ]);
     const payload = await apiCcbpPay({
       ifscCode: input.ifscCode.trim().toUpperCase(),
       amount: input.amount,
@@ -48,6 +67,7 @@ export async function payCreditCardBill(input: CcbpPayInput): Promise<CcbpTransa
       longitude: location.longitude,
       mpin: input.mpin,
       consent: "Y",
+      ...service,
     });
     return normalizeCcbpTxn(payload, {
       payeeName: input.payeeName,

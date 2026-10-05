@@ -56,4 +56,8 @@ export const XPRESS_DMT_SERVICE_NAME_ALIASES = [
   "Express DMT",
 ] as const;
 
+/** Catalog child "Bill Payment" under parent "Credit Card" (CREDIT_CARD) — CCBP module */
+export const CCBP_SERVICE_CODE = "CREDIT_CARD_BILL_PAYMENT";
+export const CCBP_PARENT_SERVICE_CODE = "CREDIT_CARD";
+
 export const RETAILER_SERVICES_ENDPOINT = "/retailer/services";

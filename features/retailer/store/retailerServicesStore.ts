@@ -6,6 +6,8 @@ import {
 } from "@/src/lib/retailerServices";
 import { fetchRetailerServices } from "@/src/services/retailerServicesService";
 import {
+  CCBP_PARENT_SERVICE_CODE,
+  CCBP_SERVICE_CODE,
   DMT1_SERVICE_NAME_ALIASES,
   DMT3_SERVICE_CODE,
   DMT3_SERVICE_NAME_ALIASES,
@@ -302,6 +304,44 @@ export function getXpressDmtService(): ResolvedRetailerService {
 export async function resolveXpressDmtService(): Promise<ResolvedRetailerService> {
   await ensureRetailerServicesLoaded();
   return getXpressDmtService();
+}
+
+/** Resolve Credit Card → Bill Payment from GET /retailer/services — prefers serviceCode CREDIT_CARD_BILL_PAYMENT. */
+export function getCcbpService(): ResolvedRetailerService {
+  const { loaded, parents, children } = useRetailerServicesStore.getState();
+  if (!loaded) {
+    throw new Error(
+      "Retailer services are not loaded yet. Please wait and try again."
+    );
+  }
+
+  const byCode = children.find(
+    (row) => String(row.code || "").trim().toUpperCase() === CCBP_SERVICE_CODE
+  );
+  if (byCode?.id) {
+    return { serviceId: byCode.id, serviceCode: CCBP_SERVICE_CODE, name: byCode.name };
+  }
+
+  const parent = parents.find(
+    (row) =>
+      String(row.code || "").trim().toUpperCase() === CCBP_PARENT_SERVICE_CODE ||
+      normalizeServiceNameKey(row.name) === normalizeServiceNameKey("Credit Card")
+  );
+  const byName = parent?.children.find(
+    (row) => normalizeServiceNameKey(row.name) === normalizeServiceNameKey("Bill Payment")
+  );
+  if (byName?.id) {
+    return { serviceId: byName.id, serviceCode: CCBP_SERVICE_CODE, name: byName.name };
+  }
+
+  throw new Error(
+    `Credit card bill payment service (code ${CCBP_SERVICE_CODE}) is not configured. Contact support.`
+  );
+}
+
+export async function resolveCcbpService(): Promise<ResolvedRetailerService> {
+  await ensureRetailerServicesLoaded();
+  return getCcbpService();
 }
 
 export function appendServiceId<T extends Record<string, unknown>>(

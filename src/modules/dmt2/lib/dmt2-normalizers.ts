@@ -204,20 +204,52 @@ const STATUS_MAP: Record<string, Dmt2TxnStatus> = {
   SUCCESS: "SUCCESS",
   SUCCESSFUL: "SUCCESS",
   PROCESSING: "PROCESSING",
+  IN_PROGRESS: "PROCESSING",
+  INITIATED: "PROCESSING",
+  SUBMITTED: "PROCESSING",
+  ACCEPTED: "PROCESSING",
   PENDING: "PENDING",
   FAILED: "FAILED",
   FAILURE: "FAILED",
+  REJECTED: "FAILED",
+  DECLINED: "FAILED",
   REFUNDED: "REFUNDED",
   REVERSED: "REVERSED",
 };
+
+/** Statuses after which status polling must stop. */
+export const DMT2_TERMINAL_STATUSES: readonly Dmt2TxnStatus[] = [
+  "SUCCESS",
+  "FAILED",
+  "REFUNDED",
+  "REVERSED",
+];
+
+function pickOptionalString(...values: unknown[]): string | undefined {
+  return pickString(...values) || undefined;
+}
+
+function pickOptionalNumber(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    if (value == null || value === "") continue;
+    const num = typeof value === "number" ? value : Number(value);
+    if (Number.isFinite(num)) return num;
+  }
+  return undefined;
+}
 
 export function normalizeTransaction(
   payload: unknown,
   fallback?: Partial<Dmt2Transaction>
 ): Dmt2Transaction {
-  const data = unwrapRecord(payload);
+  const root = unwrapRecord(payload);
+  const data = {
+    ...root,
+    ...asRecord(root.transaction),
+    ...asRecord(root.receipt),
+  };
   const modeKey = pickString(data.transferMode, data.mode, fallback?.mode).toUpperCase();
-  const statusKey = pickString(data.status, fallback?.status).toUpperCase();
+  const statusKey = pickString(data.status, data.txnStatus, fallback?.status).toUpperCase();
   const reference = pickString(
     data.reference,
     data.txnReference,
@@ -258,5 +290,67 @@ export function normalizeTransaction(
       fallback?.createdAt,
       new Date().toISOString()
     ),
+    updatedAt: pickOptionalString(data.updatedAt, data.updated_at, data.completedAt, fallback?.updatedAt),
+    apiTxnId: pickOptionalString(
+      data.apiTxnId,
+      data.apiTransactionId,
+      data.providerTxnId,
+      data.providerTransactionId,
+      data.ipayId,
+      fallback?.apiTxnId
+    ),
+    externalRef: pickOptionalString(
+      data.externalRef,
+      data.externalReference,
+      data.clientRefId,
+      fallback?.externalRef
+    ),
+    bankRef: pickOptionalString(
+      data.bankRefNo,
+      data.bankReference,
+      data.bankReferenceNumber,
+      data.utr,
+      data.utrNumber,
+      data.rrn,
+      fallback?.bankRef
+    ),
+    charges: pickOptionalNumber(data.charges, data.charge, data.serviceCharge, data.fee, fallback?.charges),
+    gst: pickOptionalNumber(data.gst, data.gstAmount, data.tax, data.taxAmount, fallback?.gst),
+    totalDebit: pickOptionalNumber(
+      data.totalDebit,
+      data.totalAmount,
+      data.debitAmount,
+      data.netDebit,
+      fallback?.totalDebit
+    ),
+    providerMessage: pickOptionalString(
+      data.providerMessage,
+      data.statusMessage,
+      data.responseMessage,
+      data.providerResponse,
+      fallback?.providerMessage
+    ),
+    failureReason: pickOptionalString(
+      data.failureReason,
+      data.reason,
+      data.errorMessage,
+      fallback?.failureReason
+    ),
   };
+}
+
+/** Overlay a fresher (status / receipt) snapshot without wiping known fields with empty defaults. */
+export function mergeDmt2Transaction(
+  base: Dmt2Transaction,
+  update: Dmt2Transaction
+): Dmt2Transaction {
+  const merged: Dmt2Transaction = { ...base };
+  (Object.keys(update) as Array<keyof Dmt2Transaction>).forEach((key) => {
+    const value = update[key];
+    if (value == null || value === "" || (key === "amount" && value === 0)) return;
+    (merged as unknown as Record<string, unknown>)[key] = value;
+  });
+  merged.status = update.status;
+  merged.createdAt = base.createdAt || update.createdAt;
+  return merged;
 }

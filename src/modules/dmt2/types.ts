@@ -59,6 +59,15 @@ export interface Dmt2Transaction {
   referenceId: string;
   status: Dmt2TxnStatus;
   createdAt: string;
+  updatedAt?: string;
+  apiTxnId?: string;
+  externalRef?: string;
+  bankRef?: string;
+  charges?: number;
+  gst?: number;
+  totalDebit?: number;
+  providerMessage?: string;
+  failureReason?: string;
 }
 
 export interface SearchRetailerResult {

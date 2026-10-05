@@ -207,6 +207,32 @@ export async function fetchTransactions(): Promise<Dmt2Transaction[]> {
   }
 }
 
+/** GET /dmt2/transaction/status/:reference — single source of truth for final status. */
+export async function fetchTransactionStatus(
+  reference: string,
+  fallback?: Partial<Dmt2Transaction>
+): Promise<Dmt2Transaction> {
+  try {
+    const payload = await apiTransactionStatus(reference);
+    return normalizeTransaction(payload, { ...fallback, id: reference });
+  } catch (error) {
+    throw new Error(dmt2ApiMessage(error, "Unable to fetch transaction status"));
+  }
+}
+
+/** GET /dmt2/receipt/:reference — no status fallback, used only after SUCCESS. */
+export async function fetchFinalReceipt(
+  reference: string,
+  fallback?: Partial<Dmt2Transaction>
+): Promise<Dmt2Transaction> {
+  try {
+    const payload = await apiReceipt(reference);
+    return normalizeTransaction(payload, { ...fallback, id: reference });
+  } catch (error) {
+    throw new Error(dmt2ApiMessage(error, "Unable to fetch receipt"));
+  }
+}
+
 export async function fetchReceipt(reference: string): Promise<Dmt2Transaction> {
   try {
     const payload = await apiReceipt(reference);

@@ -128,11 +128,25 @@ function Dmt2TransferForm() {
         transfer: { ...draft, purpose: buildDmt2TransferRemarks(draft.amount, accountNumber) },
         mpin,
       });
-      setLastTransaction(txn);
+      console.log("[DMT2 FRONTEND] payout reference:", { reference: txn.id, mode: txn.mode });
+      if (!txn.id) {
+        toast.error("Transfer submitted but no reference was returned. Check transaction history.");
+        router.push("/rt/retailer/dmt2/transactions");
+        return;
+      }
+
+      const isImps = txn.mode === "IMPS";
+      // IMPS final status comes only from GET /transaction/status — payout HTTP 200 is not success.
+      const initial = isImps && txn.status === "SUCCESS" ? { ...txn, status: "PROCESSING" as const } : txn;
+      setLastTransaction(initial);
       setStep("success");
-      toast.success(
-        txn.status === "SUCCESS" ? "Transfer successful" : `Transfer ${txn.status.toLowerCase()}`
-      );
+      if (isImps) {
+        toast.info("Transaction initiated. Checking status…");
+      } else {
+        toast.success(
+          txn.status === "SUCCESS" ? "Transfer successful" : `Transfer ${txn.status.toLowerCase()}`
+        );
+      }
       router.push(`/rt/retailer/dmt2/receipt/${encodeURIComponent(txn.id)}?success=1`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Transfer failed");
@@ -415,21 +429,6 @@ function Dmt2TransferForm() {
                 })}
               </div>
             </div>
-
-            <div className="rounded-xl border border-slate-200 bg-slate-50/80">
-              <dl className="grid gap-x-6 gap-y-2.5 p-4 text-sm sm:grid-cols-3">
-                <SummaryRow label="Beneficiary" value={beneficiary.name || "—"} />
-                <SummaryRow label="Account" value={`${bankName} •••• ${accountTail || "—"}`} />
-                <SummaryRow label="Mode" value={watchedMode} />
-              </dl>
-              <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
-                <span className="text-sm font-bold text-[#0b1f3a]">Total Debit</span>
-                <span className="text-xl font-extrabold tabular-nums text-[#0b1f3a]">
-                  {formatInr(watchedAmount)}
-                </span>
-              </div>
-            </div>
-
             <div>
               <button
                 type="submit"
@@ -453,15 +452,6 @@ function Dmt2TransferForm() {
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
     <p className="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-500">{children}</p>
-  );
-}
-
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</dt>
-      <dd className="mt-0.5 truncate font-bold text-[#0b1f3a]">{value}</dd>
-    </div>
   );
 }
 

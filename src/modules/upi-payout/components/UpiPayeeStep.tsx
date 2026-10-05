@@ -1,50 +1,115 @@
 "use client";
 
+import type { ComponentType, ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, AtSign, BadgeCheck, Loader2, ScanLine, Smartphone, User } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AtSign, BadgeCheck, Mail, MessageSquareText, Smartphone, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import UpiAppMark from "./UpiAppMark";
-import { detectUpiApp, isValidVpa } from "../lib/upi-payout-normalizers";
-import type { UpiVpaVerification } from "../types";
+import {
+  detectUpiApp,
+  isValidPayeeEmail,
+  isValidPayeeMobile,
+  isValidVpa,
+  sanitizeRemarks,
+  UPI_PAYOUT_REMARKS_MAX,
+} from "../lib/upi-payout-normalizers";
 
 const HANDLE_SUGGESTIONS = ["ybl", "okaxis", "paytm", "upi", "okhdfcbank", "oksbi"];
+
+function Field({
+  id,
+  label,
+  optional,
+  icon: Icon,
+  error,
+  children,
+}: {
+  id: string;
+  label: string;
+  optional?: boolean;
+  icon: ComponentType<{ className?: string }>;
+  error?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <label htmlFor={id} className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+        {label}
+        {optional ? (
+          <span className="ml-1 font-normal normal-case tracking-normal text-slate-400">(optional)</span>
+        ) : null}
+      </label>
+      <div
+        className={cn(
+          "flex items-center gap-2 rounded-2xl border bg-white px-3 transition focus-within:ring-4",
+          error
+            ? "border-rose-300 focus-within:ring-rose-100"
+            : "border-slate-200 focus-within:border-violet-400 focus-within:ring-violet-100"
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0 text-slate-400" />
+        {children}
+      </div>
+      <AnimatePresence>
+        {error ? (
+          <motion.p
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="text-xs font-medium text-rose-600"
+          >
+            {error}
+          </motion.p>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+const inputClass =
+  "h-12 min-w-0 flex-1 bg-transparent text-sm font-semibold text-[#0a1630] outline-none placeholder:font-normal placeholder:text-slate-400";
 
 export default function UpiPayeeStep({
   vpa,
   onVpa,
-  verification,
-  verifying,
-  verifyError,
-  onVerify,
   payeeName,
   onPayeeName,
   payeeMobile,
   onPayeeMobile,
+  payeeEmail,
+  onPayeeEmail,
+  remarks,
+  onRemarks,
 }: {
   vpa: string;
   onVpa: (value: string) => void;
-  verification: UpiVpaVerification | null;
-  verifying: boolean;
-  verifyError: string;
-  onVerify: () => void;
   payeeName: string;
   onPayeeName: (value: string) => void;
   payeeMobile: string;
   onPayeeMobile: (value: string) => void;
+  payeeEmail: string;
+  onPayeeEmail: (value: string) => void;
+  remarks: string;
+  onRemarks: (value: string) => void;
 }) {
   const valid = isValidVpa(vpa);
   const userPart = vpa.split("@")[0] ?? "";
   const showHandles = Boolean(userPart) && !vpa.includes("@");
-  const verified = Boolean(verification?.verified);
   const app = valid ? detectUpiApp(vpa) : null;
+
+  const mobileError =
+    payeeMobile.length === 10 && !isValidPayeeMobile(payeeMobile) ? "Enter a valid Indian mobile number" : "";
+  const emailError =
+    payeeEmail.includes("@") && payeeEmail.includes(".") && !isValidPayeeEmail(payeeEmail)
+      ? "Enter a valid email address"
+      : "";
 
   return (
     <div className="space-y-5">
       <div>
         <h2 className="text-lg font-bold tracking-tight text-[#0a1630]">Who are you paying?</h2>
         <p className="mt-0.5 text-sm text-slate-500">
-          Enter the receiver&apos;s UPI ID and verify the registered name before sending.
+          Enter the receiver&apos;s UPI ID and contact details. Money is credited instantly to the linked bank account.
         </p>
       </div>
 
@@ -55,7 +120,7 @@ export default function UpiPayeeStep({
         <div
           className={cn(
             "relative flex items-center gap-2 overflow-hidden rounded-2xl border bg-white px-3 transition focus-within:ring-4",
-            verified
+            valid
               ? "border-emerald-300 focus-within:ring-emerald-100"
               : "border-slate-200 focus-within:border-violet-400 focus-within:ring-violet-100"
           )}
@@ -65,46 +130,24 @@ export default function UpiPayeeStep({
             id="upi-vpa"
             value={vpa}
             onChange={(event) => onVpa(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && valid && !verifying) onVerify();
-            }}
             placeholder="mobile@ybl or name@okaxis"
             autoComplete="off"
             spellCheck={false}
             className="h-14 min-w-0 flex-1 bg-transparent font-mono text-[15px] font-semibold text-[#0a1630] outline-none placeholder:font-sans placeholder:font-normal placeholder:text-slate-400"
           />
-          <Button
-            type="button"
-            size="sm"
-            disabled={!valid || verifying || verified}
-            onClick={onVerify}
-            className={cn(
-              "h-10 rounded-xl px-4 font-semibold",
-              verified ? "bg-emerald-500 hover:bg-emerald-500" : "bg-[#0a1630] hover:bg-[#16244a]"
-            )}
-          >
-            {verifying ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : verified ? (
-              <>
+          <AnimatePresence>
+            {valid ? (
+              <motion.span
+                initial={{ scale: 0, rotate: -45 }}
+                animate={{ scale: 1, rotate: 0 }}
+                exit={{ scale: 0 }}
+                transition={{ type: "spring", stiffness: 320, damping: 16 }}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md shadow-emerald-200"
+              >
                 <BadgeCheck className="h-4 w-4" />
-                Verified
-              </>
-            ) : (
-              <>
-                <ScanLine className="h-4 w-4" />
-                Verify
-              </>
-            )}
-          </Button>
-          {verifying ? (
-            <motion.span
-              className="pointer-events-none absolute inset-y-0 w-24 bg-gradient-to-r from-transparent via-violet-200/50 to-transparent"
-              initial={{ x: "-30%" }}
-              animate={{ x: "520%" }}
-              transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
-            />
-          ) : null}
+              </motion.span>
+            ) : null}
+          </AnimatePresence>
         </div>
 
         <AnimatePresence>
@@ -132,94 +175,79 @@ export default function UpiPayeeStep({
           ) : null}
         </AnimatePresence>
 
-        {app && !verified ? (
-          <p className="text-xs text-slate-500">
-            Detected: <span className="font-semibold text-slate-700">{app.name}</span>
-          </p>
-        ) : null}
         {vpa && !valid && vpa.includes("@") ? (
           <p className="text-xs font-medium text-rose-600">Enter a valid UPI ID, e.g. 9876543210@ybl</p>
         ) : null}
       </div>
 
       <AnimatePresence mode="wait">
-        {verified && verification ? (
+        {app ? (
           <motion.div
-            key="verified"
+            key={app.id + vpa.split("@")[1]}
             initial={{ opacity: 0, y: 10, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ type: "spring", stiffness: 260, damping: 22 }}
-            className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white p-4"
+            className="flex items-center gap-3 rounded-2xl border border-violet-100 bg-gradient-to-r from-violet-50 to-white p-3.5"
           >
-            <motion.div
-              initial={{ scale: 0, rotate: -45 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: "spring", stiffness: 320, damping: 14, delay: 0.05 }}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-200"
-            >
-              <BadgeCheck className="h-6 w-6" />
-            </motion.div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
-                Registered name
+            <UpiAppMark vpa={vpa} />
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-violet-700">
+                {app.name}
               </p>
-              <p className="truncate text-base font-extrabold text-[#0a1630]">
-                {verification.name || payeeName}
-              </p>
-              <p className="truncate font-mono text-xs text-slate-500">{verification.vpa}</p>
+              <p className="truncate font-mono text-sm font-bold text-[#0a1630]">{vpa}</p>
             </div>
-          </motion.div>
-        ) : verifyError ? (
-          <motion.div
-            key="error"
-            initial={{ opacity: 0, x: -6 }}
-            animate={{ opacity: 1, x: [0, -6, 6, -3, 0] }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4 }}
-            className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
-          >
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>
-              {verifyError}. You can enter the beneficiary name manually — double-check the UPI ID before sending.
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+              Valid format
             </span>
           </motion.div>
         ) : null}
       </AnimatePresence>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <label htmlFor="upi-name" className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-            Beneficiary name
-          </label>
-          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 focus-within:border-violet-400 focus-within:ring-4 focus-within:ring-violet-100">
-            <User className="h-4 w-4 text-slate-400" />
-            <input
-              id="upi-name"
-              value={payeeName}
-              onChange={(event) => onPayeeName(event.target.value)}
-              readOnly={verified && Boolean(verification?.name)}
-              placeholder="As per bank records"
-              className="h-12 min-w-0 flex-1 bg-transparent text-sm font-semibold text-[#0a1630] outline-none placeholder:font-normal placeholder:text-slate-400 read-only:text-slate-600"
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <label htmlFor="upi-mobile" className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-            Mobile <span className="font-normal normal-case tracking-normal text-slate-400">(optional)</span>
-          </label>
-          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 focus-within:border-violet-400 focus-within:ring-4 focus-within:ring-violet-100">
-            <Smartphone className="h-4 w-4 text-slate-400" />
-            <input
-              id="upi-mobile"
-              value={payeeMobile}
-              inputMode="numeric"
-              onChange={(event) => onPayeeMobile(event.target.value.replace(/\D/g, "").slice(0, 10))}
-              placeholder="10-digit mobile"
-              className="h-12 min-w-0 flex-1 bg-transparent text-sm font-semibold tabular-nums text-[#0a1630] outline-none placeholder:font-normal placeholder:text-slate-400"
-            />
-          </div>
-        </div>
+        <Field id="upi-name" label="Beneficiary name" icon={User}>
+          <input
+            id="upi-name"
+            value={payeeName}
+            maxLength={100}
+            onChange={(event) => onPayeeName(event.target.value)}
+            placeholder="As per bank records"
+            className={inputClass}
+          />
+        </Field>
+        <Field id="upi-mobile" label="Beneficiary mobile" icon={Smartphone} error={mobileError}>
+          <input
+            id="upi-mobile"
+            value={payeeMobile}
+            inputMode="numeric"
+            onChange={(event) => onPayeeMobile(event.target.value.replace(/\D/g, "").slice(0, 10))}
+            placeholder="10-digit mobile"
+            className={cn(inputClass, "tabular-nums")}
+          />
+        </Field>
+        <Field id="upi-email" label="Beneficiary email" icon={Mail} error={emailError}>
+          <input
+            id="upi-email"
+            type="email"
+            value={payeeEmail}
+            onChange={(event) => onPayeeEmail(event.target.value.replace(/\s+/g, ""))}
+            placeholder="name@example.com"
+            autoComplete="off"
+            className={inputClass}
+          />
+        </Field>
+        <Field id="upi-remarks" label="Remark" optional icon={MessageSquareText}>
+          <input
+            id="upi-remarks"
+            value={remarks}
+            onChange={(event) => onRemarks(sanitizeRemarks(event.target.value))}
+            placeholder="e.g. Rent"
+            className={inputClass}
+          />
+          <span className="text-[11px] tabular-nums text-slate-400">
+            {remarks.length}/{UPI_PAYOUT_REMARKS_MAX}
+          </span>
+        </Field>
       </div>
     </div>
   );

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Loader2, ShieldCheck, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, RotateCcw, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { MPIN_LENGTH } from "@/features/mpin";
@@ -23,13 +23,15 @@ import UpiProcessingOverlay from "../components/UpiProcessingOverlay";
 import UpiTransferCard from "../components/UpiTransferCard";
 import {
   formatInr,
+  isValidPayeeEmail,
+  isValidPayeeMobile,
   isValidVpa,
   normalizeVpaInput,
   UPI_PAYOUT_MAX_AMOUNT,
   UPI_PAYOUT_MIN_AMOUNT,
 } from "../lib/upi-payout-normalizers";
-import { payUpiPayout, previewUpiPayout, verifyUpiVpa } from "../lib/upi-payout-service";
-import type { UpiPayoutPreview, UpiVpaVerification } from "../types";
+import { payUpiPayout, previewUpiPayout } from "../lib/upi-payout-service";
+import type { UpiPayoutPreview } from "../types";
 
 const slide = {
   enter: (dir: number) => ({ x: dir > 0 ? 32 : -32, opacity: 0 }),
@@ -46,11 +48,10 @@ export default function UpiPayoutPage() {
   const [direction, setDirection] = useState(1);
 
   const [vpa, setVpa] = useState("");
-  const [verification, setVerification] = useState<UpiVpaVerification | null>(null);
-  const [verifying, setVerifying] = useState(false);
-  const [verifyError, setVerifyError] = useState("");
   const [payeeName, setPayeeName] = useState("");
   const [payeeMobile, setPayeeMobile] = useState("");
+  const [payeeEmail, setPayeeEmail] = useState("");
+  const [remarks, setRemarks] = useState("");
 
   const [amount, setAmount] = useState("");
   const [amountError, setAmountError] = useState("");
@@ -61,44 +62,20 @@ export default function UpiPayoutPage() {
   const [paying, setPaying] = useState(false);
 
   const amountValue = Number(amount) || 0;
-  const verified = Boolean(verification?.verified);
-  const payeeReady = isValidVpa(vpa) && payeeName.trim().length >= 2;
+  const payeeIssue = !isValidVpa(vpa)
+    ? "Enter a valid UPI ID"
+    : payeeName.trim().length < 2
+      ? "Enter beneficiary name"
+      : !isValidPayeeMobile(payeeMobile)
+        ? "Enter a valid 10-digit beneficiary mobile"
+        : !isValidPayeeEmail(payeeEmail)
+          ? "Enter a valid beneficiary email"
+          : "";
+  const payeeReady = !payeeIssue;
 
   const goTo = (next: UpiPayoutStep) => {
     setDirection(UPI_PAYOUT_STEPS.indexOf(next) >= UPI_PAYOUT_STEPS.indexOf(step) ? 1 : -1);
     setStep(next);
-  };
-
-  const onVpa = (value: string) => {
-    const next = normalizeVpaInput(value);
-    setVpa(next);
-    if (verification && verification.vpa !== next) {
-      setVerification(null);
-      setPayeeName("");
-    }
-    setVerifyError("");
-  };
-
-  const onVerify = async () => {
-    if (!isValidVpa(vpa)) return;
-    setVerifying(true);
-    setVerifyError("");
-    try {
-      const result = await verifyUpiVpa(vpa);
-      if (!result.verified) {
-        setVerification(null);
-        setVerifyError(result.message || "UPI ID could not be verified");
-        return;
-      }
-      setVerification({ ...result, vpa });
-      if (result.name) setPayeeName(result.name);
-      toast.success("UPI ID verified");
-    } catch (error) {
-      setVerification(null);
-      setVerifyError(error instanceof Error ? error.message : "Unable to verify UPI ID");
-    } finally {
-      setVerifying(false);
-    }
   };
 
   const validateAmount = (): boolean => {
@@ -121,7 +98,7 @@ export default function UpiPayoutPage() {
   const goNext = async () => {
     if (step === "payee") {
       if (!payeeReady) {
-        toast.error(isValidVpa(vpa) ? "Enter beneficiary name" : "Enter a valid UPI ID");
+        toast.error(payeeIssue);
         return;
       }
       goTo("amount");
@@ -138,6 +115,10 @@ export default function UpiPayoutPage() {
         quote = null;
       } finally {
         setPreviewing(false);
+      }
+      if (quote?.sufficient === false) {
+        toast.error("Insufficient wallet balance for amount + charges");
+        return;
       }
       if (!validateRetailerWalletBalance(quote?.totalDebit || amountValue)) return;
       setPreview(quote);
@@ -169,6 +150,8 @@ export default function UpiPayoutPage() {
         vpa,
         payeeName,
         payeeMobile,
+        payeeEmail,
+        remarks,
         amount: amountValue,
         mpin,
       });
@@ -178,7 +161,11 @@ export default function UpiPayoutPage() {
         router.push("/rt/retailer/upi-payout/history");
         return;
       }
-      toast.info("Payout initiated. Checking status…");
+      if (txn.status === "FAILED" || txn.status === "REFUNDED" || txn.status === "REVERSED") {
+        toast.error(txn.message || "UPI payout failed. Amount reversed to wallet.");
+      } else {
+        toast.info("Payout initiated. Checking status…");
+      }
       router.push(`/rt/retailer/upi-payout/receipt/${encodeURIComponent(txn.reference)}?new=1`);
     } catch (error) {
       setMpin("");
@@ -194,7 +181,7 @@ export default function UpiPayoutPage() {
           <UpiTransferCard
             vpa={vpa}
             payeeName={payeeName}
-            verified={verified}
+            ready={payeeReady}
             amount={amountValue}
             walletBalance={walletBalance}
           />
@@ -211,9 +198,9 @@ export default function UpiPayoutPage() {
             <p className="text-[11px] text-slate-500">24×7, including holidays</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-3">
-            <ShieldCheck className="h-4 w-4 text-emerald-600" />
-            <p className="mt-1.5 text-xs font-bold text-[#0a1630]">Verified payee</p>
-            <p className="text-[11px] text-slate-500">Name check before send</p>
+            <RotateCcw className="h-4 w-4 text-emerald-600" />
+            <p className="mt-1.5 text-xs font-bold text-[#0a1630]">Auto reversal</p>
+            <p className="text-[11px] text-slate-500">Failed transfers refund wallet</p>
           </div>
         </motion.div>
       </aside>
@@ -241,15 +228,15 @@ export default function UpiPayoutPage() {
               {step === "payee" ? (
                 <UpiPayeeStep
                   vpa={vpa}
-                  onVpa={onVpa}
-                  verification={verification}
-                  verifying={verifying}
-                  verifyError={verifyError}
-                  onVerify={() => void onVerify()}
+                  onVpa={(value) => setVpa(normalizeVpaInput(value))}
                   payeeName={payeeName}
                   onPayeeName={setPayeeName}
                   payeeMobile={payeeMobile}
                   onPayeeMobile={setPayeeMobile}
+                  payeeEmail={payeeEmail}
+                  onPayeeEmail={setPayeeEmail}
+                  remarks={remarks}
+                  onRemarks={setRemarks}
                 />
               ) : null}
               {step === "amount" ? (
@@ -268,7 +255,8 @@ export default function UpiPayoutPage() {
                   vpa={vpa}
                   payeeName={payeeName}
                   payeeMobile={payeeMobile}
-                  verified={verified}
+                  payeeEmail={payeeEmail}
+                  remarks={remarks}
                   amount={amountValue}
                   preview={preview}
                   mpin={mpin}

@@ -1,22 +1,33 @@
-import type {
-  UpiPayoutPreview,
-  UpiPayoutStatus,
-  UpiPayoutTransaction,
-  UpiVpaVerification,
-} from "../types";
+import type { UpiPayoutPreview, UpiPayoutStatus, UpiPayoutTransaction } from "../types";
 
 export const UPI_PAYOUT_MIN_AMOUNT = 1;
 export const UPI_PAYOUT_MAX_AMOUNT = 100000;
-export const UPI_PAYOUT_REMARKS = "UPI Payout";
+export const UPI_PAYOUT_REMARKS_MAX = 10;
+export const UPI_PAYOUT_DEFAULT_REMARKS = "UPIPAY";
 
-const VPA_PATTERN = /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z][a-zA-Z0-9.-]{1,64}$/;
+/** Mirrors backend `upiPayoutSchema` validation so bad input never reaches the API. */
+const VPA_PATTERN = /^[a-z0-9._-]{2,256}@[a-z]{2,64}$/;
+const MOBILE_PATTERN = /^[6-9]\d{9}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export function isValidVpa(value: string): boolean {
-  return VPA_PATTERN.test(value.trim());
+  return VPA_PATTERN.test(value.trim().toLowerCase());
 }
 
 export function normalizeVpaInput(value: string): string {
   return value.replace(/\s+/g, "").toLowerCase();
+}
+
+export function isValidPayeeMobile(value: string): boolean {
+  return MOBILE_PATTERN.test(value.trim());
+}
+
+export function isValidPayeeEmail(value: string): boolean {
+  return EMAIL_PATTERN.test(value.trim());
+}
+
+export function sanitizeRemarks(value: string): string {
+  return value.replace(/[^a-zA-Z0-9 ]/g, "").slice(0, UPI_PAYOUT_REMARKS_MAX);
 }
 
 export interface UpiAppInfo {
@@ -159,49 +170,28 @@ export const UPI_PAYOUT_TERMINAL_STATUSES: readonly UpiPayoutStatus[] = [
   "REVERSED",
 ];
 
-export function normalizeVpaVerification(payload: unknown, vpa: string): UpiVpaVerification {
-  const root = unwrapRecord(payload);
-  const data = { ...root, ...asRecord(root.beneficiary), ...asRecord(root.result) };
-  const name = pickString(
-    data.name,
-    data.payeeName,
-    data.beneficiaryName,
-    data.accountHolderName,
-    data.customerName,
-    data.nameAtBank
-  );
-  const flag = data.verified ?? data.isValid ?? data.valid;
-  const statusText = pickString(data.status, data.verificationStatus).toUpperCase();
-  const verified =
-    flag === true ||
-    ["SUCCESS", "VERIFIED", "VALID", "ACTIVE"].includes(statusText) ||
-    (flag == null && Boolean(name));
-  return {
-    vpa: pickString(data.vpa, data.upiId, vpa),
-    name,
-    verified,
-    message: pickString(data.message) || undefined,
-  };
-}
-
+/** POST /upi/payout/commission/preview → settlement + `wallet` + `summary`. */
 export function normalizeUpiPayoutPreview(payload: unknown, amount: number): UpiPayoutPreview {
   const root = unwrapRecord(payload);
-  const preview = { ...root, ...asRecord(root.preview), ...asRecord(root.commission) };
-  const baseAmount = pickNumber(preview.amount, preview.transferAmount, amount);
-  const charges = pickNumber(preview.charges, preview.charge, preview.fees, preview.serviceCharge);
-  const gst = pickNumber(preview.gst, preview.gstAmount, preview.tax);
+  const wallet = asRecord(root.wallet);
+  const summary = asRecord(root.summary);
+  const baseAmount = pickNumber(root.transferAmount, wallet.transferAmount, root.amount, amount);
+  const charges = pickNumber(root.charges, wallet.charges, summary.serviceCharge);
+  const gst = pickNumber(root.tax, wallet.tax, root.gst);
   return {
     amount: baseAmount,
     charges,
     gst,
-    commission: pickNumber(
-      preview.commission,
-      preview.commissionAmount,
-      preview.retailerCommission
-    ),
+    commission: pickNumber(root.commissionAmount, wallet.commissionAmount, summary.expectedRetailerCommission),
     totalDebit:
-      pickOptionalNumber(preview.totalDebit, preview.totalAmount, preview.debitAmount) ??
-      baseAmount + charges + gst,
+      pickOptionalNumber(
+        root.debitAmount,
+        wallet.totalDeducted,
+        summary.totalWalletDebit,
+        root.totalDebit
+      ) ?? baseAmount + charges + gst,
+    sufficient: typeof root.sufficient === "boolean" ? root.sufficient : undefined,
+    availableBalance: pickOptionalNumber(root.availableBalance),
   };
 }
 
@@ -209,15 +199,13 @@ export function normalizeUpiPayoutTxn(
   payload: unknown,
   fallback?: Partial<UpiPayoutTransaction>
 ): UpiPayoutTransaction {
-  const root = unwrapRecord(payload);
-  const data = { ...root, ...asRecord(root.transaction), ...asRecord(root.receipt) };
-  const statusKey = pickString(data.status, data.txnStatus, fallback?.status).toUpperCase();
+  const data = unwrapRecord(payload);
+  const wallet = asRecord(data.wallet);
+  const statusKey = pickString(data.status, fallback?.status).toUpperCase();
   const reference = pickString(
     data.reference,
-    data.txnReference,
+    data.apiTxnId,
     data.transactionId,
-    data.txnId,
-    data.id,
     fallback?.reference,
     fallback?.id
   );
@@ -225,36 +213,36 @@ export function normalizeUpiPayoutTxn(
   return {
     id: reference,
     reference,
-    vpa: pickString(data.vpa, data.upiId, data.payeeVpa, fallback?.vpa),
-    payeeName: pickString(data.payeeName, data.beneficiaryName, data.name, fallback?.payeeName),
-    payeeMobile:
-      pickString(data.payeeMobile, data.mobile, fallback?.payeeMobile) || undefined,
-    amount: pickNumber(data.amount, fallback?.amount),
+    vpa: pickString(data.vpa, data.vpaMasked, data.upiId, fallback?.vpa),
+    payeeName: pickString(data.payeeName, data.recipient_name, fallback?.payeeName),
+    payeeMobile: pickString(data.payeeMobile, fallback?.payeeMobile) || undefined,
+    payeeEmail: pickString(data.payeeEmail, fallback?.payeeEmail) || undefined,
+    remarks: pickString(data.remarks, fallback?.remarks) || undefined,
+    amount: pickNumber(data.amount, wallet.transferAmount, fallback?.amount),
     status: STATUS_MAP[statusKey] ?? fallback?.status ?? "PROCESSING",
     createdAt: pickString(
       data.createdAt,
-      data.created_at,
-      data.txnDate,
+      data.timestamp,
       fallback?.createdAt,
       new Date().toISOString()
     ),
+    completedAt: pickString(data.completedAt, fallback?.completedAt) || undefined,
     message:
-      pickString(data.providerMessage, data.statusMessage, data.message, fallback?.message) ||
-      undefined,
-    failureReason:
-      pickString(data.failureReason, data.reason, data.errorMessage, fallback?.failureReason) ||
-      undefined,
+      pickString(data.providerMessage, data.message, fallback?.message) || undefined,
+    failureReason: pickString(data.failureReason, fallback?.failureReason) || undefined,
+    errorCode: pickString(data.errorCode, fallback?.errorCode) || undefined,
     utr:
-      pickString(data.utr, data.utrNumber, data.rrn, data.bankRef, data.bankRefNo, fallback?.utr) ||
-      undefined,
-    charges: pickOptionalNumber(data.charges, data.charge, data.fees, fallback?.charges),
-    gst: pickOptionalNumber(data.gst, data.gstAmount, data.tax, fallback?.gst),
+      pickString(data.bankRefNum, data.bankRef, data.bankReference, fallback?.utr) || undefined,
+    externalRef: pickString(data.externalRef, fallback?.externalRef) || undefined,
+    charges: pickOptionalNumber(data.charges, wallet.charges, fallback?.charges),
+    gst: pickOptionalNumber(data.tax, wallet.tax, fallback?.gst),
+    commission: pickOptionalNumber(data.commissionAmount, wallet.commissionAmount, fallback?.commission),
     totalDebit: pickOptionalNumber(
-      data.totalDebit,
-      data.totalAmount,
-      data.debitAmount,
+      data.totalDebited,
+      wallet.totalDeducted,
       fallback?.totalDebit
     ),
+    closingBalance: pickOptionalNumber(data.closingBalance, fallback?.closingBalance),
   };
 }
 

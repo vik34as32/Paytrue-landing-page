@@ -4,7 +4,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Clock3, Copy, History, Printer, RefreshCw, SendHorizontal, XCircle } from "lucide-react";
+import {
+  Clock3,
+  Copy,
+  History,
+  Printer,
+  RefreshCw,
+  RotateCcw,
+  SendHorizontal,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { refreshRetailerWalletData } from "@/features/retailer/utils/walletValidation";
@@ -189,14 +198,17 @@ export default function UpiPayoutReceiptPage() {
 
   const rows: { label: string; value?: string; mono?: boolean }[] = [
     { label: "Reference", value: txn.reference, mono: true },
-    { label: "UTR / RRN", value: txn.utr, mono: true },
+    { label: "Bank ref (UTR)", value: txn.utr, mono: true },
     { label: "Beneficiary", value: txn.payeeName },
     { label: "UPI ID", value: txn.vpa, mono: true },
     { label: "Mobile", value: txn.payeeMobile },
+    { label: "Email", value: txn.payeeEmail },
+    { label: "Remark", value: txn.remarks },
     { label: "Amount", value: formatInr(txn.amount) },
     { label: "Charges", value: txn.charges != null ? formatInr(txn.charges) : undefined },
     { label: "GST", value: txn.gst ? formatInr(txn.gst) : undefined },
-    { label: "Total debit", value: txn.totalDebit != null ? formatInr(txn.totalDebit) : undefined },
+    { label: "Total debit", value: txn.totalDebit ? formatInr(txn.totalDebit) : undefined },
+    { label: "Commission earned", value: ok && txn.commission ? formatInr(txn.commission) : undefined },
     { label: "Date & time", value: formatDateTime(txn.createdAt) },
   ];
 
@@ -237,6 +249,17 @@ export default function UpiPayoutReceiptPage() {
         </p>
         {failed && (txn.failureReason || txn.message) ? (
           <p className="mt-3 text-sm text-rose-600">{txn.failureReason || txn.message}</p>
+        ) : null}
+        {failed ? (
+          <motion.p
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="mx-auto mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Debited amount reversed to your wallet
+          </motion.p>
         ) : null}
         {inFlight ? (
           <p className="mt-3 text-xs text-slate-500">

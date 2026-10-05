@@ -8,13 +8,13 @@ import { detectUpiApp, formatInr } from "../lib/upi-payout-normalizers";
 export default function UpiTransferCard({
   vpa,
   payeeName,
-  verified,
+  ready,
   amount,
   walletBalance,
 }: {
   vpa: string;
   payeeName: string;
-  verified: boolean;
+  ready: boolean;
   amount: number;
   walletBalance: number;
 }) {
@@ -77,7 +77,7 @@ export default function UpiTransferCard({
                 className="flex items-center gap-1 truncate text-sm font-bold"
               >
                 {payeeName || "Beneficiary"}
-                {verified ? <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-300" /> : null}
+                {ready ? <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-300" /> : null}
               </motion.p>
             </AnimatePresence>
             <p className="truncate font-mono text-xs text-slate-300">{vpa || "name@upi"}</p>

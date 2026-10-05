@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { BadgeCheck, ShieldAlert } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AnimatedMpinInput, MPIN_LENGTH } from "@/features/mpin";
 import UpiAppMark from "./UpiAppMark";
@@ -12,7 +12,8 @@ export default function UpiConfirmStep({
   vpa,
   payeeName,
   payeeMobile,
-  verified,
+  payeeEmail,
+  remarks,
   amount,
   preview,
   mpin,
@@ -24,7 +25,8 @@ export default function UpiConfirmStep({
   vpa: string;
   payeeName: string;
   payeeMobile: string;
-  verified: boolean;
+  payeeEmail: string;
+  remarks: string;
   amount: number;
   preview: UpiPayoutPreview | null;
   mpin: string;
@@ -37,7 +39,9 @@ export default function UpiConfirmStep({
   const total = preview?.totalDebit || amount;
   const rows: { label: string; value: string }[] = [
     { label: "UPI app", value: app?.name ?? "UPI" },
-    ...(payeeMobile ? [{ label: "Mobile", value: payeeMobile }] : []),
+    { label: "Mobile", value: payeeMobile },
+    { label: "Email", value: payeeEmail },
+    ...(remarks.trim() ? [{ label: "Remark", value: remarks.trim() }] : []),
     { label: "Amount", value: formatInr(amount) },
     ...(preview ? [{ label: "Charges", value: formatInr(preview.charges) }] : []),
     ...(preview && preview.gst > 0 ? [{ label: "GST", value: formatInr(preview.gst) }] : []),
@@ -54,10 +58,7 @@ export default function UpiConfirmStep({
         <div className="flex items-center gap-3 bg-gradient-to-r from-slate-50 to-violet-50/50 px-4 py-4">
           <UpiAppMark vpa={vpa} />
           <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-1 truncate font-bold text-[#0a1630]">
-              {payeeName}
-              {verified ? <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-500" /> : null}
-            </p>
+            <p className="truncate font-bold text-[#0a1630]">{payeeName}</p>
             <p className="truncate font-mono text-xs text-slate-500">{vpa}</p>
           </div>
         </div>
@@ -71,7 +72,7 @@ export default function UpiConfirmStep({
               className="flex items-center justify-between gap-3 py-2.5 text-sm"
             >
               <dt className="text-slate-500">{row.label}</dt>
-              <dd className="font-semibold tabular-nums text-[#0a1630]">{row.value}</dd>
+              <dd className="min-w-0 truncate font-semibold tabular-nums text-[#0a1630]">{row.value}</dd>
             </motion.div>
           ))}
         </dl>
@@ -81,12 +82,10 @@ export default function UpiConfirmStep({
         </div>
       </div>
 
-      {!verified ? (
-        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-          UPI ID was not verified. Make sure the ID belongs to {payeeName || "the beneficiary"}.
-        </div>
-      ) : null}
+      <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+        Double-check the UPI ID belongs to {payeeName || "the beneficiary"}. Successful UPI transfers cannot be reversed.
+      </div>
 
       <div className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
         <AnimatedMpinInput

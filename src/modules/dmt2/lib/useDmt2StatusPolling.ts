@@ -7,9 +7,11 @@ import { fetchTransactionStatus } from "./dmt2-service";
 
 export type Dmt2PollPhase = "idle" | "polling" | "success" | "failed" | "timeout";
 
-export const DMT2_STATUS_POLL_INTERVAL_MS = 4000;
+/** Status API is hit every 20–25s (base interval + random jitter). */
+export const DMT2_STATUS_POLL_INTERVAL_MS = 20_000;
+export const DMT2_STATUS_POLL_JITTER_MS = 5_000;
 /** Stop auto-polling after this long; the user can resume with `restart()`. */
-export const DMT2_STATUS_POLL_MAX_MS = 5 * 60 * 1000;
+export const DMT2_STATUS_POLL_MAX_MS = 10 * 60 * 1000;
 
 interface UseDmt2StatusPollingOptions {
   reference: string;
@@ -17,6 +19,7 @@ interface UseDmt2StatusPollingOptions {
   fallback?: Partial<Dmt2Transaction>;
   onUpdate?: (txn: Dmt2Transaction) => void;
   intervalMs?: number;
+  jitterMs?: number;
   maxDurationMs?: number;
 }
 
@@ -24,6 +27,7 @@ interface UseDmt2StatusPollingOptions {
  * Polls GET /dmt2/transaction/status/:reference until SUCCESS / FAILED / timeout.
  * Uses one chained setTimeout per run (next request only after the previous
  * one settles), so there is never more than one timer or in-flight request.
+ * The first automatic check waits one interval; `restart()` checks immediately.
  */
 export function useDmt2StatusPolling({
   reference,
@@ -31,6 +35,7 @@ export function useDmt2StatusPolling({
   fallback,
   onUpdate,
   intervalMs = DMT2_STATUS_POLL_INTERVAL_MS,
+  jitterMs = DMT2_STATUS_POLL_JITTER_MS,
   maxDurationMs = DMT2_STATUS_POLL_MAX_MS,
 }: UseDmt2StatusPollingOptions) {
   const [runId, setRunId] = useState(0);
@@ -53,6 +58,7 @@ export function useDmt2StatusPolling({
     let finished = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const startedAt = Date.now();
+    const nextDelay = () => intervalMs + Math.floor(Math.random() * (jitterMs + 1));
 
     const finish = (phase: Dmt2PollPhase, reason: string) => {
       finished = true;
@@ -91,10 +97,14 @@ export function useDmt2StatusPolling({
         finish("timeout", "TIMEOUT");
         return;
       }
-      timer = setTimeout(() => void tick(), intervalMs);
+      timer = setTimeout(() => void tick(), nextDelay());
     };
 
-    void tick();
+    if (runId > 0) {
+      void tick();
+    } else {
+      timer = setTimeout(() => void tick(), nextDelay());
+    }
 
     return () => {
       cancelled = true;
@@ -104,7 +114,7 @@ export function useDmt2StatusPolling({
         console.log("[DMT2 FRONTEND] polling stopped:", { reference, reason: "UNMOUNT" });
       }
     };
-  }, [active, reference, runKey, intervalMs, maxDurationMs]);
+  }, [active, reference, runKey, runId, intervalMs, jitterMs, maxDurationMs]);
 
   const phase: Dmt2PollPhase = !active
     ? "idle"

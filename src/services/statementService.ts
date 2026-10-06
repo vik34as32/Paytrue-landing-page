@@ -6,12 +6,14 @@ import { unwrapApiData } from "@/src/lib/dmtUtils";
 import {
   mapAepsToStatement,
   mapDmt1ToStatement,
+  mapDmt2ToStatement,
   mapDmt3ToStatement,
   mapDmtToStatement,
   mapUpiAtmToStatement,
   mergeStatementTransactions,
 } from "@/src/lib/statementMappers";
 import { DMT1_ENDPOINTS } from "@/src/constants/dmt1Api";
+import { DMT2_ENDPOINTS } from "@/src/modules/dmt2/lib/dmt2-endpoints";
 import { DMT3_ENDPOINTS } from "@/src/modules/dmt3/services/dmt3.endpoints";
 import { unwrapList } from "@/src/modules/dmt3/services/dmt3.mapper";
 import type { StatementTransaction } from "@/types/statementReceipt";
@@ -27,6 +29,7 @@ export interface RetailerStatementResult {
   totals: {
     dmt: number;
     dmt1: number;
+    dmt2: number;
     dmt3: number;
     upiAtm: number;
     aeps: number;
@@ -62,6 +65,11 @@ function parseDmt1Rows(payload: unknown): StatementTransaction[] {
   return unwrapList(payload).map((row) => mapDmt1ToStatement(asRecord(row)));
 }
 
+function parseDmt2Rows(payload: unknown): StatementTransaction[] {
+  // API may return data as array OR indexed object ("0","1",…)
+  return unwrapList(payload).map((row) => mapDmt2ToStatement(asRecord(row)));
+}
+
 function parseDmt3Rows(payload: unknown): StatementTransaction[] {
   // API may return data as array OR indexed object ("0","1",…)
   return unwrapList(payload).map((row) => mapDmt3ToStatement(asRecord(row)));
@@ -92,10 +100,11 @@ export async function fetchRetailerStatement(
   const limit = options.limit ?? 100;
   const params = { page, limit };
 
-  const [dmtResult, dmt1Result, dmt3Result, upiResult, aepsResult] =
+  const [dmtResult, dmt1Result, dmt2Result, dmt3Result, upiResult, aepsResult] =
     await Promise.allSettled([
       api.get(DMT_ENDPOINTS.transactions, { params }),
       api.get(DMT1_ENDPOINTS.transactions, { params }),
+      api.get(DMT2_ENDPOINTS.transactions, { params }),
       api.get(DMT3_ENDPOINTS.transactions, { params }),
       api.get(UPI_ATM_ENDPOINTS.history, { params }),
       api.get(AEPS_ENDPOINTS.ledger, { params }),
@@ -113,6 +122,14 @@ export async function fetchRetailerStatement(
       ? parseDmt1Rows(dmt1Result.value.data)
       : (errors.push(
           extractErrorMessage(dmt1Result.reason, "DMT1 history failed")
+        ),
+        []);
+
+  const dmt2Rows =
+    dmt2Result.status === "fulfilled"
+      ? parseDmt2Rows(dmt2Result.value.data)
+      : (errors.push(
+          extractErrorMessage(dmt2Result.reason, "Xpress DMT history failed")
         ),
         []);
 
@@ -141,6 +158,7 @@ export async function fetchRetailerStatement(
   const transactions = mergeStatementTransactions([
     ...dmtRows,
     ...dmt1Rows,
+    ...dmt2Rows,
     ...dmt3Rows,
     ...upiRows,
     ...aepsRows,
@@ -152,6 +170,7 @@ export async function fetchRetailerStatement(
     totals: {
       dmt: dmtRows.length,
       dmt1: dmt1Rows.length,
+      dmt2: dmt2Rows.length,
       dmt3: dmt3Rows.length,
       upiAtm: upiRows.length,
       aeps: aepsRows.length,

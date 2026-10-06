@@ -3,6 +3,7 @@ import type {
   TransactionStatus,
   TransactionType,
 } from "@/types/statementReceipt";
+import { resolveDmt2BankName } from "@/src/modules/dmt2/lib/dmt2-bank";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -173,11 +174,11 @@ export function mapDmtToStatement(raw: Record<string, unknown>): StatementTransa
   };
 }
 
-/** Shared remitter→beneficiary payout row → statement shape (DMT1 / DMT3). */
+/** Shared remitter→beneficiary payout row → statement shape (DMT1 / Xpress DMT / DMT3). */
 function mapRemitPayoutToStatement(
   raw: Record<string, unknown>,
-  service: "DMT1" | "DMT3",
-  source: "dmt1" | "dmt3"
+  service: "DMT1" | "Xpress DMT" | "DMT3",
+  source: "dmt1" | "dmt2" | "dmt3"
 ): StatementTransaction {
   const beneficiary = asRecord(raw.beneficiary);
   const remitter = asRecord(raw.remitter);
@@ -269,6 +270,18 @@ export function mapDmt1ToStatement(
   raw: Record<string, unknown>
 ): StatementTransaction {
   return mapRemitPayoutToStatement(raw, "DMT1", "dmt1");
+}
+
+/** Map Xpress DMT (DMT2) transaction list rows into the same statement shape as DMT3. */
+export function mapDmt2ToStatement(
+  raw: Record<string, unknown>
+): StatementTransaction {
+  const row = mapRemitPayoutToStatement(raw, "Xpress DMT", "dmt2");
+  if (row.bankName || !row.ifscCode) return row;
+  return {
+    ...row,
+    bankName: resolveDmt2BankName({ ifsc: row.ifscCode, bankName: "" }),
+  };
 }
 
 /** Map DMT3 transaction list rows into the same statement shape as DMT. */

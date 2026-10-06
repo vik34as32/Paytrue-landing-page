@@ -3,6 +3,8 @@ import type { AepsTransactionResult } from "@/src/types/aeps";
 import type { StatementTransaction } from "@/types/statementReceipt";
 import type { Dmt3Beneficiary, Dmt3Transaction } from "@/src/modules/dmt3/types/dmt3.types";
 import type { Dmt1Beneficiary, Dmt1Transaction } from "@/src/modules/dmt1/types/dmt1.types";
+import type { Dmt2Beneficiary, Dmt2Transaction } from "@/src/modules/dmt2/types";
+import { resolveDmt2BankName } from "@/src/modules/dmt2/lib/dmt2-bank";
 
 /** Loose DMT txn shape accepted by receipt mapper (both legacy and module types). */
 export interface ReceiptDmtTransactionSource {
@@ -170,5 +172,82 @@ export function mapDmt1TransactionToStatement(
     service: "DMT1",
     description: mapped.description.replace(/^DMT3/, "DMT1").replace(/^DMT ·/, "DMT1 ·"),
     source: "dmt1",
+  };
+}
+
+const MASKED_ACCOUNT_RE = /[xX*•]/;
+
+/** Xpress DMT (DMT2) → shared receipt shape; prefers the beneficiary's full account number. */
+export function mapDmt2TransactionToStatement(
+  txn: Dmt2Transaction | null | undefined,
+  beneficiary?: Dmt2Beneficiary | null,
+  sender?: { name?: string; mobile?: string }
+): StatementTransaction | null {
+  if (!txn) return null;
+
+  const accountCandidates = [
+    txn.accountNumber,
+    beneficiary?.accountNumber,
+    beneficiary?.accountMasked,
+  ].filter((value): value is string => Boolean(value && value.trim()));
+  const accountNumber =
+    accountCandidates.find((value) => !MASKED_ACCOUNT_RE.test(value)) ||
+    accountCandidates[0] ||
+    "";
+  const ifscCode = (txn.ifsc || beneficiary?.ifsc || "").toUpperCase();
+  const bankName = resolveDmt2BankName({
+    ifsc: ifscCode,
+    bankName: beneficiary?.bankName,
+  });
+  const payeeName = txn.customerName || beneficiary?.name || "Beneficiary";
+  const senderName = sender?.name || "";
+  const senderMobile = sender?.mobile || "";
+  const amount = Number(txn.amount) || 0;
+  const charges =
+    txn.totalDebit != null && txn.totalDebit > amount
+      ? Number((txn.totalDebit - amount).toFixed(2))
+      : (txn.charges ?? 0) + (txn.gst ?? 0);
+
+  const mapped = mapDmtToStatement({
+    id: txn.id,
+    reference: txn.id,
+    amount,
+    status: txn.status,
+    transferMode: txn.mode || "IMPS",
+    bankRef: txn.bankRef || txn.externalRef || txn.apiTxnId || "",
+    transactionId: txn.apiTxnId || txn.id,
+    remarks: txn.purpose || "",
+    createdAt: txn.updatedAt || txn.createdAt,
+    bankName,
+    beneficiaryAccount: accountNumber,
+    ifsc: ifscCode,
+    ifscCode,
+    charges,
+    charge: charges,
+    senderMobile,
+    dmtSender: { firstName: senderName, mobile: senderMobile },
+    metadata: {
+      walletSummary: {
+        transferAmount: amount,
+        amount,
+        charge: charges,
+        charges,
+        deductionAmount: charges,
+      },
+    },
+    beneficiary: {
+      name: payeeName,
+      bankName,
+      accountNumber,
+      ifscCode,
+      ifsc: ifscCode,
+      mobile: txn.customerMobile || beneficiary?.mobile || "",
+    },
+  });
+
+  return {
+    ...mapped,
+    service: "Xpress DMT",
+    description: `Xpress DMT · ${payeeName} · ${mapped.transferMode || "IMPS"}`,
   };
 }

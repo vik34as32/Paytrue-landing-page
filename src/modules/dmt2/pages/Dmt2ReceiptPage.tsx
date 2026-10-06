@@ -3,17 +3,11 @@
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  CheckCircle2,
-  Clock3,
-  Download,
-  Loader2,
-  Printer,
-  RefreshCw,
-  XCircle,
-} from "lucide-react";
-import { toast } from "sonner";
+import { CheckCircle2, Clock3, FileText, Loader2, RefreshCw, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ProcessLoadingOverlay from "@/src/components/common/ProcessLoadingOverlay";
+import CustomerReceiptModal from "@/src/components/receipt/CustomerReceiptModal";
+import { mapDmt2TransactionToStatement } from "@/src/lib/serviceReceiptMappers";
 import Dmt2FlowHeader from "../components/Dmt2FlowHeader";
 import Dmt2ReceiptDetails from "../components/Dmt2ReceiptDetails";
 import Dmt2StatusBadge from "../components/Dmt2StatusBadge";
@@ -21,8 +15,8 @@ import { useDmt2Store } from "../lib/dmt2-store";
 import { fetchFinalReceipt, fetchReceipt } from "../lib/dmt2-service";
 import { mergeDmt2Transaction } from "../lib/dmt2-normalizers";
 import { useDmt2StatusPolling } from "../lib/useDmt2StatusPolling";
-import { formatDateLong, formatDateTime, formatInr, maskAccount } from "../lib/dmt2-mock";
-import type { Dmt2Transaction } from "../types";
+import { formatDateLong, formatInr } from "../lib/dmt2-mock";
+import type { Dmt2Beneficiary, Dmt2Transaction } from "../types";
 
 export default function Dmt2ReceiptPage() {
   return (
@@ -38,6 +32,22 @@ export default function Dmt2ReceiptPage() {
   );
 }
 
+function accountTail(value?: string): string {
+  return String(value || "").replace(/\s+/g, "").slice(-4);
+}
+
+/** Only trust the selected beneficiary when it is the payee of this transaction. */
+function matchesBeneficiary(txn: Dmt2Transaction, beneficiary: Dmt2Beneficiary | null): boolean {
+  if (!beneficiary) return false;
+  const txnTail = accountTail(txn.accountNumber);
+  const benTail = accountTail(beneficiary.accountNumber || beneficiary.accountMasked);
+  if (txnTail && benTail && txnTail !== benTail) return false;
+  if (txn.ifsc && beneficiary.ifsc && txn.ifsc.toUpperCase() !== beneficiary.ifsc.toUpperCase()) {
+    return false;
+  }
+  return Boolean(txnTail || txn.ifsc);
+}
+
 function Dmt2ReceiptContent() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
@@ -46,6 +56,8 @@ function Dmt2ReceiptContent() {
   const success = searchParams?.get("success") === "1";
   const resetFlow = useDmt2Store((s) => s.resetFlow);
   const setLastTransaction = useDmt2Store((s) => s.setLastTransaction);
+  const selectedBeneficiary = useDmt2Store((s) => s.getSelectedBeneficiary());
+  const retailer = useDmt2Store((s) => s.retailer);
 
   const [txn, setTxn] = useState<Dmt2Transaction | null>(() => {
     const last = useDmt2Store.getState().lastTxn;
@@ -54,6 +66,7 @@ function Dmt2ReceiptContent() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [receipt, setReceipt] = useState<Dmt2Transaction | null>(null);
   const [receiptError, setReceiptError] = useState("");
+  const [receiptOpen, setReceiptOpen] = useState(false);
   const receiptRequestedRef = useRef<string | null>(null);
 
   const needsLoad = !txn && !loadFailed;
@@ -90,8 +103,15 @@ function Dmt2ReceiptContent() {
       setReceipt(row);
     } catch (error) {
       setReceiptError(error instanceof Error ? error.message : "Unable to fetch receipt");
+    } finally {
+      setReceiptOpen(true);
     }
   }, []);
+
+  const retryReceipt = () => {
+    setReceiptError("");
+    void loadFinalReceipt(id);
+  };
 
   useEffect(() => {
     if (phase !== "success" || receiptRequestedRef.current === id) return;
@@ -107,6 +127,18 @@ function Dmt2ReceiptContent() {
   useEffect(() => {
     if (success && txn) setLastTransaction(finalReceipt ?? txn);
   }, [success, txn, finalReceipt, setLastTransaction]);
+
+  const receiptSource = finalReceipt ?? txn;
+  const receiptTransaction = useMemo(() => {
+    if (!receiptSource) return null;
+    const beneficiary = matchesBeneficiary(receiptSource, selectedBeneficiary)
+      ? selectedBeneficiary
+      : null;
+    const sender = success
+      ? { name: retailer.fullName, mobile: retailer.mobile }
+      : undefined;
+    return mapDmt2TransactionToStatement(receiptSource, beneficiary, sender);
+  }, [receiptSource, selectedBeneficiary, retailer.fullName, retailer.mobile, success]);
 
   if (!txn && !loadFailed) {
     return (
@@ -130,58 +162,71 @@ function Dmt2ReceiptContent() {
   }
 
   const startNewTransfer = () => {
+    setReceiptOpen(false);
     resetFlow();
     router.push("/rt/retailer/dmt2");
   };
 
-  const handleDownload = async (row: Dmt2Transaction) => {
-    const text = [
-      "Transaction Receipt",
-      `Transaction Reference: ${row.id}`,
-      row.bankRef ? `Bank Reference: ${row.bankRef}` : "",
-      `Beneficiary: ${row.customerName}`,
-      `Account: ${maskAccount(row.accountNumber)}`,
-      `IFSC: ${row.ifsc}`,
-      `Amount: ${formatInr(row.amount)}`,
-      `Mode: ${row.mode}`,
-      `Status: ${row.status}`,
-      `Date: ${formatDateTime(row.updatedAt || row.createdAt)}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
-    await navigator.clipboard.writeText(text);
-    toast.success("Receipt details copied");
-  };
+  const isSuccess = (receiptSource ?? txn).status === "SUCCESS";
 
-  const receiptActions = (row: Dmt2Transaction) => (
-    <div className="flex flex-wrap gap-2 print:hidden">
-      <Button variant="outline" onClick={() => window.print()}>
-        <Printer className="h-4 w-4" />
-        Print
-      </Button>
-      <Button variant="outline" onClick={() => void handleDownload(row)}>
-        <Download className="h-4 w-4" />
-        Download
-      </Button>
-    </div>
+  const receiptModal = (
+    <CustomerReceiptModal
+      open={Boolean(receiptOpen && receiptTransaction)}
+      onClose={() => setReceiptOpen(false)}
+      transaction={receiptTransaction}
+      title={isSuccess ? "Money Transfer Successful" : "Xpress DMT Receipt"}
+    />
+  );
+
+  const viewReceiptButton = (
+    <Button
+      className="bg-gradient-to-r from-indigo-500 to-violet-700"
+      onClick={() => setReceiptOpen(true)}
+      disabled={!receiptTransaction}
+    >
+      <FileText className="h-4 w-4" />
+      View Receipt
+    </Button>
   );
 
   if (liveImps) {
+    const receiptLoading = phase === "success" && !receipt && !receiptError;
+    const checking = phase === "polling" || receiptLoading;
     return (
       <div className="space-y-5">
         <Dmt2FlowHeader activeStep={5} />
 
+        <ProcessLoadingOverlay
+          open={checking}
+          message={phase === "success" ? "Generating receipt..." : "Transaction processing..."}
+          detail={
+            phase === "success"
+              ? "Fetching your final receipt from the bank"
+              : "Checking bank status every 20–25 seconds — please do not refresh or go back"
+          }
+        />
+
         {phase === "polling" ? (
-          <StatusCard tone="processing" txn={txn} title="Transaction Processing..." subtitle="Waiting for bank confirmation. Please do not refresh or go back.">
+          <StatusCard
+            tone="processing"
+            txn={txn}
+            title="Transaction Processing..."
+            subtitle="Waiting for bank confirmation. Please do not refresh or go back."
+          >
             <div className="mt-5 flex items-center justify-center gap-2 text-xs font-medium text-slate-500">
               <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
-              Checking status every few seconds
+              Checking status every 20–25 seconds
             </div>
           </StatusCard>
         ) : null}
 
         {phase === "timeout" ? (
-          <StatusCard tone="pending" txn={txn} title="Still Processing" subtitle="The bank has not confirmed this transfer yet. You can check again or track it in transaction history.">
+          <StatusCard
+            tone="pending"
+            txn={txn}
+            title="Still Processing"
+            subtitle="The bank has not confirmed this transfer yet. You can check again or track it in transaction history."
+          >
             <div className="mt-6 grid gap-2 sm:grid-cols-2">
               <Button variant="outline" asChild>
                 <Link href="/rt/retailer/dmt2/transactions">Transaction History</Link>
@@ -213,53 +258,39 @@ function Dmt2ReceiptContent() {
         ) : null}
 
         {phase === "success" ? (
-          <>
-            <StatusCard
-              tone="success"
-              txn={finalReceipt ?? txn}
-              title="Transaction Successful"
-              subtitle="Money has been transferred successfully."
-            >
-              <div className="mt-6 grid gap-2 sm:grid-cols-2">
-                <Button variant="outline" asChild>
-                  <Link href="/rt/retailer/dmt2/transactions">Transaction History</Link>
-                </Button>
-                <Button className="bg-gradient-to-r from-indigo-500 to-violet-700" onClick={startNewTransfer}>
-                  Make Another Transfer
+          <StatusCard
+            tone="success"
+            txn={receiptSource ?? txn}
+            title="Transaction Successful"
+            subtitle="Money has been transferred successfully."
+          >
+            {receiptError ? (
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                <p className="font-semibold">{receiptError}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={retryReceipt}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Retry Receipt
                 </Button>
               </div>
-            </StatusCard>
-
-            <div className="mx-auto max-w-2xl space-y-4">
-              {finalReceipt ? (
-                <>
-                  {receiptActions(finalReceipt)}
-                  <Dmt2ReceiptDetails txn={finalReceipt} />
-                </>
-              ) : receiptError ? (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center text-sm text-amber-800">
-                  <p className="font-semibold">{receiptError}</p>
-                  <Button
-                    variant="outline"
-                    className="mt-3"
-                    onClick={() => {
-                      setReceiptError("");
-                      void loadFinalReceipt(id);
-                    }}
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Retry Receipt
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-500">
-                  <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
-                  Fetching final receipt…
-                </div>
-              )}
+            ) : null}
+            <div className="mt-6 grid gap-2 sm:grid-cols-3">
+              {viewReceiptButton}
+              <Button variant="outline" asChild>
+                <Link href="/rt/retailer/dmt2/transactions">History</Link>
+              </Button>
+              <Button variant="outline" onClick={startNewTransfer}>
+                New Transfer
+              </Button>
             </div>
-          </>
+          </StatusCard>
         ) : null}
+
+        {receiptModal}
       </div>
     );
   }
@@ -284,10 +315,8 @@ function Dmt2ReceiptContent() {
             <Row label="Status" value={txn.status} />
           </div>
           <div className="mt-6 grid gap-2 sm:grid-cols-2">
-            <Button asChild variant="outline">
-              <Link href={`/rt/retailer/dmt2/receipt/${encodeURIComponent(txn.id)}`}>View Receipt</Link>
-            </Button>
-            <Button className="bg-gradient-to-r from-indigo-500 to-violet-700" onClick={startNewTransfer}>
+            {viewReceiptButton}
+            <Button variant="outline" onClick={startNewTransfer}>
               Make Another Transfer
             </Button>
           </div>
@@ -295,7 +324,7 @@ function Dmt2ReceiptContent() {
       ) : (
         <div className="mx-auto max-w-2xl space-y-4">
           <div className="flex flex-wrap gap-2 print:hidden">
-            {receiptActions(txn)}
+            {viewReceiptButton}
             <Button asChild variant="outline">
               <Link href="/rt/retailer/dmt2/transactions">Back</Link>
             </Button>
@@ -303,6 +332,8 @@ function Dmt2ReceiptContent() {
           <Dmt2ReceiptDetails txn={txn} />
         </div>
       )}
+
+      {receiptModal}
     </div>
   );
 }

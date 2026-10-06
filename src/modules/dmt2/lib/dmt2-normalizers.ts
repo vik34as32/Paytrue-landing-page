@@ -229,6 +229,18 @@ function pickOptionalString(...values: unknown[]): string | undefined {
   return pickString(...values) || undefined;
 }
 
+export function isMaskedAccount(value?: string): boolean {
+  return /[xX*•]/.test(String(value || ""));
+}
+
+/** Prefer a full account number; status / receipt APIs only return a masked one. */
+function pickAccountNumber(...values: unknown[]): string {
+  const candidates = values
+    .map((value) => (value == null ? "" : String(value).trim()))
+    .filter(Boolean);
+  return candidates.find((value) => !isMaskedAccount(value)) || candidates[0] || "";
+}
+
 function pickOptionalNumber(...values: unknown[]): number | undefined {
   for (const value of values) {
     if (value == null || value === "") continue;
@@ -248,8 +260,18 @@ export function normalizeTransaction(
     ...asRecord(root.transaction),
     ...asRecord(root.receipt),
   };
-  const modeKey = pickString(data.transferMode, data.mode, fallback?.mode).toUpperCase();
-  const statusKey = pickString(data.status, data.txnStatus, fallback?.status).toUpperCase();
+  const modeKey = pickString(
+    data.transferMode,
+    data.serviceType,
+    data.mode,
+    fallback?.mode
+  ).toUpperCase();
+  const statusKey = pickString(
+    data.finalStatus,
+    data.status,
+    data.txnStatus,
+    fallback?.status
+  ).toUpperCase();
   const reference = pickString(
     data.reference,
     data.txnReference,
@@ -267,10 +289,11 @@ export function normalizeTransaction(
       data.name,
       fallback?.customerName
     ),
-    accountNumber: pickString(
+    accountNumber: pickAccountNumber(
       data.accountNumber,
       data.account,
-      fallback?.accountNumber
+      fallback?.accountNumber,
+      data.accountMasked
     ),
     ifsc: pickString(data.ifscCode, data.ifsc, fallback?.ifsc).toUpperCase(),
     customerMobile: pickString(
@@ -290,7 +313,13 @@ export function normalizeTransaction(
       fallback?.createdAt,
       new Date().toISOString()
     ),
-    updatedAt: pickOptionalString(data.updatedAt, data.updated_at, data.completedAt, fallback?.updatedAt),
+    updatedAt: pickOptionalString(
+      data.completedAt,
+      data.updatedAt,
+      data.updated_at,
+      data.timestamp,
+      fallback?.updatedAt
+    ),
     apiTxnId: pickOptionalString(
       data.apiTxnId,
       data.apiTransactionId,
@@ -306,6 +335,7 @@ export function normalizeTransaction(
       fallback?.externalRef
     ),
     bankRef: pickOptionalString(
+      data.bankRefNum,
       data.bankRefNo,
       data.bankReference,
       data.bankReferenceNumber,
@@ -317,6 +347,7 @@ export function normalizeTransaction(
     charges: pickOptionalNumber(data.charges, data.charge, data.serviceCharge, data.fee, fallback?.charges),
     gst: pickOptionalNumber(data.gst, data.gstAmount, data.tax, data.taxAmount, fallback?.gst),
     totalDebit: pickOptionalNumber(
+      data.totalDebited,
       data.totalDebit,
       data.totalAmount,
       data.debitAmount,
@@ -348,6 +379,14 @@ export function mergeDmt2Transaction(
   (Object.keys(update) as Array<keyof Dmt2Transaction>).forEach((key) => {
     const value = update[key];
     if (value == null || value === "" || (key === "amount" && value === 0)) return;
+    if (
+      key === "accountNumber" &&
+      base.accountNumber &&
+      !isMaskedAccount(base.accountNumber) &&
+      isMaskedAccount(String(value))
+    ) {
+      return;
+    }
     (merged as unknown as Record<string, unknown>)[key] = value;
   });
   merged.status = update.status;

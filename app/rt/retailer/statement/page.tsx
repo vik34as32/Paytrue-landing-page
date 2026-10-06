@@ -76,7 +76,7 @@ import { buildUpiAtmStatementColumns } from "@/src/components/statement/buildUpi
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
-type ServiceFilter = "DMT" | "DMT1" | "DMT3" | "UPI ATM" | "AEPS";
+type ServiceFilter = "DMT" | "DMT1" | "DMT3" | "Xpress DMT" | "UPI ATM" | "AEPS";
 
 type AepsSubFilter = "CASH_WITHDRAWAL" | "CASH_DEPOSIT";
 
@@ -121,6 +121,7 @@ const SERVICE_FILTERS: ServiceFilter[] = [
   "DMT",
   "DMT1",
   "DMT3",
+  "Xpress DMT",
   "UPI ATM",
   "AEPS",
 ];

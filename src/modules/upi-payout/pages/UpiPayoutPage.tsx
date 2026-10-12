@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Loader2, RotateCcw, Zap } from "lucide-react";
 import { toast } from "sonner";
@@ -12,6 +13,7 @@ import {
   refreshRetailerWalletData,
   validateRetailerWalletBalance,
 } from "@/features/retailer/utils/walletValidation";
+import { selectUser } from "@/src/redux/slices/authSlice";
 import UpiAmountStep from "../components/UpiAmountStep";
 import UpiConfirmStep from "../components/UpiConfirmStep";
 import UpiPayeeStep from "../components/UpiPayeeStep";
@@ -27,11 +29,12 @@ import {
   isValidPayeeMobile,
   isValidVpa,
   normalizeVpaInput,
+  UPI_PAYOUT_DEFAULT_REMARKS,
   UPI_PAYOUT_MAX_AMOUNT,
   UPI_PAYOUT_MIN_AMOUNT,
 } from "../lib/upi-payout-normalizers";
-import { payUpiPayout, previewUpiPayout } from "../lib/upi-payout-service";
-import type { UpiPayoutPreview } from "../types";
+import { payUpiPayout, previewUpiPayout, verifyUpiId } from "../lib/upi-payout-service";
+import type { UpiPayoutPreview, UpiVerification } from "../types";
 
 const slide = {
   enter: (dir: number) => ({ x: dir > 0 ? 32 : -32, opacity: 0 }),
@@ -43,6 +46,8 @@ export default function UpiPayoutPage() {
   const router = useRouter();
   const { balance } = useRetailerWallet();
   const walletBalance = Number(balance) || 0;
+  const user = useSelector(selectUser);
+  const retailerEmail = String(user?.email ?? "").trim();
 
   const [step, setStep] = useState<UpiPayoutStep>("payee");
   const [direction, setDirection] = useState(1);
@@ -50,8 +55,11 @@ export default function UpiPayoutPage() {
   const [vpa, setVpa] = useState("");
   const [payeeName, setPayeeName] = useState("");
   const [payeeMobile, setPayeeMobile] = useState("");
-  const [payeeEmail, setPayeeEmail] = useState("");
-  const [remarks, setRemarks] = useState("");
+  const [verification, setVerification] = useState<UpiVerification | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
+  const currentVerification =
+    verification && verification.verified && verification.vpa === vpa ? verification : null;
 
   const [amount, setAmount] = useState("");
   const [amountError, setAmountError] = useState("");
@@ -64,14 +72,52 @@ export default function UpiPayoutPage() {
   const amountValue = Number(amount) || 0;
   const payeeIssue = !isValidVpa(vpa)
     ? "Enter a valid UPI ID"
-    : payeeName.trim().length < 2
-      ? "Enter beneficiary name"
-      : !isValidPayeeMobile(payeeMobile)
-        ? "Enter a valid 10-digit beneficiary mobile"
-        : !isValidPayeeEmail(payeeEmail)
-          ? "Enter a valid beneficiary email"
-          : "";
+    : !currentVerification
+      ? "Tap Check to verify the UPI ID"
+      : payeeName.trim().length < 2
+        ? "Enter beneficiary name"
+        : !isValidPayeeMobile(payeeMobile)
+          ? "Enter a valid 10-digit beneficiary mobile"
+          : !isValidPayeeEmail(retailerEmail)
+            ? "Your profile email is missing. Update your profile to send UPI payouts."
+            : "";
   const payeeReady = !payeeIssue;
+
+  const onVpaChange = (value: string) => {
+    const next = normalizeVpaInput(value);
+    setVpa(next);
+    setVerifyError("");
+    if (verification && verification.vpa !== next) {
+      if (payeeName === verification.name) setPayeeName("");
+      if (verification.mobile && payeeMobile === verification.mobile) setPayeeMobile("");
+      setVerification(null);
+    }
+  };
+
+  const onVerify = async () => {
+    if (!isValidVpa(vpa) || verifying) return;
+    setVerifying(true);
+    setVerifyError("");
+    try {
+      const result = await verifyUpiId(vpa);
+      if (!result.verified) {
+        setVerification(null);
+        setVerifyError(result.message);
+        toast.error(result.message);
+        return;
+      }
+      setVerification({ ...result, vpa });
+      if (result.name) setPayeeName(result.name);
+      if (result.mobile) setPayeeMobile(result.mobile);
+      toast.success(result.name ? `Verified: ${result.name}` : "UPI ID verified");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to verify UPI ID";
+      setVerifyError(message);
+      toast.error(message);
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const goTo = (next: UpiPayoutStep) => {
     setDirection(UPI_PAYOUT_STEPS.indexOf(next) >= UPI_PAYOUT_STEPS.indexOf(step) ? 1 : -1);
@@ -150,8 +196,8 @@ export default function UpiPayoutPage() {
         vpa,
         payeeName,
         payeeMobile,
-        payeeEmail,
-        remarks,
+        payeeEmail: retailerEmail,
+        remarks: UPI_PAYOUT_DEFAULT_REMARKS,
         amount: amountValue,
         mpin,
       });
@@ -228,15 +274,15 @@ export default function UpiPayoutPage() {
               {step === "payee" ? (
                 <UpiPayeeStep
                   vpa={vpa}
-                  onVpa={(value) => setVpa(normalizeVpaInput(value))}
+                  onVpa={onVpaChange}
+                  verification={currentVerification}
+                  verifying={verifying}
+                  verifyError={verifyError}
+                  onVerify={() => void onVerify()}
                   payeeName={payeeName}
                   onPayeeName={setPayeeName}
                   payeeMobile={payeeMobile}
                   onPayeeMobile={setPayeeMobile}
-                  payeeEmail={payeeEmail}
-                  onPayeeEmail={setPayeeEmail}
-                  remarks={remarks}
-                  onRemarks={setRemarks}
                 />
               ) : null}
               {step === "amount" ? (
@@ -255,8 +301,6 @@ export default function UpiPayoutPage() {
                   vpa={vpa}
                   payeeName={payeeName}
                   payeeMobile={payeeMobile}
-                  payeeEmail={payeeEmail}
-                  remarks={remarks}
                   amount={amountValue}
                   preview={preview}
                   mpin={mpin}

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ShieldAlert } from "lucide-react";
+import { BadgeCheck, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AnimatedMpinInput, MPIN_LENGTH } from "@/features/mpin";
 import UpiAppMark from "./UpiAppMark";
@@ -12,8 +12,6 @@ export default function UpiConfirmStep({
   vpa,
   payeeName,
   payeeMobile,
-  payeeEmail,
-  remarks,
   amount,
   preview,
   mpin,
@@ -25,8 +23,6 @@ export default function UpiConfirmStep({
   vpa: string;
   payeeName: string;
   payeeMobile: string;
-  payeeEmail: string;
-  remarks: string;
   amount: number;
   preview: UpiPayoutPreview | null;
   mpin: string;
@@ -40,8 +36,6 @@ export default function UpiConfirmStep({
   const rows: { label: string; value: string }[] = [
     { label: "UPI app", value: app?.name ?? "UPI" },
     { label: "Mobile", value: payeeMobile },
-    { label: "Email", value: payeeEmail },
-    ...(remarks.trim() ? [{ label: "Remark", value: remarks.trim() }] : []),
     { label: "Amount", value: formatInr(amount) },
     ...(preview ? [{ label: "Charges", value: formatInr(preview.charges) }] : []),
     ...(preview && preview.gst > 0 ? [{ label: "GST", value: formatInr(preview.gst) }] : []),
@@ -58,7 +52,10 @@ export default function UpiConfirmStep({
         <div className="flex items-center gap-3 bg-gradient-to-r from-slate-50 to-violet-50/50 px-4 py-4">
           <UpiAppMark vpa={vpa} />
           <div className="min-w-0 flex-1">
-            <p className="truncate font-bold text-[#0a1630]">{payeeName}</p>
+            <p className="flex items-center gap-1.5 truncate font-bold text-[#0a1630]">
+              {payeeName}
+              <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-500" aria-label="Verified UPI ID" />
+            </p>
             <p className="truncate font-mono text-xs text-slate-500">{vpa}</p>
           </div>
         </div>

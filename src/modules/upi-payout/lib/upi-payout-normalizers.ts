@@ -1,4 +1,9 @@
-import type { UpiPayoutPreview, UpiPayoutStatus, UpiPayoutTransaction } from "../types";
+import type {
+  UpiPayoutPreview,
+  UpiPayoutStatus,
+  UpiPayoutTransaction,
+  UpiVerification,
+} from "../types";
 
 export const UPI_PAYOUT_MIN_AMOUNT = 1;
 export const UPI_PAYOUT_MAX_AMOUNT = 100000;
@@ -28,6 +33,13 @@ export function isValidPayeeEmail(value: string): boolean {
 
 export function sanitizeRemarks(value: string): string {
   return value.replace(/[^a-zA-Z0-9 ]/g, "").slice(0, UPI_PAYOUT_REMARKS_MAX);
+}
+
+/** `9876543210@ybl` / `919876543210@paytm` → `9876543210`; other handles → "". */
+export function mobileFromVpa(vpa: string): string {
+  const user = String(vpa.split("@")[0] || "").replace(/\D/g, "");
+  const tail = user.length === 12 && user.startsWith("91") ? user.slice(2) : user;
+  return MOBILE_PATTERN.test(tail) ? tail : "";
 }
 
 export interface UpiAppInfo {
@@ -169,6 +181,25 @@ export const UPI_PAYOUT_TERMINAL_STATUSES: readonly UpiPayoutStatus[] = [
   "REFUNDED",
   "REVERSED",
 ];
+
+/** POST /upi/verify → `{ success, message, data: { verified, upiId, name, providerMessage } }`. */
+export function normalizeUpiVerification(payload: unknown, vpa: string): UpiVerification {
+  const root = asRecord(payload);
+  const data = unwrapRecord(payload);
+  const verifiedVpa = pickString(data.upiId, data.vpa, vpa).toLowerCase();
+  const verified = data.verified === true;
+  return {
+    verified,
+    vpa: verifiedVpa,
+    name: pickString(data.name, data.verifiedName, data.VerifiedName, data.payeeName),
+    mobile: pickString(data.mobile, data.payeeMobile) || mobileFromVpa(verifiedVpa),
+    message: pickString(
+      verified ? root.message : data.providerMessage,
+      root.message,
+      verified ? "UPI ID verified" : "UPI ID could not be verified"
+    ),
+  };
+}
 
 /** POST /upi/payout/commission/preview → settlement + `wallet` + `summary`. */
 export function normalizeUpiPayoutPreview(payload: unknown, amount: number): UpiPayoutPreview {

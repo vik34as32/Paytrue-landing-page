@@ -6,6 +6,12 @@ import { unwrapList, unwrapRecord } from "./upi-payout-normalizers";
 
 const skipAuthLogout: AxiosRequestConfig = { skipSessionLogout: true };
 
+/** NiFi VPA validate — no wallet debit. */
+export async function apiUpiVerify(body: Record<string, unknown>): Promise<unknown> {
+  const { data } = await api.post(UPI_PAYOUT_ENDPOINTS.verify, body, skipAuthLogout);
+  return data;
+}
+
 export async function apiUpiPayoutPreview(body: Record<string, unknown>): Promise<unknown> {
   const { data } = await api.post(UPI_PAYOUT_ENDPOINTS.commissionPreview, body, skipAuthLogout);
   return data;

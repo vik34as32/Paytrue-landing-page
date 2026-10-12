@@ -16,6 +16,14 @@ export interface UpiPayoutPreview {
   availableBalance?: number;
 }
 
+export interface UpiVerification {
+  verified: boolean;
+  vpa: string;
+  name: string;
+  mobile: string;
+  message: string;
+}
+
 export interface UpiPayoutPayInput {
   vpa: string;
   payeeName: string;

@@ -1,17 +1,24 @@
 import { resolveUpiPayoutService } from "@/features/retailer/store/retailerServicesStore";
 import { UPI_PAYOUT_SERVICE_CODE } from "@/src/constants/retailerServices";
 import { getCurrentLocation } from "@/src/lib/rdService";
-import type { UpiPayoutPayInput, UpiPayoutPreview, UpiPayoutTransaction } from "../types";
+import type {
+  UpiPayoutPayInput,
+  UpiPayoutPreview,
+  UpiPayoutTransaction,
+  UpiVerification,
+} from "../types";
 import {
   apiUpiPayoutList,
   apiUpiPayoutPay,
   apiUpiPayoutPreview,
   apiUpiPayoutReceipt,
   apiUpiPayoutStatus,
+  apiUpiVerify,
 } from "./upi-payout-api";
 import {
   normalizeUpiPayoutPreview,
   normalizeUpiPayoutTxn,
+  normalizeUpiVerification,
   sanitizeRemarks,
   UPI_PAYOUT_DEFAULT_REMARKS,
   unwrapRecord,
@@ -35,6 +42,18 @@ async function resolveServiceFields(): Promise<{ serviceCode: string; serviceId?
     return { serviceCode: service.serviceCode || UPI_PAYOUT_SERVICE_CODE, serviceId: service.serviceId };
   } catch {
     return { serviceCode: UPI_PAYOUT_SERVICE_CODE };
+  }
+}
+
+/** POST /upi/verify — confirms the UPI ID exists and returns the account holder name. */
+export async function verifyUpiId(vpa: string): Promise<UpiVerification> {
+  const upiId = vpa.trim().toLowerCase();
+  try {
+    const location = await resolveLocation();
+    const payload = await apiUpiVerify({ upiId, ...location });
+    return normalizeUpiVerification(payload, upiId);
+  } catch (error) {
+    throw new Error(upiPayoutApiMessage(error, "Unable to verify UPI ID"));
   }
 }
 

@@ -191,12 +191,12 @@ export default function AepsBankSettlementPanel({
   onClose: () => void;
 }) {
   const refreshBalance = useRefreshAepsWalletBalance();
-  const accountQuery = useQuery({
+  const accountQuery = useQuery<RetailerBankAccount>({
     queryKey: RETAILER_BANK_ACCOUNT_QUERY_KEY,
     queryFn: fetchRetailerBankAccount,
     staleTime: 60_000,
   });
-  const account = accountQuery.data;
+  const account: RetailerBankAccount | undefined = accountQuery.data;
 
   const [step, setStep] = useState<Step>("form");
   const [amount, setAmount] = useState("");
@@ -291,7 +291,7 @@ export default function AepsBankSettlementPanel({
     );
   }
 
-  if (!hasRetailerBankAccount(account)) {
+  if (!account || !hasRetailerBankAccount(account)) {
     const pending = account?.status === "PENDING";
     return (
       <div className="space-y-4 py-4 text-center">

@@ -23,17 +23,53 @@ function strOrNull(value: unknown): string | null {
   return text || null;
 }
 
-function normalizeAccount(payload: unknown): RetailerBankAccount {
+function pick(record: Rec, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = strOrNull(record[key]);
+    if (value) return value;
+  }
+  return null;
+}
+
+function accountRecord(payload: unknown): Rec {
   const root = asRecord(payload);
   const data = asRecord(root.data ?? root);
+  const nested = asRecord(data.bankAccount ?? data.account ?? data.bankDetails);
+  return Object.keys(nested).length > 0 ? { ...data, ...nested } : data;
+}
+
+function maskAccountNumber(value: string | null): string | null {
+  if (!value) return null;
+  const compact = value.replace(/\s/g, "");
+  if (/^\d{9,18}$/.test(compact)) {
+    return `${"X".repeat(compact.length - 4)}${compact.slice(-4)}`;
+  }
+  return value;
+}
+
+function normalizeAccount(payload: unknown): RetailerBankAccount {
+  const data = accountRecord(payload);
+  const accountNumberMasked = maskAccountNumber(
+    pick(data, [
+      "accountNumberMasked",
+      "maskedAccountNumber",
+      "accountNumber",
+      "accountNo",
+      "bankAccountNo",
+      "bankAccountNumber",
+    ])
+  );
+  const ifscCode = pick(data, ["ifscCode", "ifsc", "bankIfsc", "bankIFSC"])?.toUpperCase() ?? null;
+  const explicitStatus = pick(data, ["status", "instantpayLinkStatus", "linkStatus"]);
   return {
-    status: (strOrNull(data.status) ?? "NOT_LINKED").toUpperCase(),
-    accountNumberMasked: strOrNull(data.accountNumberMasked),
-    ifscCode: strOrNull(data.ifscCode)?.toUpperCase() ?? null,
-    bankName: strOrNull(data.bankName),
-    linkedAt: strOrNull(data.linkedAt),
-    ipayUuid: strOrNull(data.ipayUuid),
-    message: strOrNull(data.message),
+    status: (explicitStatus ?? (accountNumberMasked || ifscCode ? "LINKED" : "NOT_LINKED")).toUpperCase(),
+    accountNumberMasked,
+    ifscCode,
+    bankName: pick(data, ["bankName", "bank"]),
+    accountHolderName: pick(data, ["accountHolderName", "accountHolder", "holderName", "payeeName"]),
+    linkedAt: pick(data, ["linkedAt", "instantpayLinkedAt", "createdAt"]),
+    ipayUuid: pick(data, ["ipayUuid", "instantpayIpayUuid"]),
+    message: pick(data, ["message"]),
   };
 }
 

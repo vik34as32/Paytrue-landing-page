@@ -5,6 +5,7 @@ export interface RetailerBankAccount {
   accountNumberMasked: string | null;
   ifscCode: string | null;
   bankName: string | null;
+  accountHolderName: string | null;
   linkedAt: string | null;
   ipayUuid: string | null;
   message: string | null;

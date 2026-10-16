@@ -63,7 +63,7 @@ function useAccountHolderName(): string {
   const fullName = [pickText(user?.firstName, profile?.firstName), pickText(user?.lastName, profile?.lastName)]
     .filter(Boolean)
     .join(" ");
-  return pickText(bank.accountHolderName, bank.accountHolder, bank.holderName, fullName, user?.name) || "—";
+  return pickText(bank.accountHolderName, bank.accountHolder, bank.holderName, fullName, user?.name);
 }
 
 function BankAccountRow({ account, holderName }: { account: RetailerBankAccount; holderName: string }) {
@@ -86,7 +86,9 @@ function BankAccountRow({ account, holderName }: { account: RetailerBankAccount;
           </div>
         </div>
       </td>
-      <td className="px-4 py-4 font-medium text-slate-700">{holderName}</td>
+      <td className="px-4 py-4 font-medium text-slate-700">
+        {account.accountHolderName || holderName || "—"}
+      </td>
       <td className="px-4 py-4 font-mono text-sm tracking-wider text-slate-800">
         {account.accountNumberMasked ?? "—"}
       </td>

@@ -27,6 +27,7 @@ import { useRefreshAepsWalletBalance } from "@/src/hooks/useAepsWalletBalance";
 import { getCurrentLocation } from "@/src/lib/rdService";
 import {
   fetchRetailerBankAccount,
+  hasRetailerBankAccount,
   RETAILER_BANK_ACCOUNT_QUERY_KEY,
 } from "@/src/modules/retailer-bank-account/api";
 import type { RetailerBankAccount } from "@/src/modules/retailer-bank-account/types";
@@ -83,14 +84,24 @@ function LinkedAccountCard({ account, compact = false }: { account: RetailerBank
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-[#0b1f3a]">{bankName}</p>
+        {account.accountHolderName ? (
+          <p className="truncate text-xs text-slate-500">{account.accountHolderName}</p>
+        ) : null}
         <p className="font-mono text-xs tracking-wider text-slate-600">
-          {account.accountNumberMasked} · {ifsc}
+          {account.accountNumberMasked || "—"} · {ifsc || "—"}
         </p>
         {branch && !compact ? <p className="truncate text-[11px] text-slate-400">{branch}</p> : null}
       </div>
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+      <span
+        className={cn(
+          "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset",
+          account.status === "LINKED"
+            ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+            : "bg-amber-50 text-amber-700 ring-amber-200"
+        )}
+      >
         <ShieldCheck className="h-3 w-3" />
-        Own account
+        {account.status === "LINKED" ? "Own account" : account.status.replace(/_/g, " ")}
       </span>
     </div>
   );
@@ -280,7 +291,7 @@ export default function AepsBankSettlementPanel({
     );
   }
 
-  if (!account || account.status !== "LINKED") {
+  if (!hasRetailerBankAccount(account)) {
     const pending = account?.status === "PENDING";
     return (
       <div className="space-y-4 py-4 text-center">

@@ -12,6 +12,7 @@ import {
   LogOut,
   ChevronDown,
   KeyRound,
+  Landmark,
   Loader2,
 } from "lucide-react";
 import {
@@ -108,6 +109,16 @@ export default function ProfileDropdown() {
             >
               <Wallet className="h-4 w-4 text-emerald-600" />
               Wallet History
+            </Link>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem asChild>
+            <Link
+              href="/rt/retailer/bank-account"
+              className="cursor-pointer rounded-lg"
+            >
+              <Landmark className="h-4 w-4 text-sky-600" />
+              Bank Account
             </Link>
           </DropdownMenuItem>
 

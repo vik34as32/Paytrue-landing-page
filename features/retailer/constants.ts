@@ -64,6 +64,11 @@ export const SIDEBAR_LINKS = [
     icon: "Landmark",
   },
   {
+    label: "AEPS Settlements",
+    href: "/rt/retailer/aeps-settlements",
+    icon: "Landmark",
+  },
+  {
     label: "NSDL AEPS Ledger",
     href: "/rt/retailer/nsdl-aeps/ledger",
     icon: "Landmark",

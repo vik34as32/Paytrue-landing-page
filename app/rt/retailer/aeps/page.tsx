@@ -1,19 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { useSelector } from "react-redux";
-import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { toast } from "sonner";
-
 import {
   ArrowRight,
   Fingerprint,
+  History,
   IndianRupee,
   Landmark,
   List,
   Loader2,
   LogIn,
   Wallet,
+  WalletCards,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,15 +23,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-
-import { WalletCards} from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import AepsPageHeader from "@/src/components/aeps/AepsPageHeader";
 import DeviceStatusCard from "@/src/components/aeps/DeviceStatusCard";
@@ -42,8 +33,10 @@ import { useAepsHealth } from "@/src/hooks/useAeps";
 import { useAepsWalletBalance } from "@/src/hooks/useAepsWalletBalance";
 import { selectAepsDailyLoginDone } from "@/src/redux/slices/aepsSlice";
 import PageLoader from "@/src/components/common/PageLoader";
-import { useState } from "react";
-import { topupAepsToMainWallet } from "@/src/services/aepsService";
+import { AEPS_SETTLEMENTS_PATH } from "@/src/modules/aeps-settlement/api";
+import AepsWalletTransferModal, {
+  type AepsTransferTarget,
+} from "@/src/modules/aeps-settlement/components/AepsWalletTransferModal";
 
 const TRANSACTION_LINKS = [
   { label: "Cash Withdrawal", href: "/rt/retailer/aeps/cash-withdrawal", icon: Wallet },
@@ -64,50 +57,15 @@ export default function AepsDashboardPage() {
   const loginDone = useSelector(selectAepsDailyLoginDone);
   const { status, refresh, isChecking, selectedDevice } = useRDService();
   const { isLoading: healthLoading } = useAepsHealth();
-  const [open, setOpen] = useState(false)
-  const [amount, setAmount] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferTarget, setTransferTarget] = useState<AepsTransferTarget>("main");
   const { balance, loading: balanceLoading } = useAepsWalletBalance();
-  const numericAmount = Number(amount);
-const availableBalance = Number(balance ?? 0);
+  const availableBalance = Number(balance ?? 0);
 
-
-
-
-const handleSubmit = async () => {
-  setError(null);
-
- if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-   setError("Enter a valid amount greater than 0.");
-   return;
- }
-
- if (numericAmount > availableBalance) {
-   setError("Amount cannot exceed available Aeps balance.");
-   return;
- }
-
-  try {
-    await topupAepsToMainWallet({
-      amount: numericAmount,
-     });
-
-    toast.success(
-      "Commission transferred to main wallet successfully."
-    );
-
-    setOpen(false);
-  } catch (err) {
-    const message =
-      (err as { message?: string })?.message ||
-      (err as { data?: { message?: string } })?.data?.message ||
-      "Failed to top-up main wallet.";
-
-    setError(message);
-    toast.error(message);
-  }
-};
+  const openTransfer = (target: AepsTransferTarget) => {
+    setTransferTarget(target);
+    setTransferOpen(true);
+  };
 
   const deviceLabel =
     BIOMETRIC_DEVICE_OPTIONS.find((d) => d.value === selectedDevice)?.label ||
@@ -133,18 +91,47 @@ const handleSubmit = async () => {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="cursor-pointer transition hover:shadow-md"
-          onClick={() => setOpen(true)}>
+        <Card className="overflow-hidden border-blue-100 bg-gradient-to-br from-white to-blue-50/60 transition hover:shadow-md">
           <CardHeader className="pb-2">
-            <CardDescription>AEPS Wallet Balance</CardDescription>
-            <CardTitle className="text-base">
+            <div className="flex items-center justify-between gap-2">
+              <CardDescription>AEPS Wallet Balance</CardDescription>
+              <Link
+                href={AEPS_SETTLEMENTS_PATH}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#1565d8] hover:underline"
+              >
+                <History className="h-3 w-3" />
+                Settlements
+              </Link>
+            </div>
+            <CardTitle className="text-xl">
               {balanceLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
               ) : (
-                formatCurrency(balance ?? 0)
+                formatCurrency(availableBalance)
               )}
             </CardTitle>
           </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-2 pt-0">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-9 rounded-lg px-2 text-xs"
+              onClick={() => openTransfer("main")}
+            >
+              <WalletCards className="h-3.5 w-3.5 text-[#1565d8]" />
+              Main Wallet
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 rounded-lg bg-gradient-to-r from-[#1565d8] to-[#0b4fb3] px-2 text-xs text-white"
+              onClick={() => openTransfer("bank")}
+            >
+              <Landmark className="h-3.5 w-3.5" />
+              To Bank
+            </Button>
+          </CardContent>
         </Card>
 
         <Card>
@@ -187,106 +174,13 @@ const handleSubmit = async () => {
         </Card>
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-  <DialogContent className="sm:max-w-[580px] rounded-2xl">
-
-    <DialogHeader>
-      <DialogTitle className="flex items-center gap-2 text-2xl">
-        <WalletCards className="h-6 w-6 text-blue-600" />
-        Top-up Main Wallet
-      </DialogTitle>
-
-      <DialogDescription>
-        Transfer AEPS  balance into your main wallet.
-      </DialogDescription>
-    </DialogHeader>
-
-    {/* Balance */}
-    <div className="rounded-xl bg-slate-50 p-5">
-      <p className="text-sm font-semibold text-slate-400">
-        AVAILABLE COMMISSION
-      </p>
-
-      <p className="mt-1 text-2xl font-bold">
-        {formatCurrency(balance ?? 0)}
-      </p>
-    </div>
-
-    {/* Amount */}
-    <div>
-      <label className="text-sm font-semibold">
-        Amount (₹)
-      </label>
-
-      <Input
-        type="number"
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-        placeholder="Enter amount"
-        className="mt-2 h-14 rounded-xl"
+      <AepsWalletTransferModal
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        target={transferTarget}
+        onTargetChange={setTransferTarget}
+        balance={availableBalance}
       />
-    </div>
-
-    {/* Quick Amount */}
-    <div className="flex gap-2">
-      <Button
-        variant="outline"
-        className="rounded-full"
-        onClick={() => setAmount("100")}
-      >
-        ₹100
-      </Button>
-
-      <Button
-        variant="outline"
-        className="rounded-full"
-        onClick={() => setAmount("500")}
-      >
-        ₹500
-      </Button>
-
-      <Button
-        variant="outline"
-        className="rounded-full"
-        onClick={() => setAmount("1000")}
-      >
-        ₹1000
-      </Button>
-
-      <Button
-        variant="outline"
-        className="rounded-full border-green-300 text-green-600"
-        onClick={() => setAmount(String(balance ?? 0))}
-      >
-        Full balance
-      </Button>
-    </div>
-
-         {error ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </div>
-          ) : null}
-
-    {/* Footer */}
-    <div className="flex justify-end gap-4">
-      <Button
-        variant="outline"
-        onClick={() => setOpen(false)}
-      >
-        Cancel
-      </Button>
-
-      <Button
-        className="bg-blue-600 hover:bg-blue-700"
-        onClick={handleSubmit}
-      >
-        Transfer to Main Wallet
-      </Button>
-    </div>
-
-  </DialogContent>
-</Dialog>
 
       <DeviceSelector className="max-w-2xl" disabled={isChecking} />
 

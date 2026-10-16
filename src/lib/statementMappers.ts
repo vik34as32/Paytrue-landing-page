@@ -174,11 +174,11 @@ export function mapDmtToStatement(raw: Record<string, unknown>): StatementTransa
   };
 }
 
-/** Shared remitter→beneficiary payout row → statement shape (DMT1 / Xpress DMT / DMT3). */
+/** Shared remitter→beneficiary payout row → statement shape (Xpress DMT / DMT3). */
 function mapRemitPayoutToStatement(
   raw: Record<string, unknown>,
-  service: "DMT1" | "Xpress DMT" | "DMT3",
-  source: "dmt1" | "dmt2" | "dmt3"
+  service: "Xpress DMT" | "DMT3",
+  source: "dmt2" | "dmt3"
 ): StatementTransaction {
   const beneficiary = asRecord(raw.beneficiary);
   const remitter = asRecord(raw.remitter);
@@ -263,13 +263,6 @@ function mapRemitPayoutToStatement(
       .trim()
       .toUpperCase(),
   };
-}
-
-/** Map DMT1 InstantPay remittance rows into statement shape. */
-export function mapDmt1ToStatement(
-  raw: Record<string, unknown>
-): StatementTransaction {
-  return mapRemitPayoutToStatement(raw, "DMT1", "dmt1");
 }
 
 /** Map Xpress DMT (DMT2) transaction list rows into the same statement shape as DMT3. */

@@ -76,7 +76,7 @@ import { buildUpiAtmStatementColumns } from "@/src/components/statement/buildUpi
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
-type ServiceFilter = "DMT" | "DMT1" | "DMT3" | "Xpress DMT" | "UPI ATM" | "AEPS";
+type ServiceFilter = "DMT" | "DMT3" | "Xpress DMT" | "UPI ATM" | "AEPS";
 
 type AepsSubFilter = "CASH_WITHDRAWAL" | "CASH_DEPOSIT";
 
@@ -119,7 +119,6 @@ type JsPdfWithAutoTable = jsPDF & {
 
 const SERVICE_FILTERS: ServiceFilter[] = [
   "DMT",
-  "DMT1",
   "DMT3",
   "Xpress DMT",
   "UPI ATM",
@@ -314,9 +313,6 @@ function matchesServiceFilter(
 ): boolean {
   if (filter === "DMT") {
     return service === "DMT" || service === "Money Transfer";
-  }
-  if (filter === "DMT1") {
-    return service === "DMT1";
   }
   if (filter === "DMT3") {
     return service === "DMT3";

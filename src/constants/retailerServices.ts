@@ -7,8 +7,6 @@ export const RETAILER_SERVICE_NAMES = {
   DMT_NEFT: "Money Transfer (NEFT)",
   /** Catalog parent "dmt 3" — serviceCode 104 */
   DMT3: "dmt 3",
-  /** InstantPay DMT1 remittance */
-  DMT1: "dmt 1",
   AEPS_CASH_WITHDRAWAL: "Cash Withdrawal",
   AEPS_BALANCE_ENQUIRY: "Balance Enquiry",
   AEPS_MINI_STATEMENT: "Mini Statement",
@@ -36,15 +34,6 @@ export const DMT3_SERVICE_NAME_ALIASES = [
   "DMT 3",
   "DMT3",
   "dmt3",
-] as const;
-
-export const DMT1_SERVICE_NAME_ALIASES = [
-  RETAILER_SERVICE_NAMES.DMT1,
-  "DMT 1",
-  "DMT1",
-  "dmt1",
-  "Instant DMT",
-  "InstantPay DMT",
 ] as const;
 
 /** Catalog parent "XPRESS DMT" (NIFI) — used by the DMT2 / Xpress Transfer module */

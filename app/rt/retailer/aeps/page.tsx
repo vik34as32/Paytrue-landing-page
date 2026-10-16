@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useSelector } from "react-redux";
 import Link from "next/link";
+import { motion, useReducedMotion } from "framer-motion";
 import {
+  Activity,
   ArrowRight,
+  CheckCircle2,
   Fingerprint,
   History,
   IndianRupee,
@@ -12,8 +15,10 @@ import {
   List,
   Loader2,
   LogIn,
+  ScanLine,
   Wallet,
   WalletCards,
+  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +28,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import AepsPageHeader from "@/src/components/aeps/AepsPageHeader";
 import DeviceStatusCard from "@/src/components/aeps/DeviceStatusCard";
 import DeviceSelector from "@/src/components/aeps/DeviceSelector";
@@ -46,6 +51,133 @@ const TRANSACTION_LINKS = [
   { label: "Aadhaar Pay", href: "/rt/retailer/aeps/aadhaar-pay", icon: Fingerprint },
 ];
 
+type StatusTone = "ok" | "warn" | "bad" | "neutral" | "info";
+
+function formatLastLogin(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function LiveDot({ tone, live = false }: { tone: StatusTone; live?: boolean }) {
+  const color =
+    tone === "ok"
+      ? "bg-emerald-500"
+      : tone === "warn"
+        ? "bg-amber-500"
+        : tone === "bad"
+          ? "bg-rose-500"
+          : tone === "info"
+            ? "bg-[#1565d8]"
+            : "bg-slate-300";
+  const ping =
+    tone === "ok"
+      ? "bg-emerald-400"
+      : tone === "warn"
+        ? "bg-amber-400"
+        : tone === "bad"
+          ? "bg-rose-400"
+          : "";
+
+  return (
+    <span className="relative flex h-2 w-2 shrink-0" aria-hidden>
+      {live && ping ? (
+        <span
+          className={cn(
+            "absolute inset-0 animate-ping rounded-full opacity-70 motion-reduce:animate-none",
+            ping
+          )}
+        />
+      ) : null}
+      <span className={cn("relative h-2 w-2 rounded-full", color)} />
+    </span>
+  );
+}
+
+function StatusTile({
+  label,
+  value,
+  meta,
+  icon: Icon,
+  tone,
+  emphasis = false,
+  delay = 0,
+  footer,
+  headerAside,
+  live = false,
+  className,
+}: {
+  label: string;
+  value: ReactNode;
+  meta?: string;
+  icon: LucideIcon;
+  tone: StatusTone;
+  emphasis?: boolean;
+  delay?: number;
+  footer?: ReactNode;
+  headerAside?: ReactNode;
+  live?: boolean;
+  className?: string;
+}) {
+  const reduceMotion = useReducedMotion();
+  const valueColor =
+    tone === "ok"
+      ? "text-emerald-600"
+      : tone === "warn"
+        ? "text-amber-600"
+        : tone === "bad"
+          ? "text-rose-600"
+          : "text-[#0b1f3a]";
+
+  return (
+    <motion.article
+      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.32, delay, ease: [0.22, 1, 0.36, 1] }}
+      className={cn(
+        "flex h-full min-w-0 flex-col rounded-2xl border border-slate-200/90 bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(15,23,42,0.06)]",
+        className
+      )}
+    >
+      <div className="flex h-5 items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={2} />
+          <p className="truncate text-[11px] font-medium uppercase tracking-[0.06em] text-slate-500">
+            {label}
+          </p>
+        </div>
+        {headerAside ?? <LiveDot tone={tone} live={live} />}
+      </div>
+
+      <div className="mt-2.5 flex h-8 items-end">
+        <div
+          className={cn(
+            "min-w-0 truncate font-semibold leading-none tracking-tight",
+            emphasis ? "text-[1.65rem] tabular-nums" : "text-lg",
+            valueColor
+          )}
+          title={typeof value === "string" ? value : undefined}
+        >
+          {value}
+        </div>
+      </div>
+
+      <div className="mt-3 flex h-9 w-full items-center">
+        {footer ?? (
+          <p className="truncate text-xs text-slate-500" title={meta}>
+            {meta || "—"}
+          </p>
+        )}
+      </div>
+    </motion.article>
+  );
+}
+
 export default function AepsDashboardPage() {
   const aeps = useSelector((state: {
     aeps: {
@@ -67,9 +199,13 @@ export default function AepsDashboardPage() {
     setTransferOpen(true);
   };
 
+  const reduceMotion = useReducedMotion();
   const deviceLabel =
     BIOMETRIC_DEVICE_OPTIONS.find((d) => d.value === selectedDevice)?.label ||
     "Mantra L1";
+  const lastLoginLabel = aeps.lastLoginDate
+    ? `Last login · ${formatLastLogin(aeps.lastLoginDate)}`
+    : "Login required before transactions";
 
   if (healthLoading) {
     return <PageLoader message="Loading AEPS dashboard..." />;
@@ -90,88 +226,91 @@ export default function AepsDashboardPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="overflow-hidden border-blue-100 bg-gradient-to-br from-white to-blue-50/60 transition hover:shadow-md">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between gap-2">
-              <CardDescription>AEPS Wallet Balance</CardDescription>
-              <Link
-                href={AEPS_SETTLEMENTS_PATH}
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#1565d8] hover:underline"
+      <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-12">
+        <StatusTile
+          className="sm:col-span-2 xl:col-span-4"
+          label="AEPS Wallet"
+          emphasis
+          icon={Wallet}
+          tone="neutral"
+          delay={0}
+          headerAside={
+            <Link
+              href={AEPS_SETTLEMENTS_PATH}
+              className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-[#1565d8] transition-colors hover:text-[#0f56c2]"
+            >
+              <History className="h-3 w-3" />
+              Settlements
+            </Link>
+          }
+          value={
+            balanceLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+            ) : (
+              formatCurrency(availableBalance)
+            )
+          }
+          footer={
+            <div className="grid w-full grid-cols-2 gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9 min-w-0 rounded-lg px-2 text-xs shadow-none transition-colors active:translate-y-px"
+                onClick={() => openTransfer("main")}
               >
-                <History className="h-3 w-3" />
-                Settlements
-              </Link>
+                <WalletCards className="h-3.5 w-3.5 shrink-0 text-[#1565d8]" />
+                <span className="truncate">Main Wallet</span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 min-w-0 rounded-lg bg-[#1565d8] px-2 text-xs text-white shadow-none transition-colors hover:bg-[#0f56c2] hover:opacity-100 hover:shadow-none active:translate-y-px"
+                onClick={() => openTransfer("bank")}
+              >
+                <Landmark className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">To Bank</span>
+              </Button>
             </div>
-            <CardTitle className="text-xl">
-              {balanceLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
-              ) : (
-                formatCurrency(availableBalance)
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-2 pt-0">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-9 rounded-lg px-2 text-xs"
-              onClick={() => openTransfer("main")}
-            >
-              <WalletCards className="h-3.5 w-3.5 text-[#1565d8]" />
-              Main Wallet
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="h-9 rounded-lg bg-gradient-to-r from-[#1565d8] to-[#0b4fb3] px-2 text-xs text-white"
-              onClick={() => openTransfer("bank")}
-            >
-              <Landmark className="h-3.5 w-3.5" />
-              To Bank
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Selected Device</CardDescription>
-            <CardTitle className="text-base">{deviceLabel}</CardTitle>
-          </CardHeader>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>RD Service</CardDescription>
-            <CardTitle className={status.isRunning ? "text-emerald-600" : "text-rose-600"}>
-              {status.isRunning ? "Running" : "Not Running"}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Device Ready</CardDescription>
-            <CardTitle className="text-base">
-              {status.deviceReady ? "Ready" : "Not Ready"}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Daily Login</CardDescription>
-            <CardTitle className={loginDone ? "text-emerald-600" : "text-amber-600"}>
-              {loginDone ? "Completed" : "Pending"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-xs text-slate-500">
-            {aeps.lastLoginDate
-              ? `Last login: ${new Date(aeps.lastLoginDate).toLocaleString("en-IN")}`
-              : "Complete daily login before transactions."}
-          </CardContent>
-        </Card>
+          }
+        />
+        <StatusTile
+          className="xl:col-span-2"
+          label="Selected Device"
+          icon={ScanLine}
+          tone="info"
+          delay={0.05}
+          value={deviceLabel}
+          meta="Biometric scanner"
+        />
+        <StatusTile
+          className="xl:col-span-2"
+          label="RD Service"
+          icon={Activity}
+          tone={status.isRunning ? "ok" : "bad"}
+          live={status.isRunning}
+          delay={0.1}
+          value={status.isRunning ? "Running" : "Not Running"}
+          meta={status.isRunning ? "Service responding" : "Start the RD application"}
+        />
+        <StatusTile
+          className="xl:col-span-2"
+          label="Device Ready"
+          icon={CheckCircle2}
+          tone={status.deviceReady ? "ok" : "warn"}
+          delay={0.15}
+          value={status.deviceReady ? "Ready" : "Not Ready"}
+          meta={status.deviceReady ? "Capture available" : "Waiting for scanner"}
+        />
+        <StatusTile
+          className="xl:col-span-2"
+          label="Daily Login"
+          icon={LogIn}
+          tone={loginDone ? "ok" : "warn"}
+          delay={0.2}
+          value={loginDone ? "Completed" : "Pending"}
+          meta={lastLoginLabel}
+        />
       </div>
 
       <AepsWalletTransferModal
@@ -182,9 +321,14 @@ export default function AepsDashboardPage() {
         balance={availableBalance}
       />
 
-      <DeviceSelector className="max-w-2xl" disabled={isChecking} />
+      <DeviceSelector disabled={isChecking} />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <motion.div
+        initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
+        className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]"
+      >
         <Card>
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
@@ -199,10 +343,10 @@ export default function AepsDashboardPage() {
               <>
                 <Button
                   asChild
-                  className="h-auto justify-start bg-gradient-to-r from-[#0A84FF] to-[#0057D9] py-4 sm:col-span-2"
+                  className="h-11 justify-start bg-gradient-to-r from-[#0A84FF] to-[#0057D9] px-4 sm:col-span-2"
                 >
                   <Link href="/rt/retailer/aeps/login">
-                    <LogIn className="mr-2 h-4 w-4" />
+                    <LogIn className="h-4 w-4" />
                     Daily Login
                   </Link>
                 </Button>
@@ -219,10 +363,10 @@ export default function AepsDashboardPage() {
                     key={href}
                     asChild
                     variant="outline"
-                    className="h-auto justify-start py-4"
+                    className="h-11 justify-start px-4 shadow-none transition-colors hover:border-[#1565d8]/30 hover:bg-blue-50/70"
                   >
                     <Link href={href}>
-                      <Icon className="mr-2 h-4 w-4 text-[#1565d8]" />
+                      <Icon className="h-4 w-4 text-[#1565d8]" />
                       {label}
                     </Link>
                   </Button>
@@ -230,10 +374,11 @@ export default function AepsDashboardPage() {
                 <Button
                   asChild
                   variant="outline"
-                  className="h-auto justify-start py-4 sm:col-span-2"
+                  className="h-11 justify-start px-4 shadow-none transition-colors hover:border-[#1565d8]/30 hover:bg-blue-50/70"
                 >
                   <Link href="/rt/retailer/aeps/transaction-status">
-                    Check Transaction Status
+                    <History className="h-4 w-4 text-[#1565d8]" />
+                    Transaction Status
                   </Link>
                 </Button>
               </>
@@ -246,7 +391,7 @@ export default function AepsDashboardPage() {
           isChecking={isChecking}
           onRefresh={refresh}
         />
-      </div>
+      </motion.div>
 
       {aeps.loginMessage ? (
         <p className="text-sm text-slate-500">{aeps.loginMessage}</p>

@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { Zap } from "lucide-react";
@@ -69,13 +71,27 @@ function Dmt2Nav() {
 }
 
 export default function Dmt2Shell({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            refetchOnWindowFocus: false,
+            retry: 1,
+          },
+        },
+      })
+  );
+
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <div className="space-y-5">
-        <Dmt2Nav />
-        {children}
-      </div>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <div className="space-y-5">
+          <Dmt2Nav />
+          {children}
+        </div>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }

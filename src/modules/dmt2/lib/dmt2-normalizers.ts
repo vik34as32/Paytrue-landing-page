@@ -23,6 +23,23 @@ export function unwrapList(payload: unknown): unknown[] {
   return extractObjectArray(payload);
 }
 
+/** Remitter payload keeps accounts on `data.beneficiaries`, not as a top-level list. */
+export function extractBeneficiaries(payload: unknown): unknown[] {
+  const root = asRecord(payload);
+  const data = asRecord(root.data);
+  const direct =
+    root.beneficiaries ??
+    data.beneficiaries ??
+    root.beneficiaryList ??
+    data.beneficiaryList;
+
+  if (Array.isArray(direct)) {
+    return direct.filter((row) => row && typeof row === "object");
+  }
+
+  return unwrapList(payload);
+}
+
 function extractObjectArray(value: unknown, depth = 0): unknown[] {
   if (depth > 8 || value == null) return [];
   if (Array.isArray(value)) {

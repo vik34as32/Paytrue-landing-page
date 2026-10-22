@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import Dmt2FlowHeader from "../components/Dmt2FlowHeader";
 import { RequireVerifiedRetailer } from "../components/Dmt2Guards";
 import { useDmt2Store } from "../lib/dmt2-store";
-import { verifyBeneficiaryApi } from "../lib/dmt2-service";
 import { maskAccount } from "../lib/dmt2-mock";
 
 export default function Dmt2BeneficiaryVerifyPage() {
@@ -17,9 +16,6 @@ export default function Dmt2BeneficiaryVerifyPage() {
   const beneficiary = useDmt2Store((s) => s.beneficiaries.find((b) => b.id === id));
   const selectBeneficiary = useDmt2Store((s) => s.selectBeneficiary);
   const setStep = useDmt2Store((s) => s.setStep);
-  const upsertBeneficiary = useDmt2Store((s) => s.upsertBeneficiary);
-  const [saving, setSaving] = useState(false);
-
   useEffect(() => {
     if (!id) return;
     if (!beneficiary) {
@@ -46,23 +42,13 @@ export default function Dmt2BeneficiaryVerifyPage() {
           </div>
           <Button
             className="mt-5 w-full bg-gradient-to-r from-indigo-500 to-violet-700"
-            disabled={saving}
-            onClick={async () => {
-              setSaving(true);
-              try {
-                const verified = await verifyBeneficiaryApi(beneficiary.id);
-                upsertBeneficiary(verified);
-                selectBeneficiary(verified.id);
-                setStep("transfer");
-                router.push("/rt/retailer/dmt2/transfer");
-              } catch (error) {
-                toast.error(error instanceof Error ? error.message : "Unable to verify beneficiary");
-              } finally {
-                setSaving(false);
-              }
+            onClick={() => {
+              selectBeneficiary(beneficiary.id);
+              setStep("transfer");
+              router.push("/rt/retailer/dmt2/transfer");
             }}
           >
-            {saving ? "Verifying…" : "Confirm & Continue"}
+            Continue to Transfer
           </Button>
         </div>
       </div>

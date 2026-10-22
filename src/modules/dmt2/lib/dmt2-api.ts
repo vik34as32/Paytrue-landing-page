@@ -54,15 +54,6 @@ export async function apiAddBeneficiary(body: {
   return data;
 }
 
-export async function apiVerifyBeneficiary(body: {
-  beneficiaryId: string;
-  latitude?: string;
-  longitude?: string;
-}): Promise<unknown> {
-  const { data } = await api.post(DMT2_ENDPOINTS.beneficiaryVerify, body, skipAuthLogout);
-  return data;
-}
-
 export async function apiGetBeneficiary(id: string): Promise<unknown> {
   const { data } = await api.get(DMT2_ENDPOINTS.beneficiaryById(id), skipAuthLogout);
   return data;

@@ -5,7 +5,6 @@ export const DMT2_ENDPOINTS = {
   remitterByMobile: (mobile: string) =>
     `/dmt2/remitter/${encodeURIComponent(mobile)}`,
   beneficiaryAdd: "/dmt2/beneficiary",
-  beneficiaryVerify: "/dmt2/beneficiary/verify",
   beneficiaryById: (id: string) => `/dmt2/beneficiary/${encodeURIComponent(id)}`,
   beneficiaries: "/dmt2/beneficiaries",
   payoutImps: "/dmt2/payout/imps",

@@ -18,13 +18,13 @@ import {
   apiReceipt,
   apiRegisterRemitter,
   apiTransactionStatus,
-  apiVerifyBeneficiary,
   apiVerifyRemitterOtp,
 } from "./dmt2-api";
 import { buildDmt2TransferRemarks, DMT2_REMARKS_MAX } from "./dmt2-bank";
 import { resolveDmt2Location } from "./dmt2-geo";
 import {
   dmt2ApiMessage,
+  extractBeneficiaries,
   normalizeBeneficiary,
   normalizeRemitter,
   normalizeTransaction,
@@ -86,24 +86,62 @@ export async function verifyRetailerOtp(input: {
   }
 }
 
+function isBankBeneficiary(row: Dmt2Beneficiary): boolean {
+  return Boolean(row.accountNumber || row.accountMasked);
+}
+
+function dedupeBeneficiaries(rows: Dmt2Beneficiary[]): Dmt2Beneficiary[] {
+  const seen = new Set<string>();
+  const unique: Dmt2Beneficiary[] = [];
+  for (const row of rows) {
+    const key = row.id || `${row.accountNumber}|${row.ifsc}`;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    unique.push(row);
+  }
+  return unique;
+}
+
 export async function fetchBeneficiaries(input: {
   remitterMobile?: string;
   remitterId?: string;
 }): Promise<Dmt2Beneficiary[]> {
+  const mobile = String(input.remitterMobile || "").trim();
+  const sources: unknown[] = [];
+  let failure: unknown = null;
+
+  if (mobile) {
+    try {
+      const remitter = await apiGetRemitter(mobile);
+      if (remitter) sources.push(...extractBeneficiaries(remitter));
+    } catch (error) {
+      failure = error;
+    }
+  }
+
   try {
-    const mobile = String(input.remitterMobile || "").trim();
     const rows = await apiListBeneficiaries({
       remitterMobile: mobile || undefined,
       remitterId: input.remitterId,
       page: 1,
       limit: 100,
     });
-    return rows
-      .map((row) => normalizeBeneficiary(row, mobile))
-      .filter((row) => row.id || row.accountNumber || row.name);
+    sources.push(...rows);
   } catch (error) {
-    throw new Error(dmt2ApiMessage(error, "Unable to load beneficiaries"));
+    failure = error;
   }
+
+  const list = dedupeBeneficiaries(
+    sources
+      .map((row) => normalizeBeneficiary(row, mobile))
+      .filter(isBankBeneficiary)
+  );
+
+  if (!list.length && failure && !sources.length) {
+    throw new Error(dmt2ApiMessage(failure, "Unable to load beneficiaries"));
+  }
+
+  return list;
 }
 
 export async function addBeneficiaryApi(input: {
@@ -128,36 +166,9 @@ export async function addBeneficiaryApi(input: {
       longitude: location.longitude,
       syncProvider: true,
     });
-    const beneficiary = normalizeBeneficiary(payload, input.remitterMobile);
-    if (beneficiary.id) {
-      try {
-        const verified = await apiVerifyBeneficiary({
-          beneficiaryId: beneficiary.id,
-          latitude: location.latitude,
-          longitude: location.longitude,
-        });
-        return { ...normalizeBeneficiary(verified, input.remitterMobile), verified: true };
-      } catch {
-        return beneficiary;
-      }
-    }
-    return beneficiary;
+    return normalizeBeneficiary(payload, input.remitterMobile);
   } catch (error) {
     throw new Error(dmt2ApiMessage(error, "Unable to add beneficiary"));
-  }
-}
-
-export async function verifyBeneficiaryApi(beneficiaryId: string): Promise<Dmt2Beneficiary> {
-  try {
-    const location = await resolveDmt2Location();
-    const payload = await apiVerifyBeneficiary({
-      beneficiaryId,
-      latitude: location.latitude,
-      longitude: location.longitude,
-    });
-    return { ...normalizeBeneficiary(payload), verified: true };
-  } catch (error) {
-    throw new Error(dmt2ApiMessage(error, "Unable to verify beneficiary"));
   }
 }
 

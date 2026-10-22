@@ -61,7 +61,7 @@ export default function Dmt2BeneficiaryList({
         minWidth: "170px",
         cell: (row) => (
           <span className="font-mono text-[12px] font-semibold tracking-wider text-[#0b1f3a]">
-            {formatAccountNumber(row.accountNumber || row.accountNumber || "")}
+            {formatAccountNumber(row.accountNumber || row.accountMasked || "")}
           </span>
         ),
       },

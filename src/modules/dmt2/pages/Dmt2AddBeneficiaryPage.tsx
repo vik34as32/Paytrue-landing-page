@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -10,10 +10,8 @@ import BankSelect from "@/components/retailer/BankSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import BankAccountVerifyInput from "@/src/components/dmt/BankAccountVerifyInput";
 import ProcessLoadingOverlay from "@/src/components/common/ProcessLoadingOverlay";
 import { useFetchBanksQuery } from "@/src/modules/dmt/redux/dmtApi";
-import { verifyBankAccount } from "@/src/services/dmtService";
 import { ifscGlobalFromBank, mergeDmt3BankMaster } from "@/src/modules/dmt3/lib/dmt3-bank-master";
 import Dmt2FlowHeader from "../components/Dmt2FlowHeader";
 import { RequireVerifiedRetailer } from "../components/Dmt2Guards";
@@ -63,10 +61,6 @@ export default function Dmt2AddBeneficiaryPage() {
     },
   });
 
-  const accountNumber = useWatch({ control: form.control, name: "accountNumber" });
-  const ifsc = useWatch({ control: form.control, name: "ifsc" });
-  const beneficiaryName = useWatch({ control: form.control, name: "name" });
-
   const onSubmit = async (values: FormValues) => {
     setSaving(true);
     try {
@@ -98,7 +92,7 @@ export default function Dmt2AddBeneficiaryPage() {
             Customer / Beneficiary Details
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            Select the bank, verify the account and the holder name is filled automatically.
+            Select the bank and enter the account holder details.
           </p>
           <form onSubmit={form.handleSubmit(onSubmit)} className="mt-5 space-y-4">
             <Controller
@@ -146,31 +140,17 @@ export default function Dmt2AddBeneficiaryPage() {
               label="Account Number"
               error={form.formState.errors.accountNumber?.message}
             >
-              <BankAccountVerifyInput
-                value={accountNumber}
-                onChange={(value) => {
-                  form.setValue("accountNumber", value, { shouldValidate: true });
-                  if (!form.getValues("confirmAccountNumber")) {
-                    form.setValue("confirmAccountNumber", value, { shouldValidate: false });
-                  }
-                }}
-                ifscCode={ifsc}
-                name={beneficiaryName}
-                verifyFn={(input) => verifyBankAccount(input)}
-                onVerified={(result) => {
-                  const payeeName = result.payee?.name?.trim();
-                  if (payeeName) {
-                    form.setValue("name", payeeName, {
-                      shouldValidate: true,
-                      shouldDirty: true,
-                    });
-                  }
-                  form.setValue("confirmAccountNumber", form.getValues("accountNumber"), {
-                    shouldValidate: true,
-                    shouldDirty: true,
-                  });
-                }}
+              <Input
+                inputMode="numeric"
+                placeholder="123456789012"
                 disabled={saving}
+                {...form.register("accountNumber", {
+                  onChange: (event) => {
+                    event.target.value = String(event.target.value || "")
+                      .replace(/\D/g, "")
+                      .slice(0, 18);
+                  },
+                })}
               />
             </Field>
             <Field

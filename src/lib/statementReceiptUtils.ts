@@ -327,7 +327,14 @@ export async function downloadStatementReceiptPdf(
     ["Transaction ID", receipt.transactionId],
     ["Reference Number", receipt.referenceNumber],
     ...(receipt.bankReference
-      ? [["Bank Reference / RRN", receipt.bankReference] as [string, string]]
+      ? [
+          [
+            receipt.service === "Xpress DMT" || receipt.service === "DMT3"
+              ? "UTR"
+              : "Bank Reference / RRN",
+            receipt.bankReference,
+          ] as [string, string],
+        ]
       : []),
     ...(receipt.aepsTransactionLabel
       ? [["Transaction Type", receipt.aepsTransactionLabel] as [string, string]]

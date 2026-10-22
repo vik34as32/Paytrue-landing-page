@@ -35,6 +35,8 @@ export interface StatementTransaction {
   mobile: string;
   remark: string;
   source?: StatementSource;
+  /** Bank UTR for Xpress DMT and DMT3 payout rows. */
+  utr?: string;
   bankReference?: string;
   transferMode?: string;
   charges?: number;

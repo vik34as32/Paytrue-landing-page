@@ -94,6 +94,7 @@ const getBankName = async (ifsc: string) => {
 interface ExportRow {
   "Transaction ID": string;
   "Reference Number": string;
+  UTR: string;
   Date: string;
   Service: string;
   Description: string;
@@ -132,6 +133,7 @@ const RETAILER_NAME = "Amit Kumar";
 const COL = {
   date: "150px",
   reference: "200px",
+  utr: "180px",
   service: "110px",
   description: "160px",
   bank: "140px",
@@ -394,6 +396,7 @@ function mapToExportRow(txn: StatementTransaction): ExportRow {
   return {
     "Transaction ID": formatTransactionId(txn.id),
     "Reference Number": txn.referenceNumber,
+    UTR: txn.utr || "",
     Date: formatStatementDate(txn.createdAt),
     Service: txn.service,
     Description: txn.description,
@@ -439,6 +442,7 @@ function exportStatementPdf(rows: StatementTransaction[]) {
   const exportRows = rows.map((txn) => [
     formatTransactionId(txn.id),
     txn.referenceNumber,
+    txn.utr || "—",
     formatStatementDate(txn.createdAt),
     txn.service,
     txn.description,
@@ -468,6 +472,7 @@ function exportStatementPdf(rows: StatementTransaction[]) {
       [
         "Txn ID",
         "Reference",
+        "UTR",
         "Date",
         "Service",
         "Description",
@@ -681,6 +686,8 @@ export default function StatementPage() {
         txn.id.toLowerCase().includes(query) ||
         formatTransactionId(txn.id).toLowerCase().includes(query) ||
         txn.referenceNumber.toLowerCase().includes(query) ||
+        (txn.utr ?? "").toLowerCase().includes(query) ||
+        (txn.bankReference ?? "").toLowerCase().includes(query) ||
         txn.description.toLowerCase().includes(query) ||
         txn.service.toLowerCase().includes(query) ||
         (txn.bankName ?? "").toLowerCase().includes(query) ||
@@ -745,6 +752,20 @@ export default function StatementPage() {
         width: COL.reference,
         cell: (row) => <ReferenceCopyCell value={row.referenceNumber} />,
       },
+      ...(serviceFilter === "Xpress DMT" || serviceFilter === "DMT3"
+        ? [
+            {
+              id: "utr",
+              name: "UTR",
+              selector: (row: StatementTransaction) => row.utr ?? "",
+              sortable: true,
+              width: COL.utr,
+              cell: (row: StatementTransaction) => (
+                <ReferenceCopyCell value={row.utr ?? ""} copiedLabel="UTR" />
+              ),
+            } satisfies TableColumn<StatementTransaction>,
+          ]
+        : []),
       {
         id: "service",
         name: "Service",
@@ -1115,7 +1136,11 @@ export default function StatementPage() {
                 <div className="relative w-full lg:max-w-sm">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
-                    placeholder="Search ID, reference, description, service..."
+                    placeholder={
+                      serviceFilter === "Xpress DMT" || serviceFilter === "DMT3"
+                        ? "Search ID, reference, UTR, description..."
+                        : "Search ID, reference, description, service..."
+                    }
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="pl-9"

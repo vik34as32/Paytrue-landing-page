@@ -30,6 +30,8 @@ export interface StatementExportTransaction {
   receiverName: string;
   mobile: string;
   remark: string;
+  utr?: string;
+  bankReference?: string;
 }
 
 export interface StatementSortState {
@@ -45,12 +47,13 @@ export interface StatementExcelExportOptions {
 const WORKSHEET_NAME = "Transaction Statement";
 const HEADER_FILL = "FFFFD966";
 const TOTAL_FILL = "FFFFD966";
-const COLUMN_COUNT = 20;
+const COLUMN_COUNT = 21;
 
 const COLUMN_HEADERS = [
   "Sr No",
   "Transaction ID",
   "Reference Number",
+  "UTR",
   "Date",
   "Time",
   "Service",
@@ -75,22 +78,23 @@ const MIN_COLUMN_WIDTHS: Record<number, number> = {
   2: 20,
   3: 30,
   4: 22,
-  5: 16,
-  6: 20,
-  7: 35,
-  8: 20,
+  5: 22,
+  6: 16,
+  7: 20,
+  8: 35,
   9: 20,
-  10: 16,
-  11: 12,
-  12: 15,
-  13: 16,
+  10: 20,
+  11: 16,
+  12: 12,
+  13: 15,
   14: 16,
-  15: 14,
-  16: 18,
+  15: 16,
+  16: 14,
   17: 18,
   18: 18,
   19: 18,
-  20: 28,
+  20: 18,
+  21: 28,
 };
 
 const CURRENCY_FORMAT = '"₹"#,##0.00';
@@ -163,6 +167,9 @@ export function sortStatementTransactions(
       case "referenceNumber":
       case "Reference No.":
         return compareValues(a.referenceNumber, b.referenceNumber, sortState.direction);
+      case "utr":
+      case "UTR":
+        return compareValues(a.utr ?? "", b.utr ?? "", sortState.direction);
       case "service":
       case "Service":
         return compareValues(a.service, b.service, sortState.direction);
@@ -307,6 +314,7 @@ export async function exportStatementToExcel(
       index + 1,
       formatStatementTransactionId(txn.id),
       txn.referenceNumber,
+      txn.utr || "",
       dateOnly,
       timeOnly,
       txn.service,
@@ -332,17 +340,17 @@ export async function exportStatementToExcel(
       cell.alignment = {
         horizontal: colIndex === 0 ? "center" : "left",
         vertical: "middle",
-        wrapText: colIndex === 6 || colIndex === 19,
+        wrapText: colIndex === 7 || colIndex === 20,
       };
       applyBorder(cell);
 
-      if (colIndex === 3) cell.numFmt = DATE_FORMAT;
-      if (colIndex === 4) cell.numFmt = TIME_FORMAT;
-      if ([12, 13, 14, 15, 16, 17, 18].includes(colIndex)) {
+      if (colIndex === 4) cell.numFmt = DATE_FORMAT;
+      if (colIndex === 5) cell.numFmt = TIME_FORMAT;
+      if ([13, 14, 15, 16, 17, 18, 19].includes(colIndex)) {
         cell.numFmt = CURRENCY_FORMAT;
         cell.alignment = { horizontal: "right", vertical: "middle" };
       }
-      if (colIndex === 11) {
+      if (colIndex === 12) {
         cell.font = { bold: true, color: { argb: statusFontColor(txn.status) } };
         cell.alignment = { horizontal: "center", vertical: "middle" };
       }
@@ -353,6 +361,7 @@ export async function exportStatementToExcel(
   const totalRow = sheet.getRow(totalRowIndex);
 
   const totalValues: (string | number)[] = [
+    "",
     "",
     "",
     "",
@@ -385,13 +394,13 @@ export async function exportStatementToExcel(
       fgColor: { argb: TOTAL_FILL },
     };
     cell.alignment = {
-      horizontal: [12, 13, 14, 15, 16, 17, 18].includes(colIndex)
+      horizontal: [13, 14, 15, 16, 17, 18, 19].includes(colIndex)
         ? "right"
         : "center",
       vertical: "middle",
     };
     applyBorder(cell);
-    if ([16, 17, 18].includes(colIndex)) {
+    if ([17, 18, 19].includes(colIndex)) {
       cell.numFmt = CURRENCY_FORMAT;
     }
   });

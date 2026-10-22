@@ -8,11 +8,14 @@ import { cn } from "@/lib/utils";
 interface ReferenceCopyCellProps {
   value: string;
   className?: string;
+  /** Shown in the copy toast, e.g. "UTR" → "UTR copied". */
+  copiedLabel?: string;
 }
 
 export default function ReferenceCopyCell({
   value,
   className,
+  copiedLabel = "Reference",
 }: ReferenceCopyCellProps) {
   if (!value) {
     return <span className="text-slate-400">—</span>;
@@ -21,7 +24,7 @@ export default function ReferenceCopyCell({
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(value);
-      toast.success("Reference copied");
+      toast.success(`${copiedLabel} copied`);
     } catch {
       toast.error("Could not copy reference");
     }

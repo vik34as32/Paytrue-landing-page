@@ -56,7 +56,10 @@ export default function TransactionCard({ receipt }: TransactionCardProps) {
       ? [
           {
             icon: FileText,
-            label: "Bank Reference / RRN",
+            label:
+              receipt.service === "Xpress DMT" || receipt.service === "DMT3"
+                ? "UTR"
+                : "Bank Reference / RRN",
             value: receipt.bankReference,
             valueClassName: "font-mono text-xs break-all",
           } as DetailItem,

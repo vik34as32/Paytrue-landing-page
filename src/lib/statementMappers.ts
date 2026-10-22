@@ -11,6 +11,63 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
+const EMPTY_TEXT = new Set(["", "null", "undefined", "na", "n/a", "-", "—"]);
+
+function pickText(...values: unknown[]): string {
+  for (const value of values) {
+    if (value == null) continue;
+    const text = String(value).trim();
+    if (!EMPTY_TEXT.has(text.toLowerCase())) return text;
+  }
+  return "";
+}
+
+/** Bank UTR / RRN. Provider txn ids are not a UTR. */
+const UTR_KEYS = [
+  "utr",
+  "UTR",
+  "utrNumber",
+  "utrNo",
+  "utr_number",
+  "bankRefNum",
+  "bankRefNo",
+  "bankRef",
+  "bankReference",
+  "bankReferenceNumber",
+  "rrn",
+  "bankRRN",
+  "bankRrn",
+] as const;
+
+function pickUtr(...sources: Record<string, unknown>[]): string {
+  for (const source of sources) {
+    const entries = Object.entries(source);
+    for (const key of UTR_KEYS) {
+      const match = entries.find(
+        ([entryKey]) => entryKey.toLowerCase() === key.toLowerCase()
+      );
+      const text = match ? pickText(match[1]) : "";
+      if (text) return text;
+    }
+  }
+  return "";
+}
+
+function utrSources(raw: Record<string, unknown>): Record<string, unknown>[] {
+  const metadata = asRecord(raw.metadata);
+  return [
+    raw,
+    asRecord(raw.transaction),
+    asRecord(raw.txn),
+    asRecord(raw.receipt),
+    asRecord(raw.providerResponse),
+    asRecord(raw.provider),
+    asRecord(raw.response),
+    metadata,
+    asRecord(metadata.providerResponse),
+  ];
+}
+
 function toNumber(value: unknown, fallback = 0): number {
   if (value === null || value === undefined || value === "") return fallback;
   const parsed = Number(value);
@@ -205,6 +262,7 @@ function mapRemitPayoutToStatement(
       raw.remark ??
       ""
   );
+  const utr = pickUtr(...utrSources(raw));
 
   return {
     id: String(raw.id ?? raw.reference ?? raw.externalRef ?? raw.clientTxnId ?? ""),
@@ -241,7 +299,8 @@ function mapRemitPayoutToStatement(
     ),
     remark,
     source,
-    bankReference: String(raw.bankRef ?? raw.utr ?? raw.providerTxnId ?? ""),
+    utr,
+    bankReference: utr,
     transferMode,
     charges: deductionAmount,
     bankName: String(raw.bankName ?? beneficiary.bankName ?? ""),
